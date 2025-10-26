@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+
 @Data
 public class RoomRequest {
     @NotBlank(message = "Room name is required")
@@ -17,11 +18,4 @@ public class RoomRequest {
 
     private RoomStatus status = RoomStatus.AVAILABLE;
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
 }
