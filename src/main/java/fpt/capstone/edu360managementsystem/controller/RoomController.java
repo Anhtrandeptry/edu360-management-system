@@ -24,13 +24,13 @@ public class RoomController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody RoomRequest request) {
         return ResponseEntity.ok(roomService.createRoom(request));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> getRoom(@PathVariable Long id) {
         return ResponseEntity.ok(roomService.getRoomById(id));
     }
@@ -38,20 +38,20 @@ public class RoomController {
 
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> updateRoom(@PathVariable Long id, @Valid @RequestBody RoomRequest request) {
         return ResponseEntity.ok(roomService.updateRoom(id, request));
     }
 
     @PutMapping("/{id}/disable")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> disableRoom(@PathVariable Long id) {
         roomService.disableRoom(id);
         return ResponseEntity.ok("Room disabled successfully");
     }
 
     @PutMapping("/{id}/enable")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> enableRoom(@PathVariable Long id) {
         roomService.enableRoom(id);
         return ResponseEntity.ok("Room enabled successfully");
