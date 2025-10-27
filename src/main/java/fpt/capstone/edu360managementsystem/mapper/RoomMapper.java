@@ -9,7 +9,7 @@ import org.mapstruct.factory.Mappers;
 
 @Mapper(componentModel = "spring")
 public interface RoomMapper {
-    RoomMapper INSTANCE = Mappers.getMapper(RoomMapper.class);
+//    RoomMapper INSTANCE = Mappers.getMapper(RoomMapper.class);
 
     Room toEntity(RoomRequest dto);
     RoomResponse toResponse(Room entity);

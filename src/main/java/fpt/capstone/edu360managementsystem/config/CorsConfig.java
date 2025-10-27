@@ -46,6 +46,7 @@ public class CorsConfig {
         // Method & Header cho preflight
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
+
         // Expose nếu bạn cần đọc Set-Cookie từ FE (không bắt buộc)
         cfg.setExposedHeaders(List.of("Set-Cookie"));
         cfg.setMaxAge(3600L);

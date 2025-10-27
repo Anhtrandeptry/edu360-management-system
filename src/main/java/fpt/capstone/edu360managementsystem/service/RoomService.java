@@ -44,6 +44,9 @@ public class RoomService {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
         roomMapper.updateEntityFromDto(request, room);
+        if (roomRepository.existsByNameAndIdNot(request.getName(), id)) {
+            throw new RuntimeException("Room name already exists!");
+        }
         return roomMapper.toResponse(roomRepository.save(room));
     }
 

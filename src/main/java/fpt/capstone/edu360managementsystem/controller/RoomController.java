@@ -1,7 +1,9 @@
 package fpt.capstone.edu360managementsystem.controller;
 
 import fpt.capstone.edu360managementsystem.dto.request.RoomRequest;
+import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.RoomResponse;
+import fpt.capstone.edu360managementsystem.repository.RoomRepository;
 import fpt.capstone.edu360managementsystem.service.RoomService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,8 @@ public class RoomController {
     @Autowired
     private RoomService roomService;
 
+    @Autowired
+    private RoomRepository roomRepository;
     @GetMapping
     @PreAuthorize("hasRole('STUDENT') or hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<List<RoomResponse>> getAllRooms() {
@@ -25,13 +29,17 @@ public class RoomController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody RoomRequest request) {
+    public ResponseEntity<?> createRoom(@Valid @RequestBody RoomRequest request) {
+        if (roomRepository.existsByName(request.getName())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Room name is already in use!"));
+        }
         return ResponseEntity.ok(roomService.createRoom(request));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoomResponse> getRoom(@PathVariable Long id) {
+
         return ResponseEntity.ok(roomService.getRoomById(id));
     }
 

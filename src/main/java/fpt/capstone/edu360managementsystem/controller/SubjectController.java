@@ -29,26 +29,26 @@ public class SubjectController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SubjectResponse> createSubject(@Valid @RequestBody SubjectRequest request) {
         return ResponseEntity.ok(subjectService.createSubject(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SubjectResponse> updateSubject(@PathVariable Long id, @Valid @RequestBody SubjectRequest request) {
         return ResponseEntity.ok(subjectService.updateSubject(id, request));
     }
 
     @PutMapping("/{id}/disable")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> disableSubject(@PathVariable Long id) {
         subjectService.disableSubject(id);
         return ResponseEntity.ok("Subject disabled successfully");
     }
 
     @PutMapping("/{id}/enable")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> enableSubject(@PathVariable Long id) {
         subjectService.enableSubject(id);
         return ResponseEntity.ok("Subject enabled successfully");

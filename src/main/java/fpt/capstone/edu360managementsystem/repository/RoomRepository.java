@@ -9,5 +9,7 @@ import java.util.List;
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Long> {
     boolean existsByName(String name);
+    boolean existsByNameAndIdNot(String name, Long id);
     List<Room> findByStatus(RoomStatus status);
+
 }

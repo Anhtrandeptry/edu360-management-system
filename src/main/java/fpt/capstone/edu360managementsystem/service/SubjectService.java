@@ -43,6 +43,9 @@ public class SubjectService {
         Subject subject = subjectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
         subjectMapper.updateEntityFromDto(request, subject);
+        if (subjectRepository.existsByNameAndIdNot(request.getName(), id)) {
+            throw new RuntimeException("Subject name already exists!");
+        }
         return subjectMapper.toResponse(subjectRepository.save(subject));
     }
 
