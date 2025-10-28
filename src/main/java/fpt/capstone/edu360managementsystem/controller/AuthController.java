@@ -131,4 +131,15 @@ public class AuthController {
     return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString())
         .body(new MessageResponse("You've been signed out!"));
   }
+
+  @GetMapping("/me")
+  public ResponseEntity<?> me(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                              fpt.capstone.edu360managementsystem.service.UserDetailsImpl user) {
+    if (user == null) return ResponseEntity.status(401).build();
+    var roles = user.getAuthorities().stream().map(a -> a.getAuthority()).toList();
+    return ResponseEntity.ok(new fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse(
+            user.getId(), user.getUsername(), user.getEmail(), roles
+    ));
+  }
+
 }
