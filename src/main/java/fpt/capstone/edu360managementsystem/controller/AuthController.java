@@ -1,6 +1,7 @@
 package fpt.capstone.edu360managementsystem.controller;
 
 import fpt.capstone.edu360managementsystem.dto.request.LoginRequest;
+import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
 import fpt.capstone.edu360managementsystem.dto.request.SignupRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
@@ -10,6 +11,7 @@ import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.repository.RoleRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.security.jwt.JwtUtils;
+import fpt.capstone.edu360managementsystem.service.AuthService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +50,9 @@ public class AuthController {
   @Autowired
   JwtUtils jwtUtils;
 
+  @Autowired
+  AuthService authService;
+
   @PostMapping("/login")
   public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -72,7 +77,7 @@ public class AuthController {
   }
 
 
-  @PostMapping("/signup")
+  @PostMapping("/signup-single")
   public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
     if (userRepository.existsByUsername(signUpRequest.getUsername())) {
       return ResponseEntity.badRequest().body(new MessageResponse("Error: Username is already taken!"));
@@ -125,6 +130,8 @@ public class AuthController {
 
 
 
+
+
   @PostMapping("/logout")
   public ResponseEntity<?> logoutUser() {
     ResponseCookie cookie = jwtUtils.getCleanJwtCookie();
@@ -140,6 +147,12 @@ public class AuthController {
     return ResponseEntity.ok(new fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse(
             user.getId(), user.getUsername(), user.getEmail(), roles
     ));
+  }
+
+
+  @PostMapping("/signup")
+  public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
+    return authService.registerStudentWithParent(request);
   }
 
 }

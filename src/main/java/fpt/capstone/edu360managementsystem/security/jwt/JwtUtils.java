@@ -118,25 +118,25 @@ public class JwtUtils {
   @Value("${edu360.app.jwtCookieName}")
   private String jwtCookieName;
 
-  // ==== Lấy JWT từ cookie ====
+
   public String getJwtFromCookies(HttpServletRequest request) {
     Cookie cookie = WebUtils.getCookie(request, jwtCookieName);
     return (cookie != null) ? cookie.getValue() : null;
   }
 
-  // ==== Tạo cookie JWT ====
+
   public ResponseCookie generateJwtCookie(UserDetailsImpl userPrincipal) {
     String jwt = generateTokenFromUsername(userPrincipal.getUsername());
     return ResponseCookie.from(jwtCookieName, jwt)
-            .path("/")               // ✅ cho phép cookie gửi ở mọi URL
+            .path("/")
             .httpOnly(true)
-            .secure(false)           // ✅ localhost dùng HTTP → phải false
-            .sameSite("Lax")         // ✅ tránh bị chặn khi chuyển giữa cổng 8080 ↔ 8386
+            .secure(false)
+            .sameSite("Lax")
             .maxAge(24 * 60 * 60)
             .build();
   }
 
-  // ==== Xóa cookie khi logout ====
+
   public ResponseCookie getCleanJwtCookie() {
     return ResponseCookie.from(jwtCookieName, "")
             .path("/")
@@ -147,7 +147,7 @@ public class JwtUtils {
             .build();
   }
 
-  // ==== Sinh JWT ====
+
   public String generateTokenFromUsername(String username) {
     return Jwts.builder()
             .setSubject(username)
@@ -157,7 +157,7 @@ public class JwtUtils {
             .compact();
   }
 
-  // ==== Giải mã ====
+
   public String getUserNameFromJwtToken(String token) {
     return Jwts.parserBuilder().setSigningKey(key()).build()
             .parseClaimsJws(token).getBody().getSubject();
@@ -167,7 +167,7 @@ public class JwtUtils {
     return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
   }
 
-  // ==== Validate ====
+
   public boolean validateJwtToken(String authToken) {
     try {
       Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);

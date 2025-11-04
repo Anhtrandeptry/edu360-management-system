@@ -22,7 +22,6 @@ public interface UserMapper {
         if (roles == null) return null;
         return roles.stream()
                 .map(role -> role.getName().name()) // nếu Role.getName() trả về Enum ERole
-                // hoặc chỉ .map(Role::getName) nếu name là String
                 .collect(Collectors.toList());
     }
 }

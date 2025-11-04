@@ -36,10 +36,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
     return new AuthTokenFilter();
   }
 
-//  @Override
-//  public void configure(AuthenticationManagerBuilder authenticationManagerBuilder) throws Exception {
-//    authenticationManagerBuilder.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
-//  }
+
 
   @Bean
   public DaoAuthenticationProvider authenticationProvider() {
@@ -51,11 +48,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
       return authProvider;
   }
   
-//  @Bean
-//  @Override
-//  public AuthenticationManager authenticationManagerBean() throws Exception {
-//    return super.authenticationManagerBean();
-//  }
+
   
   @Bean
   public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
@@ -67,61 +60,14 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
     return new BCryptPasswordEncoder();
   }
 
-//  @Override
-//  protected void configure(HttpSecurity http) throws Exception {
-//    http.cors().and().csrf().disable()
-//      .exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and()
-//      .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
-//      .authorizeRequests().antMatchers("/api/auth/**").permitAll()
-//      .antMatchers("/api/test/**").permitAll()
-//      .anyRequest().authenticated();
-//
-//    http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
-//  }
-//tuasnas sửa
-//  @Bean
-//  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-//    http.csrf(csrf -> csrf.disable())
-//        .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-//        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//        .authorizeHttpRequests(auth ->
-//          auth.requestMatchers("/api/auth/**").permitAll()
-//              .requestMatchers("/api/test/**").permitAll()
-//                  .requestMatchers("/api/rooms/**").permitAll()
-//                  .requestMatchers("/api/subjects/**").permitAll()
-//              .anyRequest().authenticated()
-//        );
-//
-//    http.authenticationProvider(authenticationProvider());
-//
-//    http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
-//
-//    return http.build();
-//  }
-//tuasnas sửa
 
-
-//  @Bean
-//  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-//    http
-//            .csrf(csrf -> csrf.disable())
-//            .authorizeHttpRequests(auth -> auth
-//                    .requestMatchers("/api/auth/**").permitAll()
-//                    .requestMatchers("/api/test/**").permitAll()
-//                    .anyRequest().authenticated()
-//            )
-//            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//            .authenticationProvider(authenticationProvider())
-//            .addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
-//    return http.build();
-//  }
 
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {}) // <-- QUAN TRỌNG: dùng bean CorsConfigurationSource ở trên
+                .cors(cors -> {})
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth

@@ -40,7 +40,7 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
         // CHỈ rõ origin FE (không dùng "*")
-        cfg.setAllowedOriginPatterns(List.of("http://localhost:3000")); // CRA: npm start
+        cfg.setAllowedOriginPatterns(List.of("http://localhost:8386")); // CRA: npm start
         // Cho phép gửi cookie
         cfg.setAllowCredentials(true);
         // Method & Header cho preflight
