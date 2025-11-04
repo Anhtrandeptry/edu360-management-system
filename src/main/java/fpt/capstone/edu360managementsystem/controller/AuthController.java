@@ -2,6 +2,7 @@ package fpt.capstone.edu360managementsystem.controller;
 
 import fpt.capstone.edu360managementsystem.dto.request.LoginRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
+import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.request.SignupRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -148,6 +150,14 @@ public class AuthController {
             user.getId(), user.getUsername(), user.getEmail(), roles
     ));
   }
+
+
+  @PostMapping("/register-teacher")
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<?> registerTeacher(@Valid @RequestBody RegisterTeacherRequest request) {
+    return authService.registerTeacher(request);
+  }
+
 
 
   @PostMapping("/signup")

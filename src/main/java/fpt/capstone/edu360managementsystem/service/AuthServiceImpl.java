@@ -1,16 +1,11 @@
 package fpt.capstone.edu360managementsystem.service;
 
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
+import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
-import fpt.capstone.edu360managementsystem.entity.Parent;
-import fpt.capstone.edu360managementsystem.entity.Role;
-import fpt.capstone.edu360managementsystem.entity.Student;
-import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.entity.*;
 import fpt.capstone.edu360managementsystem.enums.ERole;
-import fpt.capstone.edu360managementsystem.repository.ParentRepository;
-import fpt.capstone.edu360managementsystem.repository.RoleRepository;
-import fpt.capstone.edu360managementsystem.repository.StudentRepository;
-import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import fpt.capstone.edu360managementsystem.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
@@ -36,6 +31,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     StudentRepository studentRepository;
+
+    @Autowired
+    TeacherRepository teacherRepository;
 
     @Autowired
     PasswordEncoder encoder;
@@ -131,6 +129,74 @@ public class AuthServiceImpl implements AuthService {
 
         return ResponseEntity.ok(new MessageResponse("Student and parent accounts created successfully! Parent username: " + parentUsername));
     }
+
+
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> registerTeacher(RegisterTeacherRequest request) {
+        // 1. Kiểm tra email đã tồn tại chưa
+        if (userRepository.existsByEmail(request.getEmail())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use!"));
+        }
+
+        // 2. Sinh username tự động từ họ tên
+        String usernameBase = generateUsernameFromFullName(request.getFullName());
+        String username = ensureUniqueUsername(usernameBase);
+
+        // 3. Sinh mật khẩu ngẫu nhiên
+        String rawPassword = generateRandomPassword(10);
+
+        // 4. Mã hóa mật khẩu
+        String encodedPassword = encoder.encode(rawPassword);
+
+        // 5. Lấy role TEACHER
+        Role teacherRole = roleRepository.findByName(ERole.ROLE_TEACHER)
+                .orElseThrow(() -> new RuntimeException("Error: Role ROLE_TEACHER not found."));
+
+        // 6. Tạo user
+        User teacherUser = new User();
+        teacherUser.setUsername(username);
+        teacherUser.setEmail(request.getEmail());
+        teacherUser.setPassword(encodedPassword);
+        teacherUser.setFullName(request.getFullName());
+        teacherUser.setPhoneNumber(request.getPhoneNumber());
+        teacherUser.getRoles().add(teacherRole);
+
+        userRepository.save(teacherUser);
+
+        // 7. Tạo teacher entity (chưa có thông tin chi tiết)
+        Teacher teacher = new Teacher();
+        teacher.setUser(teacherUser);
+        teacherRepository.save(teacher);
+
+        // 8. Gửi email tài khoản cho giáo viên
+        String subject = "Tài khoản giáo viên đã được tạo trên Edu360";
+        String text = String.format("""
+            Xin chào %s,
+
+            Tài khoản giáo viên của bạn đã được tạo:
+
+            - Tên đăng nhập: %s
+            - Mật khẩu: %s
+
+            Vui lòng đăng nhập và hoàn thiện hồ sơ cá nhân tại hệ thống Edu360.
+
+            Trân trọng,
+            Đội ngũ Edu360
+            """, request.getFullName(), username, rawPassword);
+
+        try {
+            emailService.sendSimpleMessage(request.getEmail(), subject, text);
+        } catch (MailException ex) {
+            return ResponseEntity.ok(new MessageResponse(
+                    "Teacher created successfully but failed to send email: " + ex.getMessage()));
+        }
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Teacher account created successfully! Username: " + username));
+    }
+
 
     // --- helper methods ---
 
