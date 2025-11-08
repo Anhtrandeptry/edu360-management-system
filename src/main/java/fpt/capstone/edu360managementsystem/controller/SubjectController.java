@@ -53,4 +53,5 @@ public class SubjectController {
         subjectService.enableSubject(id);
         return ResponseEntity.ok("Subject enabled successfully");
     }
+
 }

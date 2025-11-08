@@ -62,4 +62,8 @@ public class SubjectService {
         subject.setStatus(SubjectStatus.AVAILABLE);
         subjectRepository.save(subject);
     }
+
+    public List<Subject> getAvailableSubjects() {
+        return subjectRepository.findByStatus(SubjectStatus.AVAILABLE);
+    }
 }
