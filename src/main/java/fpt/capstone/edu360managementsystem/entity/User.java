@@ -41,6 +41,7 @@ public class User {
     private String password;
 
     @NotBlank
+    @Column(name = "full_name")
     @Size(max = 100)
     private String fullName;
 
