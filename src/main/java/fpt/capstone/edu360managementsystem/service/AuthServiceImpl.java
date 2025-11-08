@@ -39,7 +39,7 @@ public class AuthServiceImpl implements AuthService {
     PasswordEncoder encoder;
 
     @Autowired
-    EmailService emailService; // service mình viết phía dưới
+    EmailService emailService;
 
     private static final String PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final Random RANDOM = new SecureRandom();

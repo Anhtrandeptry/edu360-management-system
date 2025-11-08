@@ -21,6 +21,7 @@ public class UserService {
 
     @Autowired
     private UserMapper userMapper;
+<<<<<<< HEAD
 //
 //    public List<UserResponse> getAllUsers() {
 //        return userRepository.findAll().stream()
@@ -34,4 +35,13 @@ public List<UserResponse> getAllUsers() {
             .map(userMapper::toResponse)
             .collect(Collectors.toList());
 }
+=======
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(userMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+>>>>>>> origin/main
 }

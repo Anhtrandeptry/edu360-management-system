@@ -56,6 +56,7 @@ public class User {
     private Set<Role> roles = new HashSet<>();
 
 
+<<<<<<< HEAD
 
 //    public User(String username, String email, String password) {
 //        this.username = username;
@@ -63,6 +64,8 @@ public class User {
 //        this.password = password;
 //    }
 
+=======
+>>>>>>> origin/main
     public User(String username, String email, String password, String fullName, String phoneNumber) {
         this.username = username;
         this.email = email;

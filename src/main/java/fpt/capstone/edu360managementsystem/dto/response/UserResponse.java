@@ -14,6 +14,8 @@ public class UserResponse {
     private Long id;
     private String username;
     private String email;
+    private String fullName;
+    private String phoneNumber;
     private List<String> roles;
     private String phoneNumber;
     private String fullName;
