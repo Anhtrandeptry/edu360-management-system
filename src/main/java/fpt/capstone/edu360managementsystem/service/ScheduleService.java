@@ -134,11 +134,10 @@ public class ScheduleService {
             LocalTime slotStart = cs.getTimeSlot().getStartTime().toLocalTime();
             LocalTime slotEnd = cs.getTimeSlot().getEndTime().toLocalTime();
 
-            // dayOfWeek: business uses 2-8 (Mon-Sun), but ClassSchedule might use 1-7 or 2-8
-            // Assuming ClassSchedule.dayOfWeek is already 2-8 as per business doc
-            // Convert to Java DayOfWeek: Mon=1, ..., Sun=7
-            int bizDay = cs.getDayOfWeek(); // 2-8
-            DayOfWeek javaDow = convertBizDayToJavaDayOfWeek(bizDay);
+            // dayOfWeek stored in DB (ClassSchedule) uses ISO: 1=Mon ... 7=Sun
+            // Convert directly to Java DayOfWeek
+            int isoDay = cs.getDayOfWeek(); // 1..7
+            DayOfWeek javaDow = DayOfWeek.of(isoDay);
 
             // Find first occurrence of this day in the range
             LocalDate current = from.toLocalDate();
@@ -168,32 +167,32 @@ public class ScheduleService {
     }
 
     /**
-     * Convert business day convention (2-8) to Java DayOfWeek (1-7). Business:
-     * Mon=2, Tue=3, ..., Sun=8 Java: Mon=1, Tue=2, ..., Sun=7
-     */
-    private DayOfWeek convertBizDayToJavaDayOfWeek(int bizDay) {
-        if (bizDay == 8) {
-            return DayOfWeek.SUNDAY;
-        }
-        return DayOfWeek.of(bizDay - 1); // 2->1, 3->2, ..., 7->6
-    }
-
-    /**
      * Parse ISO date-time string. Handle both full ISO and simple date strings.
      */
     private LocalDateTime parseIsoDateTime(String str) {
-        if (str == null || str.isEmpty()) {
+        if (str == null || str.isBlank()) {
             return LocalDateTime.now();
         }
         try {
+            // e.g. "2025-11-03T00:00:00"
             return LocalDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME);
-        } catch (Exception e) {
-            // Fallback: try parsing as date only
-            try {
-                return LocalDate.parse(str, DateTimeFormatter.ISO_DATE).atStartOfDay();
-            } catch (Exception e2) {
-                return LocalDateTime.now();
-            }
+        } catch (Exception ignore) {
         }
+        try {
+            // e.g. "2025-11-03T00:00:00Z" or with offset "+07:00"
+            return java.time.OffsetDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME).toLocalDateTime();
+        } catch (Exception ignore) {
+        }
+        try {
+            // Instant form
+            return LocalDateTime.ofInstant(java.time.Instant.parse(str), java.time.ZoneId.systemDefault());
+        } catch (Exception ignore) {
+        }
+        try {
+            // Date only
+            return LocalDate.parse(str, DateTimeFormatter.ISO_DATE).atStartOfDay();
+        } catch (Exception ignore) {
+        }
+        return LocalDateTime.now();
     }
 }
