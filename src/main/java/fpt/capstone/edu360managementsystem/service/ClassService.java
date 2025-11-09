@@ -1,33 +1,61 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
-import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
-import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.enums.ClassStatus;
-import fpt.capstone.edu360managementsystem.enums.SessionStatus;
-import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
-import fpt.capstone.edu360managementsystem.repository.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
+import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
+import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
+import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
+import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
+import fpt.capstone.edu360managementsystem.entity.ClassSession;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Room;
+import fpt.capstone.edu360managementsystem.entity.Semester;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.TimeSlot;
+import fpt.capstone.edu360managementsystem.enums.ClassStatus;
+import fpt.capstone.edu360managementsystem.enums.SessionStatus;
+import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
+import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
+import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.RoomRepository;
+import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
 
 @Service
 public class ClassService {
 
-    @Autowired private SemesterRepository semesterRepository;
-    @Autowired private SubjectRepository subjectRepository;
-    @Autowired private TeacherRepository teacherRepository;
-    @Autowired private RoomRepository roomRepository;
-    @Autowired private ClazzRepository clazzRepository;
-    @Autowired private ClassScheduleRepository classScheduleRepository;
-    @Autowired private ClassSessionRepository classSessionRepository;
-    @Autowired private TimeSlotRepository timeSlotRepository;
-    @Autowired private ClassMapper classMapper;
+    @Autowired
+    private SemesterRepository semesterRepository;
+    @Autowired
+    private SubjectRepository subjectRepository;
+    @Autowired
+    private TeacherRepository teacherRepository;
+    @Autowired
+    private RoomRepository roomRepository;
+    @Autowired
+    private ClazzRepository clazzRepository;
+    @Autowired
+    private ClassScheduleRepository classScheduleRepository;
+    @Autowired
+    private ClassSessionRepository classSessionRepository;
+    @Autowired
+    private TimeSlotRepository timeSlotRepository;
+    @Autowired
+    private ClassMapper classMapper;
 
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
@@ -36,8 +64,9 @@ public class ClassService {
                 .orElseThrow(() -> new RuntimeException("Semester not found"));
         Subject subject = subjectRepository.findById(req.getSubjectId())
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
-        Teacher teacher = teacherRepository.findById(req.getTeacherId())
-                .orElseThrow(() -> new RuntimeException("Teacher not found"));
+        // Note: teacherId from frontend is actually userId, so we need to find Teacher by userId
+        Teacher teacher = teacherRepository.findByUserId(req.getTeacherId())
+                .orElseThrow(() -> new RuntimeException("Teacher not found with userId: " + req.getTeacherId()));
         Room room = roomRepository.findById(req.getRoomId())
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
@@ -62,17 +91,20 @@ public class ClassService {
 
         // Check xung đột giáo viên/phòng
         var teacherConflicts = clazzRepository.findTeacherConflicts(teacher.getId(), semester.getId(), dows, slotIds);
-        if (!teacherConflicts.isEmpty())
+        if (!teacherConflicts.isEmpty()) {
             throw new RuntimeException("Teacher has conflicting class schedules in this semester");
+        }
 
         var roomConflicts = clazzRepository.findRoomConflicts(room.getId(), semester.getId(), dows, slotIds);
-        if (!roomConflicts.isEmpty())
+        if (!roomConflicts.isEmpty()) {
             throw new RuntimeException("Room has conflicting class schedules in this semester");
+        }
 
         // Xác định maxStudents
         int maxStudents = Optional.ofNullable(req.getMaxStudents()).orElse(room.getCapacity());
-        if (maxStudents > room.getCapacity())
+        if (maxStudents > room.getCapacity()) {
             throw new RuntimeException("maxStudents cannot exceed room capacity");
+        }
 
         // startDate: ngày hợp lệ đầu tiên theo lịch
         LocalDate classStart = firstClassDate(semester.getStartDate(), semester.getEndDate(), req.getSchedule());
@@ -89,6 +121,7 @@ public class ClassService {
                 .endDate(semester.getEndDate()) // tạm, sẽ cập nhật sau
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
+                .meetingLink(req.getMeetingLink()) // for online classes
                 .status(deriveClassStatus(semester))
                 .build();
         clazzRepository.save(clazz);
@@ -111,25 +144,54 @@ public class ClassService {
         classSessionRepository.saveAll(sessions);
 
         // Cập nhật endDate = ngày buổi cuối
-        LocalDate last = sessions.get(sessions.size()-1).getDate();
+        LocalDate last = sessions.get(sessions.size() - 1).getDate();
         clazz.setEndDate(last);
         clazzRepository.save(clazz);
 
         return classMapper.toResponse(clazz, schedules, sessions.size());
     }
 
+    /**
+     * List classes with optional filters: teacherUserId & timeSlotId. TimeSlot
+     * filter applied in-memory after fetching schedules due to simple JPA
+     * query.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassResponse> listClasses(Long teacherUserId, Long timeSlotId) {
+        // fetch base classes with teacher filter
+        List<Clazz> classes = clazzRepository.findAllWithFilters(teacherUserId);
+
+        // load schedules for each class (N+1 acceptable for now; can optimize later)
+        List<ClassSchedule> allSchedules = classScheduleRepository.findAll();
+        Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
+                .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
+
+        return classes.stream()
+                .filter(c -> {
+                    if (timeSlotId == null) {
+                        return true;
+                    }
+                    var list = schedulesByClass.getOrDefault(c.getId(), List.of());
+                    return list.stream().anyMatch(s -> s.getTimeSlot().getId().equals(timeSlotId));
+                })
+                .map(c -> classMapper.toResponse(c, schedulesByClass.get(c.getId()), 0))
+                .toList();
+    }
+
     private LocalDate firstClassDate(LocalDate start, LocalDate end, List<ScheduleItemRequest> schedule) {
         Set<Integer> dows = schedule.stream().map(ScheduleItemRequest::getDayOfWeek).collect(Collectors.toSet());
         LocalDate d = start;
         while (!d.isAfter(end)) {
-            if (dows.contains(d.getDayOfWeek().getValue())) return d;
+            if (dows.contains(d.getDayOfWeek().getValue())) {
+                return d;
+            }
             d = d.plusDays(1);
         }
         return start;
     }
 
     private List<ClassSession> generateSessions(Clazz clazz, Room room, Semester sem,
-                                                List<ClassSchedule> schedules, int totalSessions) {
+            List<ClassSchedule> schedules, int totalSessions) {
         Map<Integer, List<TimeSlot>> map = schedules.stream()
                 .collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek,
                         Collectors.mapping(ClassSchedule::getTimeSlot, Collectors.toList())));
@@ -140,7 +202,9 @@ public class ClassService {
             int dow = d.getDayOfWeek().getValue(); // 1..7
             if (map.containsKey(dow)) {
                 for (TimeSlot slot : map.get(dow)) {
-                    if (out.size() >= totalSessions) break;
+                    if (out.size() >= totalSessions) {
+                        break;
+                    }
                     out.add(ClassSession.builder()
                             .clazz(clazz)
                             .date(d)
@@ -161,8 +225,12 @@ public class ClassService {
 
     private ClassStatus deriveClassStatus(Semester sem) {
         LocalDate today = LocalDate.now();
-        if (today.isBefore(sem.getStartDate())) return ClassStatus.COMING_SOON;
-        if (today.isAfter(sem.getEndDate()))  return ClassStatus.COMPLETE;
+        if (today.isBefore(sem.getStartDate())) {
+            return ClassStatus.COMING_SOON;
+        }
+        if (today.isAfter(sem.getEndDate())) {
+            return ClassStatus.COMPLETE;
+        }
         return ClassStatus.STUDYING;
     }
 }

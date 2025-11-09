@@ -9,6 +9,7 @@ import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface ClassMapper {
+
     ClassMapper INSTANCE = Mappers.getMapper(ClassMapper.class);
 
     default ClassResponse toResponse(Clazz entity, List<ClassSchedule> schedules, int sessionsGenerated) {
@@ -26,17 +27,21 @@ public interface ClassMapper {
                 .description(entity.getDescription())
                 .status(entity.getStatus())
                 .sessionsGenerated(sessionsGenerated)
+                .subjectName(entity.getSubject().getName())
+                .teacherFullName(entity.getTeacher().getUser().getFullName())
+                .roomName(entity.getRoom().getName())
+                .online(entity.getMeetingLink() != null && !entity.getMeetingLink().isBlank())
                 .build();
 
         if (schedules != null) {
             resp.setSchedule(
                     schedules.stream()
                             .map(s -> new ClassResponse.ScheduleItemView(
-                                    s.getDayOfWeek(),
-                                    s.getTimeSlot().getId(),
-                                    s.getTimeSlot().getStartTime().toString(),
-                                    s.getTimeSlot().getEndTime().toString()
-                            ))
+                            s.getDayOfWeek(),
+                            s.getTimeSlot().getId(),
+                            s.getTimeSlot().getStartTime().toString(),
+                            s.getTimeSlot().getEndTime().toString()
+                    ))
                             .toList()
             );
         }

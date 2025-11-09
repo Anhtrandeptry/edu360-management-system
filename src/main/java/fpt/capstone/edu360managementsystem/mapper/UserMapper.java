@@ -14,12 +14,28 @@ import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {
+
     UserMapper INSTANCE = Mappers.getMapper(UserMapper.class);
 
-    UserResponse toResponse(User entity);
+    default UserResponse toResponse(User entity) {
+        if (entity == null) {
+            return null;
+        }
+        return UserResponse.builder()
+                .id(entity.getId())
+                .username(entity.getUsername())
+                .email(entity.getEmail())
+                .fullName(entity.getFullName())
+                .phoneNumber(entity.getPhoneNumber())
+                .roles(map(entity.getRoles()))
+                .active(entity.getActive())
+                .build();
+    }
 
     default List<String> map(Set<Role> roles) {
-        if (roles == null) return null;
+        if (roles == null) {
+            return null;
+        }
         return roles.stream()
                 .map(role -> role.getName().name()) // nếu Role.getName() trả về Enum ERole
                 .collect(Collectors.toList());

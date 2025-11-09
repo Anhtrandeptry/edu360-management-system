@@ -21,21 +21,6 @@ public class UserService {
 
     @Autowired
     private UserMapper userMapper;
-<<<<<<< HEAD
-//
-//    public List<UserResponse> getAllUsers() {
-//        return userRepository.findAll().stream()
-//                .map(userMapper::toResponse)
-//                .toList();
-//    }
-@Transactional(readOnly = true)
-public List<UserResponse> getAllUsers() {
-    return userRepository.findAll()
-            .stream()
-            .map(userMapper::toResponse)
-            .collect(Collectors.toList());
-}
-=======
 
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
@@ -43,5 +28,13 @@ public List<UserResponse> getAllUsers() {
                 .map(userMapper::toResponse)
                 .collect(Collectors.toList());
     }
->>>>>>> origin/main
+
+    @Transactional
+    public void updateUserStatus(Long userId, Boolean active) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        user.setActive(active);
+        userRepository.save(user);
+    }
+
 }
