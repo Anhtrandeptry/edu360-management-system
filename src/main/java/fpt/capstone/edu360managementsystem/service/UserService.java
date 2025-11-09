@@ -3,6 +3,7 @@ package fpt.capstone.edu360managementsystem.service;
 import fpt.capstone.edu360managementsystem.dto.response.RoomResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserResponse;
+import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.mapper.UserMapper;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,4 +28,13 @@ public class UserService {
                 .map(userMapper::toResponse)
                 .collect(Collectors.toList());
     }
+
+    @Transactional
+    public void updateUserStatus(Long userId, Boolean active) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        user.setActive(active);
+        userRepository.save(user);
+    }
+
 }

@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -34,6 +33,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     TeacherRepository teacherRepository;
+
+    @Autowired
+    SubjectRepository subjectRepository;
 
     @Autowired
     PasswordEncoder encoder;
@@ -130,8 +132,6 @@ public class AuthServiceImpl implements AuthService {
         return ResponseEntity.ok(new MessageResponse("Student and parent accounts created successfully! Parent username: " + parentUsername));
     }
 
-
-
     @Override
     @Transactional
     public ResponseEntity<?> registerTeacher(RegisterTeacherRequest request) {
@@ -165,13 +165,21 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(teacherUser);
 
-        // 7. Tạo teacher entity (chưa có thông tin chi tiết)
+        // 7. Load subject & validate
+        Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new RuntimeException("Subject not found with id=" + request.getSubjectId()));
+        if (subject.getStatus() != null && subject.getStatus().name().equals("UNAVAILABLE")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Subject is unavailable"));
+        }
+
+        // 8. Tạo teacher entity với subject (các trường profile khác sẽ được giáo viên tự cập nhật sau)
         Teacher teacher = new Teacher();
         teacher.setUser(teacherUser);
+        teacher.setSubject(subject);
         teacherRepository.save(teacher);
 
-        // 8. Gửi email tài khoản cho giáo viên
-        String subject = "Tài khoản giáo viên đã được tạo trên Edu360";
+        // 9. Gửi email tài khoản cho giáo viên
+        String emailSubject = "Tài khoản giáo viên đã được tạo trên Edu360";
         String text = String.format("""
             Xin chào %s,
 
@@ -187,7 +195,7 @@ public class AuthServiceImpl implements AuthService {
             """, request.getFullName(), username, rawPassword);
 
         try {
-            emailService.sendSimpleMessage(request.getEmail(), subject, text);
+            emailService.sendSimpleMessage(request.getEmail(), emailSubject, text);
         } catch (MailException ex) {
             return ResponseEntity.ok(new MessageResponse(
                     "Teacher created successfully but failed to send email: " + ex.getMessage()));
@@ -197,9 +205,7 @@ public class AuthServiceImpl implements AuthService {
                 "Teacher account created successfully! Username: " + username));
     }
 
-
     // --- helper methods ---
-
     private String generateUsernameFromFullName(String fullName) {
         if (fullName == null || fullName.isBlank()) {
             // fallback

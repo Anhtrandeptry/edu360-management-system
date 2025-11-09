@@ -1,9 +1,5 @@
 package fpt.capstone.edu360managementsystem.security;
 
-
-import fpt.capstone.edu360managementsystem.security.jwt.AuthEntryPointJwt;
-import fpt.capstone.edu360managementsystem.security.jwt.AuthTokenFilter;
-import fpt.capstone.edu360managementsystem.service.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +14,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import fpt.capstone.edu360managementsystem.security.jwt.AuthEntryPointJwt;
+import fpt.capstone.edu360managementsystem.security.jwt.AuthTokenFilter;
+import fpt.capstone.edu360managementsystem.service.UserDetailsServiceImpl;
+
 @Configuration
 //@EnableWebSecurity
 @EnableMethodSecurity
@@ -25,58 +25,59 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 //jsr250Enabled = true,
 //prePostEnabled = true) // by default
 public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
-  @Autowired
-  UserDetailsServiceImpl userDetailsService;
 
-  @Autowired
-  private AuthEntryPointJwt unauthorizedHandler;
+    @Autowired
+    UserDetailsServiceImpl userDetailsService;
 
-  @Bean
-  public AuthTokenFilter authenticationJwtTokenFilter() {
-    return new AuthTokenFilter();
-  }
+    @Autowired
+    private AuthEntryPointJwt unauthorizedHandler;
 
+    @Bean
+    public AuthTokenFilter authenticationJwtTokenFilter() {
+        return new AuthTokenFilter();
+    }
 
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
 
-  @Bean
-  public DaoAuthenticationProvider authenticationProvider() {
-      DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-       
-      authProvider.setUserDetailsService(userDetailsService);
-      authProvider.setPasswordEncoder(passwordEncoder());
-   
-      return authProvider;
-  }
-  
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
 
-  
-  @Bean
-  public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-    return authConfig.getAuthenticationManager();
-  }
+        return authProvider;
+    }
 
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+        return authConfig.getAuthenticationManager();
+    }
 
-
-
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
+                .cors(cors -> {
+                })
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/test/**").permitAll()
-                        .requestMatchers("/api/rooms/**").permitAll()
-                        .requestMatchers("/api/subjects/**").permitAll()
-                        .requestMatchers("/api/classes/**").permitAll()
-                        .anyRequest().authenticated()
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/test/**").permitAll()
+                // Allow Spring Boot error endpoint so 404 won't be masked as 401
+                .requestMatchers("/error").permitAll()
+                .requestMatchers("/api/rooms/**").permitAll()
+                .requestMatchers("/api/subjects/**").permitAll()
+                .requestMatchers("/api/semesters/**").permitAll()
+                .requestMatchers("/api/timeslots/**").permitAll()
+                .requestMatchers("/api/classes/**").permitAll()
+                // Temporary: allow teacher endpoints until role rules are finalized
+                .requestMatchers("/api/teachers/**").permitAll()
+                .anyRequest().authenticated()
                 );
 
         http.authenticationProvider(authenticationProvider());
