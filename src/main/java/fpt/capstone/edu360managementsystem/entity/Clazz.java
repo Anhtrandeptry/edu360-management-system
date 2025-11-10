@@ -51,8 +51,8 @@ public class Clazz {
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "room_id")
+    @ManyToOne(optional = true)  // nullable for online classes
+    @JoinColumn(name = "room_id", nullable = true)
     private Room room;
 
     @Column(nullable = false)

@@ -9,10 +9,7 @@ import fpt.capstone.edu360managementsystem.repository.RoomRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.DayOfWeek;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class RoomService {
@@ -23,18 +20,22 @@ public class RoomService {
     @Autowired
     private RoomMapper roomMapper;
 
-
-
     public List<RoomResponse> getAllRooms() {
         return roomRepository.findAll().stream()
-                .map(roomMapper::toResponse)
+                .map(r -> {
+                    RoomResponse resp = roomMapper.toResponse(r);
+                    resp.setClassCount(clazzRepository.countActiveByRoom(r.getId()));
+                    return resp;
+                })
                 .toList();
     }
 
     public RoomResponse getRoomById(Long id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
-        return roomMapper.toResponse(room);
+        RoomResponse resp = roomMapper.toResponse(room);
+        resp.setClassCount(clazzRepository.countActiveByRoom(room.getId()));
+        return resp;
     }
 
     public RoomResponse createRoom(RoomRequest request) {
@@ -58,6 +59,10 @@ public class RoomService {
     public void disableRoom(Long id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
+        long used = clazzRepository.countActiveByRoom(room.getId());
+        if (used > 0) {
+            throw new RuntimeException("Room is used by active classes, cannot disable");
+        }
         room.setStatus(RoomStatus.UNAVAILABLE);
         roomRepository.save(room);
     }
@@ -68,4 +73,7 @@ public class RoomService {
         room.setStatus(RoomStatus.AVAILABLE);
         roomRepository.save(room);
     }
+
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.ClazzRepository clazzRepository;
 }

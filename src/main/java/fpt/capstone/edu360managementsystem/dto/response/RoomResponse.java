@@ -11,10 +11,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RoomResponse {
+
     private Long id;
     private String name;
     private Integer capacity;
     private RoomStatus status;
-
+    private long classCount; // số lớp chưa COMPLETE đang sử dụng phòng
 
 }

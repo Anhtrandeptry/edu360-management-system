@@ -67,8 +67,26 @@ public class ClassService {
         // Note: teacherId from frontend is actually userId, so we need to find Teacher by userId
         Teacher teacher = teacherRepository.findByUserId(req.getTeacherId())
                 .orElseThrow(() -> new RuntimeException("Teacher not found with userId: " + req.getTeacherId()));
-        Room room = roomRepository.findById(req.getRoomId())
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        // Room is optional (null for online classes)
+        Room room = null;
+        boolean isOnline = (req.getRoomId() == null);
+
+        if (!isOnline) {
+            room = roomRepository.findById(req.getRoomId())
+                    .orElseThrow(() -> new RuntimeException("Room not found"));
+            if (room.getStatus() != fpt.capstone.edu360managementsystem.enums.RoomStatus.AVAILABLE) {
+                throw new RuntimeException("Room is not available");
+            }
+        }
+
+        // Enforce active/enabled states (backend safety, FE already checks but must not rely solely on FE)
+        if (subject.getStatus() != fpt.capstone.edu360managementsystem.enums.SubjectStatus.AVAILABLE) {
+            throw new RuntimeException("Subject is not available");
+        }
+        if (teacher.getUser() == null || Boolean.FALSE.equals(teacher.getUser().getActive())) {
+            throw new RuntimeException("Teacher account is not active");
+        }
 
         if (clazzRepository.existsByNameAndSubject_IdAndSemester_Id(req.getName(), subject.getId(), semester.getId())) {
             throw new RuntimeException("Duplicated class: same name + subject + semester");
@@ -89,21 +107,34 @@ public class ClassService {
         Set<Long> slotIds = req.getSchedule().stream()
                 .map(ScheduleItemRequest::getTimeSlotId).collect(Collectors.toSet());
 
-        // Check xung đột giáo viên/phòng
+        // Check xung đột giáo viên
         var teacherConflicts = clazzRepository.findTeacherConflicts(teacher.getId(), semester.getId(), dows, slotIds);
         if (!teacherConflicts.isEmpty()) {
             throw new RuntimeException("Teacher has conflicting class schedules in this semester");
         }
 
-        var roomConflicts = clazzRepository.findRoomConflicts(room.getId(), semester.getId(), dows, slotIds);
-        if (!roomConflicts.isEmpty()) {
-            throw new RuntimeException("Room has conflicting class schedules in this semester");
+        // Check xung đột phòng (chỉ khi offline)
+        if (!isOnline) {
+            var roomConflicts = clazzRepository.findRoomConflicts(room.getId(), semester.getId(), dows, slotIds);
+            if (!roomConflicts.isEmpty()) {
+                throw new RuntimeException("Room has conflicting class schedules in this semester");
+            }
         }
 
         // Xác định maxStudents
-        int maxStudents = Optional.ofNullable(req.getMaxStudents()).orElse(room.getCapacity());
-        if (maxStudents > room.getCapacity()) {
-            throw new RuntimeException("maxStudents cannot exceed room capacity");
+        int maxStudents;
+        if (isOnline) {
+            // Online: bắt buộc nhập maxStudents
+            if (req.getMaxStudents() == null || req.getMaxStudents() < 1) {
+                throw new RuntimeException("maxStudents is required for online classes");
+            }
+            maxStudents = req.getMaxStudents();
+        } else {
+            // Offline: dùng room capacity nếu không nhập
+            maxStudents = Optional.ofNullable(req.getMaxStudents()).orElse(room.getCapacity());
+            if (maxStudents > room.getCapacity()) {
+                throw new RuntimeException("maxStudents cannot exceed room capacity");
+            }
         }
 
         // startDate: ngày hợp lệ đầu tiên theo lịch

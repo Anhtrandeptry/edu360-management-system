@@ -9,7 +9,9 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 public class SubjectResponse {
+
     private Long id;
     private String name;
     private SubjectStatus status;
+    private long classCount; // số lớp chưa COMPLETE đang sử dụng
 }

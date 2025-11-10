@@ -63,4 +63,15 @@ public class TeacherController {
         List<BusySlotResponse> busySlots = scheduleService.getTeacherBusySlots(userId, from, to);
         return ResponseEntity.ok(busySlots);
     }
+
+    /**
+     * GET /api/teachers/by-user/{userId} Trả về thông tin teacher (kèm
+     * classCount) theo userId để FE có thể kiểm tra trước khi vô hiệu hóa user
+     * có role TEACHER.
+     */
+    @GetMapping("/by-user/{userId}")
+    public ResponseEntity<TeacherResponse> getTeacherByUserId(@PathVariable Long userId) {
+        TeacherResponse resp = teacherService.getByUserId(userId);
+        return ResponseEntity.ok(resp);
+    }
 }

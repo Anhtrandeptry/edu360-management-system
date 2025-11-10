@@ -21,14 +21,21 @@ public class SubjectService {
 
     public List<SubjectResponse> getAllSubjects() {
         return subjectRepository.findAll().stream()
-                .map(subjectMapper::toResponse)
+                .map(s -> {
+                    long cnt = clazzRepository.countActiveBySubject(s.getId());
+                    SubjectResponse resp = subjectMapper.toResponse(s);
+                    resp.setClassCount(cnt);
+                    return resp;
+                })
                 .toList();
     }
 
     public SubjectResponse getSubjectById(Long id) {
         Subject subject = subjectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
-        return subjectMapper.toResponse(subject);
+        SubjectResponse resp = subjectMapper.toResponse(subject);
+        resp.setClassCount(clazzRepository.countActiveBySubject(subject.getId()));
+        return resp;
     }
 
     public SubjectResponse createSubject(SubjectRequest request) {
@@ -52,6 +59,10 @@ public class SubjectService {
     public void disableSubject(Long id) {
         Subject subject = subjectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
+        long used = clazzRepository.countActiveBySubject(subject.getId());
+        if (used > 0) {
+            throw new RuntimeException("Subject is used by active classes, cannot disable");
+        }
         subject.setStatus(SubjectStatus.UNAVAILABLE);
         subjectRepository.save(subject);
     }
@@ -66,4 +77,7 @@ public class SubjectService {
     public List<Subject> getAvailableSubjects() {
         return subjectRepository.findByStatus(SubjectStatus.AVAILABLE);
     }
+
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.ClazzRepository clazzRepository;
 }

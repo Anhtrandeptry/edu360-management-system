@@ -1,11 +1,13 @@
 package fpt.capstone.edu360managementsystem.mapper;
 
+import java.util.List;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.factory.Mappers;
+
 import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
-import org.mapstruct.Mapper;
-import org.mapstruct.factory.Mappers;
-import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface ClassMapper {
@@ -20,7 +22,7 @@ public interface ClassMapper {
                 .semesterId(entity.getSemester().getId())
                 .subjectId(entity.getSubject().getId())
                 .teacherId(entity.getTeacher().getId())
-                .roomId(entity.getRoom().getId())
+                .roomId(entity.getRoom() != null ? entity.getRoom().getId() : null)
                 .startDate(entity.getStartDate())
                 .endDate(entity.getEndDate())
                 .maxStudents(entity.getMaxStudents())
@@ -29,7 +31,7 @@ public interface ClassMapper {
                 .sessionsGenerated(sessionsGenerated)
                 .subjectName(entity.getSubject().getName())
                 .teacherFullName(entity.getTeacher().getUser().getFullName())
-                .roomName(entity.getRoom().getName())
+                .roomName(entity.getRoom() != null ? entity.getRoom().getName() : null)
                 .online(entity.getMeetingLink() != null && !entity.getMeetingLink().isBlank())
                 .build();
 

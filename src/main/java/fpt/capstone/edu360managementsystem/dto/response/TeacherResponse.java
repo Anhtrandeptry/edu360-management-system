@@ -25,5 +25,7 @@ public class TeacherResponse {
     private String subjectName;   // subject.name
     private String specialization; // teacher.specialization
     private String degree;        // teacher.degree
+    private Boolean active;       // user.active
+    private long classCount;      // số lớp chưa COMPLETE mà giáo viên đang dạy
 
 }

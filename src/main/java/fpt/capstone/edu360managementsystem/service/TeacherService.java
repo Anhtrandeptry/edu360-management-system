@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import fpt.capstone.edu360managementsystem.dto.response.TeacherResponse;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import jakarta.persistence.EntityNotFoundException;
 
@@ -20,6 +21,9 @@ public class TeacherService {
 
     @Autowired
     private TeacherRepository teacherRepository;
+
+    @Autowired
+    private ClazzRepository clazzRepository;
 
     /**
      * Get all teachers, optionally filtered by subject.
@@ -58,6 +62,13 @@ public class TeacherService {
             subjectName = null;
         }
 
+        long count = 0L;
+        try {
+            count = clazzRepository.countActiveByTeacherUser(teacher.getUser().getId());
+        } catch (Exception ex) {
+            // Defensive: nếu query lỗi do mapping lazy bất thường, trả về 0
+            count = 0L;
+        }
         return TeacherResponse.builder()
                 .id(teacher.getId())
                 .userId(teacher.getUser().getId())
@@ -69,6 +80,18 @@ public class TeacherService {
                 .subjectName(subjectName)
                 .specialization(teacher.getSpecialization())
                 .degree(teacher.getDegree())
+                .active(teacher.getUser().getActive())
+                .classCount(count)
                 .build();
+    }
+
+    /**
+     * Get a single teacher by the associated user id. Returns null if not found
+     * (controller will translate to 404).
+     */
+    public TeacherResponse getByUserId(Long userId) {
+        Teacher teacher = teacherRepository.findByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Teacher not found for userId=" + userId));
+        return mapToResponse(teacher);
     }
 }
