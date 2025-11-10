@@ -56,4 +56,37 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
     where (:teacherUserId is null or tu.id = :teacherUserId)
   """)
     List<Clazz> findAllWithFilters(Long teacherUserId);
+
+    // Đếm số lớp (chưa COMPLETE) đang dùng subject
+    @Query("""
+        select count(c) from Clazz c
+        where c.subject.id = :subjectId
+          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+    """)
+    long countActiveBySubject(Long subjectId);
+
+    // Đếm số lớp (chưa COMPLETE) đang dùng room
+    @Query("""
+        select count(c) from Clazz c
+        where c.room.id = :roomId
+          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+    """)
+    long countActiveByRoom(Long roomId);
+
+    // Đếm số lớp (chưa COMPLETE) đang dạy bởi teacher (userId)
+    @Query("""
+        select count(c) from Clazz c
+        join c.teacher t
+        where t.user.id = :teacherUserId
+          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+    """)
+    long countActiveByTeacherUser(Long teacherUserId);
+
+    // ✅ THÊM: Query theo teacher.id để so sánh
+    @Query("""
+        select count(c) from Clazz c
+        where c.teacher.id = :teacherId
+          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+    """)
+    long countActiveByTeacherId(Long teacherId);
 }

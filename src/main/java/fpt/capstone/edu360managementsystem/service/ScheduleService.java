@@ -16,6 +16,7 @@ import fpt.capstone.edu360managementsystem.dto.response.BusySlotResponse;
 import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 
@@ -43,40 +44,39 @@ public class ScheduleService {
      * @return List of busy slots with isoStart and isoEnd
      */
     public List<BusySlotResponse> getTeacherBusySlots(Long userId, String fromStr, String toStr) {
-        System.out.println("[DEBUG] getTeacherBusySlots called with userId: " + userId);
-
         // Resolve teacher by userId using repository method
         Optional<Teacher> optTeacher = teacherRepository.findByUserId(userId);
 
-        System.out.println("[DEBUG] Teacher found: " + optTeacher.isPresent());
-
         if (optTeacher.isEmpty()) {
-            System.err.println("[ERROR] Teacher not found with userId: " + userId);
             // Return empty list instead of throwing exception to prevent 500 error
             return List.of();
         }
 
         Teacher teacher = optTeacher.get();
-        System.out.println("[DEBUG] Teacher ID: " + teacher.getId() + ", User ID: " + teacher.getUser().getId());
 
         LocalDateTime from = parseIsoDateTime(fromStr);
         LocalDateTime to = parseIsoDateTime(toStr);
-        System.out.println("[DEBUG] Date range: " + from + " to " + to);
 
         // Find all class schedules where this teacher is teaching
+        // Only include classes that are active (not COMPLETE)
         List<ClassSchedule> schedules = classScheduleRepository.findAll().stream()
                 .filter(cs -> {
                     Clazz clazz = cs.getClazz();
                     return clazz != null
                             && clazz.getTeacher() != null
-                            && teacher.getId().equals(clazz.getTeacher().getId());
+                            && teacher.getId().equals(clazz.getTeacher().getId())
+                            && clazz.getStatus() != ClassStatus.COMPLETE;
                 })
                 .toList();
 
-        System.out.println("[DEBUG] Found " + schedules.size() + " class schedules for teacher");
+        System.out.println("🔍 Teacher ID: " + teacher.getId() + " | Found " + schedules.size() + " active schedules");
 
         List<BusySlotResponse> busySlots = expandSchedulesToSlots(schedules, from, to);
-        System.out.println("[DEBUG] Expanded to " + busySlots.size() + " busy slots");
+
+        System.out.println("📅 Expanded to " + busySlots.size() + " busy slots");
+        if (!busySlots.isEmpty()) {
+            System.out.println("📍 First slot: " + busySlots.get(0).getStart() + " -> " + busySlots.get(0).getEnd());
+        }
 
         return busySlots;
     }
@@ -94,12 +94,14 @@ public class ScheduleService {
         LocalDateTime to = parseIsoDateTime(toStr);
 
         // Find all class schedules using this room
+        // Only include classes that are active (not COMPLETE)
         List<ClassSchedule> schedules = classScheduleRepository.findAll().stream()
                 .filter(cs -> {
                     Clazz clazz = cs.getClazz();
                     return clazz != null
                             && clazz.getRoom() != null
-                            && roomId.equals(clazz.getRoom().getId());
+                            && roomId.equals(clazz.getRoom().getId())
+                            && clazz.getStatus() != ClassStatus.COMPLETE;
                 })
                 .toList();
 
@@ -134,9 +136,18 @@ public class ScheduleService {
             LocalTime slotStart = cs.getTimeSlot().getStartTime().toLocalTime();
             LocalTime slotEnd = cs.getTimeSlot().getEndTime().toLocalTime();
 
-            // dayOfWeek stored in DB (ClassSchedule) uses ISO: 1=Mon ... 7=Sun
-            // Convert directly to Java DayOfWeek
-            int isoDay = cs.getDayOfWeek(); // 1..7
+            // dayOfWeek stored in DB: might be 0-6 (JS convention) or 1-7 (ISO convention)
+            // 0 = Sunday (JS) → convert to 7 (ISO)
+            // 1-6 remain the same
+            int dbDay = cs.getDayOfWeek();
+            int isoDay = (dbDay == 0) ? 7 : dbDay; // Convert Sunday: 0 → 7
+
+            // Validate range before creating DayOfWeek
+            if (isoDay < 1 || isoDay > 7) {
+                System.err.println("⚠️ Invalid dayOfWeek: " + dbDay + " for class: " + clazz.getName());
+                continue;
+            }
+
             DayOfWeek javaDow = DayOfWeek.of(isoDay);
 
             // Find first occurrence of this day in the range

@@ -20,5 +20,6 @@ public class UserResponse {
     private String phoneNumber;
     private List<String> roles;
     private Boolean active;
+    // classCount removed from bulk user response (use /api/teachers/by-user/{userId} for realtime)
 
 }

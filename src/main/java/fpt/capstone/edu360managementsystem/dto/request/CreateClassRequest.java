@@ -21,8 +21,8 @@ public class CreateClassRequest {
     private Long subjectId;
     @NotNull
     private Long teacherId;
-    @NotNull
-    private Long roomId;
+
+    private Long roomId; // nullable for online classes
 
     @NotNull
     @Size(min = 1, message = "Select at least one schedule item")
