@@ -39,6 +39,7 @@ public class ClassResponse {
     private String teacherFullName;
     private String roomName;
     private Boolean online; // true nếu meetingLink != null
+    private String meetingLink; // Link meeting cho lớp online
     private Integer currentStudents; // sẽ mở rộng sau (tạm null)
 
     @Data
