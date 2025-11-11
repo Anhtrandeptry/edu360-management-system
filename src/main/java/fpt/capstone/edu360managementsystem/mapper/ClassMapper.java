@@ -33,6 +33,7 @@ public interface ClassMapper {
                 .teacherFullName(entity.getTeacher().getUser().getFullName())
                 .roomName(entity.getRoom() != null ? entity.getRoom().getName() : null)
                 .online(entity.getMeetingLink() != null && !entity.getMeetingLink().isBlank())
+                .meetingLink(entity.getMeetingLink()) // Map meeting link for online classes
                 .build();
 
         if (schedules != null) {
