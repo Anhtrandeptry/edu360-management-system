@@ -1,5 +1,6 @@
 package fpt.capstone.edu360managementsystem.dto.request;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import jakarta.validation.constraints.Min;
@@ -15,8 +16,7 @@ public class CreateClassRequest {
     private String name;
     private String code; // optional
 
-    @NotNull
-    private Long semesterId;
+    private Long semesterId; // optional - tự tính theo startDate/endDate
     @NotNull
     private Long subjectId;
     @NotNull
@@ -36,4 +36,9 @@ public class CreateClassRequest {
     private Integer maxStudents; // nếu null => lấy room.capacity
     private String description;
     private String meetingLink; // optional, for online classes
+
+    @NotNull
+    private LocalDate startDate; // required
+    @NotNull
+    private LocalDate endDate; // required
 }

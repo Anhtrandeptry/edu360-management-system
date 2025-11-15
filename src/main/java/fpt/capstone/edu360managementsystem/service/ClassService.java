@@ -60,8 +60,12 @@ public class ClassService {
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
         // 1) Load & validate
-        Semester semester = semesterRepository.findById(req.getSemesterId())
-                .orElseThrow(() -> new RuntimeException("Semester not found"));
+        Semester semester = null;
+        if (req.getSemesterId() != null) {
+            semester = semesterRepository.findById(req.getSemesterId())
+                    .orElseThrow(() -> new RuntimeException("Semester not found"));
+        }
+
         Subject subject = subjectRepository.findById(req.getSubjectId())
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
         // Note: teacherId from frontend is actually userId, so we need to find Teacher by userId
@@ -88,10 +92,6 @@ public class ClassService {
             throw new RuntimeException("Teacher account is not active");
         }
 
-        if (clazzRepository.existsByNameAndSubject_IdAndSemester_Id(req.getName(), subject.getId(), semester.getId())) {
-            throw new RuntimeException("Duplicated class: same name + subject + semester");
-        }
-
         // Teacher phải dạy đúng subject
         if (teacher.getSubject() == null || !teacher.getSubject().getId().equals(subject.getId())) {
             throw new RuntimeException("Teacher does not teach the selected subject");
@@ -107,17 +107,19 @@ public class ClassService {
         Set<Long> slotIds = req.getSchedule().stream()
                 .map(ScheduleItemRequest::getTimeSlotId).collect(Collectors.toSet());
 
-        // Check xung đột giáo viên
-        var teacherConflicts = clazzRepository.findTeacherConflicts(teacher.getId(), semester.getId(), dows, slotIds);
+        // Check xung đột giáo viên (theo khoảng thời gian startDate-endDate)
+        var teacherConflicts = clazzRepository.findTeacherConflictsByDateRange(
+                teacher.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
         if (!teacherConflicts.isEmpty()) {
-            throw new RuntimeException("Teacher has conflicting class schedules in this semester");
+            throw new RuntimeException("Teacher has conflicting class schedules in this date range");
         }
 
         // Check xung đột phòng (chỉ khi offline)
-        if (!isOnline) {
-            var roomConflicts = clazzRepository.findRoomConflicts(room.getId(), semester.getId(), dows, slotIds);
+        if (!isOnline && room != null) {
+            var roomConflicts = clazzRepository.findRoomConflictsByDateRange(
+                    room.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
             if (!roomConflicts.isEmpty()) {
-                throw new RuntimeException("Room has conflicting class schedules in this semester");
+                throw new RuntimeException("Room has conflicting class schedules in this date range");
             }
         }
 
@@ -131,29 +133,32 @@ public class ClassService {
             maxStudents = req.getMaxStudents();
         } else {
             // Offline: dùng room capacity nếu không nhập
+            if (room == null) {
+                throw new RuntimeException("Room must not be null for offline classes");
+            }
             maxStudents = Optional.ofNullable(req.getMaxStudents()).orElse(room.getCapacity());
             if (maxStudents > room.getCapacity()) {
                 throw new RuntimeException("maxStudents cannot exceed room capacity");
             }
         }
 
-        // startDate: ngày hợp lệ đầu tiên theo lịch
-        LocalDate classStart = firstClassDate(semester.getStartDate(), semester.getEndDate(), req.getSchedule());
+        // startDate/endDate: sử dụng từ request
+        LocalDate classStart = req.getStartDate();
+        LocalDate classEnd = req.getEndDate();
 
         // Tạo lớp
         Clazz clazz = Clazz.builder()
                 .name(req.getName())
-                .code(req.getCode())
                 .semester(semester)
                 .subject(subject)
                 .teacher(teacher)
                 .room(room)
                 .startDate(classStart)
-                .endDate(semester.getEndDate()) // tạm, sẽ cập nhật sau
+                .endDate(classEnd)
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
                 .meetingLink(req.getMeetingLink()) // for online classes
-                .status(deriveClassStatus(semester))
+                .status(semester != null ? deriveClassStatus(semester) : ClassStatus.AVAILABLE)
                 .build();
         clazzRepository.save(clazz);
 
@@ -171,13 +176,8 @@ public class ClassService {
 
         // Sinh các buổi học (ClassSession)
         int total = req.getTotalSessions();
-        List<ClassSession> sessions = generateSessions(clazz, room, semester, schedules, total);
+        List<ClassSession> sessions = generateSessionsByDateRange(clazz, room, classStart, classEnd, schedules, total);
         classSessionRepository.saveAll(sessions);
-
-        // Cập nhật endDate = ngày buổi cuối
-        LocalDate last = sessions.get(sessions.size() - 1).getDate();
-        clazz.setEndDate(last);
-        clazzRepository.save(clazz);
 
         return classMapper.toResponse(clazz, schedules, sessions.size());
     }
@@ -209,27 +209,16 @@ public class ClassService {
                 .toList();
     }
 
-    private LocalDate firstClassDate(LocalDate start, LocalDate end, List<ScheduleItemRequest> schedule) {
-        Set<Integer> dows = schedule.stream().map(ScheduleItemRequest::getDayOfWeek).collect(Collectors.toSet());
-        LocalDate d = start;
-        while (!d.isAfter(end)) {
-            if (dows.contains(d.getDayOfWeek().getValue())) {
-                return d;
-            }
-            d = d.plusDays(1);
-        }
-        return start;
-    }
-
-    private List<ClassSession> generateSessions(Clazz clazz, Room room, Semester sem,
+    private List<ClassSession> generateSessionsByDateRange(Clazz clazz, Room room,
+            LocalDate startDate, LocalDate endDate,
             List<ClassSchedule> schedules, int totalSessions) {
         Map<Integer, List<TimeSlot>> map = schedules.stream()
                 .collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek,
                         Collectors.mapping(ClassSchedule::getTimeSlot, Collectors.toList())));
 
         List<ClassSession> out = new ArrayList<>();
-        LocalDate d = sem.getStartDate();
-        while (!d.isAfter(sem.getEndDate()) && out.size() < totalSessions) {
+        LocalDate d = startDate;
+        while (!d.isAfter(endDate) && out.size() < totalSessions) {
             int dow = d.getDayOfWeek().getValue(); // 1..7
             if (map.containsKey(dow)) {
                 for (TimeSlot slot : map.get(dow)) {
@@ -249,7 +238,7 @@ public class ClassService {
             d = d.plusDays(1);
         }
         if (out.size() < totalSessions) {
-            throw new RuntimeException("Not enough days in semester to generate required sessions");
+            throw new RuntimeException("Not enough days in date range to generate required sessions");
         }
         return out;
     }

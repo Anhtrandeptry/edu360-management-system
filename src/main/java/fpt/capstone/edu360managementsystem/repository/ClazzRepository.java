@@ -45,6 +45,40 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
+    // Trùng lịch giáo viên (theo khoảng thời gian startDate-endDate)
+    @Query("""
+        select distinct c from Clazz c
+        where c.teacher.id = :teacherId
+          and ((c.startDate <= :endDate and c.endDate >= :startDate))
+          and exists (
+            select s from ClassSchedule s
+            where s.clazz = c
+              and s.dayOfWeek in :dow
+              and s.timeSlot.id in :slotIds
+          )
+    """)
+    List<Clazz> findTeacherConflictsByDateRange(Long teacherId,
+            java.time.LocalDate startDate, java.time.LocalDate endDate,
+            java.util.Set<Integer> dow,
+            java.util.Set<Long> slotIds);
+
+    // Trùng lịch phòng (theo khoảng thời gian startDate-endDate)
+    @Query("""
+        select distinct c from Clazz c
+        where c.room.id = :roomId
+          and ((c.startDate <= :endDate and c.endDate >= :startDate))
+          and exists (
+            select s from ClassSchedule s
+            where s.clazz = c
+              and s.dayOfWeek in :dow
+              and s.timeSlot.id in :slotIds
+          )
+    """)
+    List<Clazz> findRoomConflictsByDateRange(Long roomId,
+            java.time.LocalDate startDate, java.time.LocalDate endDate,
+            java.util.Set<Integer> dow,
+            java.util.Set<Long> slotIds);
+
     // Lấy danh sách lớp kèm schedules để filter theo giáo viên (userId) và timeslot
     @Query("""
     select distinct c from Clazz c
