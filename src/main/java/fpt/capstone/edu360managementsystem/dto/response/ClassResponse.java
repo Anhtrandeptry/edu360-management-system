@@ -17,7 +17,6 @@ public class ClassResponse {
 
     private Long id;
     private String name;
-    private String code;
 
     private Long semesterId;
     private Long subjectId;

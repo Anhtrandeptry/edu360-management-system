@@ -13,7 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,8 +20,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "classes",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"name", "subject_id", "semester_id"}))
+@Table(name = "classes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,12 +33,10 @@ public class Clazz {
     private Long id;
 
     @Column(nullable = false)
-    private String name;  // ví dụ: "Toán 12A"
-    @Column(unique = true)
-    private String code;  // ví dụ: "MATH12A"
+    private String name;  // ví dụ: "Toán 12A" (code đã loại bỏ)
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "semester_id")
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "semester_id", nullable = true)
     private Semester semester;
 
     @ManyToOne(optional = false)
