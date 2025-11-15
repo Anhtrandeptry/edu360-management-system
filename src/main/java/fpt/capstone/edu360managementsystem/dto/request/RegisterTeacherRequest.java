@@ -2,7 +2,7 @@ package fpt.capstone.edu360managementsystem.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 @Data
@@ -17,6 +17,6 @@ public class RegisterTeacherRequest {
     @NotBlank(message = "Phone number is required")
     private String phoneNumber;
 
-    @NotNull(message = "Subject id is required")
-    private Long subjectId; // assign subject at creation
+    @NotEmpty(message = "At least one subject id is required")
+    private java.util.List<Long> subjectIds; // multiple subjects at creation
 }
