@@ -1,11 +1,8 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
-import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
-import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.enums.ERole;
-import fpt.capstone.edu360managementsystem.repository.*;
+import java.security.SecureRandom;
+import java.util.Random;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
@@ -13,8 +10,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-import java.util.Random;
+import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
+import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
+import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
+import fpt.capstone.edu360managementsystem.entity.Parent;
+import fpt.capstone.edu360managementsystem.entity.Role;
+import fpt.capstone.edu360managementsystem.entity.Student;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.ERole;
+import fpt.capstone.edu360managementsystem.repository.ParentRepository;
+import fpt.capstone.edu360managementsystem.repository.RoleRepository;
+import fpt.capstone.edu360managementsystem.repository.StudentRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -165,17 +176,32 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(teacherUser);
 
-        // 7. Load subject & validate
-        Subject subject = subjectRepository.findById(request.getSubjectId())
-                .orElseThrow(() -> new RuntimeException("Subject not found with id=" + request.getSubjectId()));
-        if (subject.getStatus() != null && subject.getStatus().name().equals("UNAVAILABLE")) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Subject is unavailable"));
+        // 7. Load subjects & validate (multi-subject)
+        if (request.getSubjectIds() == null || request.getSubjectIds().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: At least one subject is required"));
+        }
+        var subjects = subjectRepository.findAllById(request.getSubjectIds());
+        if (subjects.size() != request.getSubjectIds().size()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Some subject ids were not found"));
+        }
+        for (Subject s : subjects) {
+            if (s.getStatus() != null && s.getStatus().name().equals("UNAVAILABLE")) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Error: Subject " + s.getId() + " is unavailable"));
+            }
         }
 
-        // 8. Tạo teacher entity với subject (các trường profile khác sẽ được giáo viên tự cập nhật sau)
+        // 8. Tạo teacher entity với danh sách subjects + subject chính (lấy môn đầu tiên)
         Teacher teacher = new Teacher();
         teacher.setUser(teacherUser);
-        teacher.setSubject(subject);
+        // Chọn môn đầu tiên làm subject chính để thỏa mãn NOT NULL cột subject_id cũ
+        teacher.setSubject(subjects.get(0));
+        // Đồng bộ 2 chiều để Hibernate dễ dàng đồng bộ join table trong cùng transaction
+        for (Subject s : subjects) {
+            teacher.getSubjects().add(s);
+            if (s.getTeachers() != null) {
+                s.getTeachers().add(teacher);
+            }
+        }
         teacherRepository.save(teacher);
 
         // 9. Gửi email tài khoản cho giáo viên

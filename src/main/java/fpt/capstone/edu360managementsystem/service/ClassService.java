@@ -92,8 +92,14 @@ public class ClassService {
             throw new RuntimeException("Teacher account is not active");
         }
 
-        // Teacher phải dạy đúng subject
-        if (teacher.getSubject() == null || !teacher.getSubject().getId().equals(subject.getId())) {
+        // Teacher phải dạy đúng subject: ưu tiên subject chính, sau đó xem thêm danh sách subjects mở rộng
+        boolean teachesSubject = false;
+        if (teacher.getSubject() != null && teacher.getSubject().getId().equals(subject.getId())) {
+            teachesSubject = true;
+        } else if (teacher.getSubjects() != null) {
+            teachesSubject = teacher.getSubjects().stream().anyMatch(s -> s.getId().equals(subject.getId()));
+        }
+        if (!teachesSubject) {
             throw new RuntimeException("Teacher does not teach the selected subject");
         }
 

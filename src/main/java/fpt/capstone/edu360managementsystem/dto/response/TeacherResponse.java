@@ -21,8 +21,12 @@ public class TeacherResponse {
     private String fullName;      // user.fullName
     private String email;         // user.email
     private String phoneNumber;   // user.phoneNumber
-    private Long subjectId;       // subject.id
-    private String subjectName;   // subject.name
+    // Backward compatibility: still expose first subject as subjectId/subjectName
+    private Long subjectId;       // first subject id (for legacy FE)
+    private String subjectName;   // first subject name
+    // New multi-subject fields
+    private java.util.List<Long> subjectIds;      // all subject ids
+    private java.util.List<String> subjectNames;  // all subject names
     private String specialization; // teacher.specialization
     private String degree;        // teacher.degree
     private Boolean active;       // user.active
