@@ -4,7 +4,8 @@ import fpt.capstone.edu360managementsystem.enums.SubjectStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "subjects")
@@ -14,6 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class Subject {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -24,8 +26,8 @@ public class Subject {
     @Enumerated(EnumType.STRING)
     private SubjectStatus status = SubjectStatus.AVAILABLE;
 
-    @OneToMany(mappedBy = "subject")
-    private List<Teacher> teachers;
-
+    // ManyToMany ngược lại với Teacher.subjects
+    @ManyToMany(mappedBy = "subjects")
+    private Set<Teacher> teachers = new HashSet<>();
 
 }

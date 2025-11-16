@@ -35,7 +35,7 @@ public class TeacherService {
         List<Teacher> teachers;
 
         if (subjectId != null) {
-            teachers = teacherRepository.findBySubjectId(subjectId);
+            teachers = teacherRepository.findByAnySubject(subjectId);
         } else {
             teachers = teacherRepository.findAll();
         }
@@ -51,23 +51,50 @@ public class TeacherService {
     private TeacherResponse mapToResponse(Teacher teacher) {
         Long subjectId = null;
         String subjectName = null;
+        java.util.List<Long> subjectIds = new java.util.ArrayList<>();
+        java.util.List<String> subjectNames = new java.util.ArrayList<>();
         try {
+            // Nếu có subject chính populate trước
             if (teacher.getSubject() != null) {
-                subjectId = teacher.getSubject().getId();
-                subjectName = teacher.getSubject().getName();
+                try {
+                    subjectId = teacher.getSubject().getId();
+                    subjectName = teacher.getSubject().getName();
+                } catch (EntityNotFoundException ex) {
+                    subjectId = null;
+                    subjectName = null;
+                }
+            }
+            // Thêm tất cả môn từ tập subjects (nếu chưa có)
+            if (teacher.getSubjects() != null && !teacher.getSubjects().isEmpty()) {
+                for (var s : teacher.getSubjects()) {
+                    try {
+                        Long sid = s.getId();
+                        String sname = s.getName();
+                        if (!subjectIds.contains(sid)) {
+                            subjectIds.add(sid);
+                        }
+                        if (!subjectNames.contains(sname)) {
+                            subjectNames.add(sname);
+                        }
+                    } catch (EntityNotFoundException inner) {
+                        // skip
+                    }
+                }
+                // Fallback nếu subject chính null thì lấy first từ list
+                if (subjectId == null && !subjectIds.isEmpty()) {
+                    subjectId = subjectIds.get(0);
+                    subjectName = subjectNames.get(0);
+                }
             }
         } catch (EntityNotFoundException ex) {
-            // Inconsistent FK (e.g., subject_id points to missing Subject). Tolerate and return nulls.
-            subjectId = null;
-            subjectName = null;
+            // ignore, giữ nulls
         }
 
-        long count = 0L;
+        long count;
         try {
             count = clazzRepository.countActiveByTeacherUser(teacher.getUser().getId());
         } catch (Exception ex) {
-            // Defensive: nếu query lỗi do mapping lazy bất thường, trả về 0
-            count = 0L;
+            count = 0L; // Defensive fallback
         }
         return TeacherResponse.builder()
                 .id(teacher.getId())
@@ -78,6 +105,8 @@ public class TeacherService {
                 .phoneNumber(teacher.getUser().getPhoneNumber())
                 .subjectId(subjectId)
                 .subjectName(subjectName)
+                .subjectIds(subjectIds)
+                .subjectNames(subjectNames)
                 .specialization(teacher.getSpecialization())
                 .degree(teacher.getDegree())
                 .active(teacher.getUser().getActive())
