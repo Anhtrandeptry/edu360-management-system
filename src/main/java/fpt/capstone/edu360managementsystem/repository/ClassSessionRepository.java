@@ -17,4 +17,11 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
       order by s.timeSlot.startTime asc
     """)
     List<ClassSession> findTodaySessionsForTeacher(Long teacherId, LocalDate date);
+
+
+    List<ClassSession> findByClazz_IdInAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
+            List<Long> classIds,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }
