@@ -160,16 +160,18 @@ public class EnrollmentService {
             throw new RuntimeException("You are already enrolled in this class");
         }
 
-        // Schedule conflicts trong cùng học kỳ
-        var schedules = classScheduleRepository.findByClazz_Id(classId);
-        var dows = schedules.stream().map(ClassSchedule::getDayOfWeek).collect(java.util.stream.Collectors.toSet());
-        var slotIds = schedules.stream().map(s -> s.getTimeSlot().getId()).collect(java.util.stream.Collectors.toSet());
+        // Schedule conflicts trong cùng học kỳ (chỉ check nếu class có semester)
+        if (clazz.getSemester() != null) {
+            var schedules = classScheduleRepository.findByClazz_Id(classId);
+            var dows = schedules.stream().map(ClassSchedule::getDayOfWeek).collect(java.util.stream.Collectors.toSet());
+            var slotIds = schedules.stream().map(s -> s.getTimeSlot().getId()).collect(java.util.stream.Collectors.toSet());
 
-        var conflicts = classEnrollmentRepository.findScheduleConflicts(
-                student.getId(), clazz.getSemester().getId(), dows, slotIds
-        );
-        if (!conflicts.isEmpty()) {
-            throw new RuntimeException("Schedule conflict with your other enrolled classes");
+            var conflicts = classEnrollmentRepository.findScheduleConflicts(
+                    student.getId(), clazz.getSemester().getId(), dows, slotIds
+            );
+            if (!conflicts.isEmpty()) {
+                throw new RuntimeException("Schedule conflict with your other enrolled classes");
+            }
         }
 
         classEnrollmentRepository.save(

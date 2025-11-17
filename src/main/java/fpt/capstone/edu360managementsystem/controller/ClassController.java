@@ -29,7 +29,7 @@ public class ClassController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    // Cho phép tất cả user xem danh sách lớp (bao gồm guest)
     public ResponseEntity<java.util.List<ClassResponse>> list(
             @RequestParam(name = "teacherUserId", required = false) Long teacherUserId,
             @RequestParam(name = "timeSlotId", required = false) Long timeSlotId
