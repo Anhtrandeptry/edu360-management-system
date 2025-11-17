@@ -198,10 +198,17 @@ public class ClassService {
         // fetch base classes with teacher filter
         List<Clazz> classes = clazzRepository.findAllWithFilters(teacherUserId);
 
-        // load schedules for each class (N+1 acceptable for now; can optimize later)
+        // Load ALL schedules once to avoid N+1 queries
         List<ClassSchedule> allSchedules = classScheduleRepository.findAll();
         Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
                 .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
+
+        // Debug: Log schedule data
+        System.out.println("📚 Total classes: " + classes.size());
+        System.out.println("📅 Total schedules: " + allSchedules.size());
+        schedulesByClass.forEach((classId, schedules) -> {
+            System.out.println("  Class " + classId + " has " + schedules.size() + " schedule items");
+        });
 
         return classes.stream()
                 .filter(c -> {
@@ -211,7 +218,10 @@ public class ClassService {
                     var list = schedulesByClass.getOrDefault(c.getId(), List.of());
                     return list.stream().anyMatch(s -> s.getTimeSlot().getId().equals(timeSlotId));
                 })
-                .map(c -> classMapper.toResponse(c, schedulesByClass.get(c.getId()), 0))
+                .map(c -> {
+                    List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
+                    return classMapper.toResponse(c, classSchedules, 0);
+                })
                 .toList();
     }
 

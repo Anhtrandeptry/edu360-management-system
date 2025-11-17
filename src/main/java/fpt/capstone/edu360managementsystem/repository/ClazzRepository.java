@@ -91,6 +91,17 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
   """)
     List<Clazz> findAllWithFilters(Long teacherUserId);
 
+    // Get all classes with schedules eagerly loaded for schedule management
+    @Query("""
+    select distinct c from Clazz c
+    left join fetch c.teacher t
+    left join fetch c.subject sj
+    left join fetch c.room r
+    left join fetch c.semester sem
+    left join fetch c.teacher.user tu
+  """)
+    List<Clazz> findAllWithSchedules();
+
     // Đếm số lớp (chưa COMPLETE) đang dùng subject
     @Query("""
         select count(c) from Clazz c
