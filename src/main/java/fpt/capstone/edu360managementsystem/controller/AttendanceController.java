@@ -1,18 +1,25 @@
 package fpt.capstone.edu360managementsystem.controller;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import fpt.capstone.edu360managementsystem.dto.request.AttendanceUpsertRequest;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionDetailResponse;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionSummaryResponse;
 import fpt.capstone.edu360managementsystem.service.AttendanceService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/attendance")
@@ -21,19 +28,23 @@ public class AttendanceController {
     @Autowired
     private AttendanceService attendanceService;
 
-    /** Buổi dạy hôm nay của giáo viên */
+    /**
+     * Buổi dạy hôm nay của giáo viên
+     */
     @GetMapping("/today")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> today(@AuthenticationPrincipal UserDetailsImpl user) {
-        List<AttendanceSessionSummaryResponse> sessions =
-                attendanceService.getTodaySessionsForTeacher(user.getId());
+        List<AttendanceSessionSummaryResponse> sessions
+                = attendanceService.getTodaySessionsForTeacher(user.getId());
         if (sessions.isEmpty()) {
             return ResponseEntity.ok("Hôm nay không có tiết.");
         }
         return ResponseEntity.ok(sessions);
     }
 
-    /** Chi tiết 1 buổi (danh sách HS, trạng thái) */
+    /**
+     * Chi tiết 1 buổi (danh sách HS, trạng thái)
+     */
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<AttendanceSessionDetailResponse> sessionDetail(
@@ -44,7 +55,9 @@ public class AttendanceController {
         );
     }
 
-    /** Chấm/ cập nhật điểm danh — chỉ trong đúng ngày */
+    /**
+     * Chấm/ cập nhật điểm danh — chỉ trong đúng ngày
+     */
     @PostMapping("/session/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsert(
@@ -53,5 +66,33 @@ public class AttendanceController {
             @Valid @RequestBody AttendanceUpsertRequest body) {
         attendanceService.upsertAttendanceForToday(user.getId(), sessionId, body);
         return ResponseEntity.ok("Đã lưu điểm danh.");
+    }
+
+    /**
+     * Chấm điểm danh theo classId và date
+     */
+    @PostMapping("/class/{classId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<?> upsertByClass(
+            @AuthenticationPrincipal UserDetailsImpl user,
+            @PathVariable Long classId,
+            @RequestParam String date,
+            @Valid @RequestBody AttendanceUpsertRequest body) {
+        attendanceService.upsertAttendanceByClassAndDate(user.getId(), classId, date, body);
+        return ResponseEntity.ok("Đã lưu điểm danh.");
+    }
+
+    /**
+     * Lấy chi tiết điểm danh theo classId & date (để FE load trạng thái)
+     */
+    @GetMapping("/class/{classId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<AttendanceSessionDetailResponse> detailByClass(
+            @AuthenticationPrincipal UserDetailsImpl user,
+            @PathVariable Long classId,
+            @RequestParam String date) {
+        return ResponseEntity.ok(
+                attendanceService.getSessionDetailByClassAndDate(user.getId(), classId, date)
+        );
     }
 }

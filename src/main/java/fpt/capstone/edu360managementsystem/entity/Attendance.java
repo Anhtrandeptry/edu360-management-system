@@ -6,19 +6,30 @@ import lombok.*;
 
 @Entity
 @Table(name = "attendances",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"session_id","student_id"}))
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+        uniqueConstraints = @UniqueConstraint(columnNames = {"session_id", "student_id"}))
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Attendance {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional=false) @JoinColumn(name="session_id")
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "session_id")
     private ClassSession session;
 
-    @ManyToOne(optional=false) @JoinColumn(name="student_id")
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "student_id")
     private Student student;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
+    @Column(nullable = false)
     private AttendanceStatus status = AttendanceStatus.UNMARKED;
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
 }
