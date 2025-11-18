@@ -28,4 +28,10 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     );
 
     Optional<ClassSession> findByClazz_IdAndDate(Long classId, LocalDate date);
+
+    // When a class has multiple sessions in the same day (different time slots),
+    // use slot-aware lookups to avoid IncorrectResultSizeDataAccessException
+    Optional<ClassSession> findByClazz_IdAndDateAndTimeSlot_Id(Long classId, LocalDate date, Long timeSlotId);
+
+    List<ClassSession> findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
 }

@@ -95,4 +95,18 @@ public class AttendanceController {
                 attendanceService.getSessionDetailByClassAndDate(user.getId(), classId, date)
         );
     }
+
+    /**
+     * Admin xem điểm danh theo classId & date (không check ownership)
+     */
+    @GetMapping("/admin/class/{classId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AttendanceSessionDetailResponse> adminViewByClass(
+            @PathVariable Long classId,
+            @RequestParam String date,
+            @RequestParam(required = false) Long slotId) {
+        return ResponseEntity.ok(
+                attendanceService.getSessionDetailByClassAndDateForAdmin(classId, date, slotId)
+        );
+    }
 }
