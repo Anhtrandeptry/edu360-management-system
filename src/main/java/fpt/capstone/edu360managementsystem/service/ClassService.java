@@ -113,6 +113,27 @@ public class ClassService {
         Set<Long> slotIds = req.getSchedule().stream()
                 .map(ScheduleItemRequest::getTimeSlotId).collect(Collectors.toSet());
 
+        // Validate: Giáo viên không được dạy quá 3 slot/ngày thường, 5 slot/ngày cuối tuần
+        Map<Integer, Long> slotsPerDay = req.getSchedule().stream()
+                .collect(Collectors.groupingBy(ScheduleItemRequest::getDayOfWeek, Collectors.counting()));
+        for (Map.Entry<Integer, Long> entry : slotsPerDay.entrySet()) {
+            int dayOfWeek = entry.getKey();
+            long slotCount = entry.getValue();
+            String dayName = getDayName(dayOfWeek);
+
+            // Thứ 7 (6) và Chủ nhật (7): tối đa 5 slot
+            if (dayOfWeek == 6 || dayOfWeek == 7) {
+                if (slotCount > 5) {
+                    throw new RuntimeException("Giáo viên không được dạy quá 5 slot vào cuối tuần (vi phạm: " + dayName + " có " + slotCount + " slot)");
+                }
+            } else {
+                // Các ngày thường (Thứ 2-6): tối đa 3 slot
+                if (slotCount > 3) {
+                    throw new RuntimeException("Giáo viên không được dạy quá 3 slot vào ngày thường (vi phạm: " + dayName + " có " + slotCount + " slot)");
+                }
+            }
+        }
+
         // Check xung đột giáo viên (theo khoảng thời gian startDate-endDate)
         var teacherConflicts = clazzRepository.findTeacherConflictsByDateRange(
                 teacher.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
@@ -148,9 +169,10 @@ public class ClassService {
             }
         }
 
-        // startDate/endDate: sử dụng từ request
+        // startDate: sử dụng từ request
+        // endDate: tự động tính dựa trên startDate, totalSessions và schedule
         LocalDate classStart = req.getStartDate();
-        LocalDate classEnd = req.getEndDate();
+        LocalDate classEnd = calculateEndDate(classStart, req.getTotalSessions(), slotsPerDay);
 
         // Tạo lớp
         Clazz clazz = Clazz.builder()
@@ -268,5 +290,58 @@ public class ClassService {
             return ClassStatus.COMPLETE;
         }
         return ClassStatus.STUDYING;
+    }
+
+    private String getDayName(int dayOfWeek) {
+        return switch (dayOfWeek) {
+            case 1 ->
+                "Thứ 2";
+            case 2 ->
+                "Thứ 3";
+            case 3 ->
+                "Thứ 4";
+            case 4 ->
+                "Thứ 5";
+            case 5 ->
+                "Thứ 6";
+            case 6 ->
+                "Thứ 7";
+            case 7 ->
+                "Chủ nhật";
+            default ->
+                "Ngày không xác định";
+        };
+    }
+
+    /**
+     * Tính ngày kết thúc dựa trên: - Ngày bắt đầu - Tổng số buổi cần dạy - Map
+     * slotsPerDay: dayOfWeek -> số slot trong ngày đó
+     */
+    private LocalDate calculateEndDate(LocalDate startDate, int totalSessions, Map<Integer, Long> slotsPerDay) {
+        if (slotsPerDay.isEmpty() || totalSessions <= 0) {
+            return startDate;
+        }
+
+        int countedSlots = 0;
+        LocalDate current = startDate;
+        LocalDate lastDate = startDate;
+        int maxIterations = (totalSessions * 7) + 14; // Safety limit
+        int iterations = 0;
+
+        while (countedSlots < totalSessions && iterations < maxIterations) {
+            // Java DayOfWeek: 1=Monday, 7=Sunday (same as our convention)
+            int dayOfWeek = current.getDayOfWeek().getValue();
+            long slotsOnThisDay = slotsPerDay.getOrDefault(dayOfWeek, 0L);
+
+            if (slotsOnThisDay > 0) {
+                countedSlots += slotsOnThisDay;
+                lastDate = current;
+            }
+
+            current = current.plusDays(1);
+            iterations++;
+        }
+
+        return lastDate;
     }
 }

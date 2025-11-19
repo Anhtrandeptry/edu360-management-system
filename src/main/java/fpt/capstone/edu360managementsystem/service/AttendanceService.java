@@ -14,13 +14,17 @@ import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionDetailR
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionSummaryResponse;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceStudentItem;
 import fpt.capstone.edu360managementsystem.entity.Attendance;
+import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.enums.AttendanceStatus;
 import fpt.capstone.edu360managementsystem.repository.AttendanceRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
+import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 
@@ -37,6 +41,10 @@ public class AttendanceService {
     private AttendanceRepository attendanceRepository;
     @Autowired
     private StudentRepository studentRepository;
+    @Autowired
+    private ClazzRepository clazzRepository;
+    @Autowired
+    private ClassScheduleRepository classScheduleRepository;
 
     /**
      * Danh sách buổi dạy hôm nay của giáo viên (theo userId)
@@ -159,7 +167,7 @@ public class AttendanceService {
         ClassSession session = classSessionRepository.findAll().stream()
                 .filter(s -> s.getClazz().getId().equals(classId) && s.getDate().isEqual(date))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr));
+                .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException("Không có buổi học nào cho lớp này vào ngày đã chọn."));
 
         // Verify teacher ownership
         if (!session.getClazz().getTeacher().getUser().getId().equals(userId)) {
@@ -199,7 +207,7 @@ public class AttendanceService {
     public AttendanceSessionDetailResponse getSessionDetailByClassAndDate(Long userId, Long classId, String dateStr) {
         LocalDate date = LocalDate.parse(dateStr);
         ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr));
+                .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException("Không có buổi học nào cho lớp này vào ngày đã chọn."));
 
         if (!session.getClazz().getTeacher().getUser().getId().equals(userId)) {
             throw new RuntimeException("Not owner of this class");
@@ -225,6 +233,107 @@ public class AttendanceService {
                 .className(session.getClazz().getName())
                 .subjectName(session.getClazz().getSubject().getName())
                 .roomName(session.getRoom().getName())
+                .timeStart(session.getTimeSlot().getStartTime().toString())
+                .timeEnd(session.getTimeSlot().getEndTime().toString())
+                .students(students)
+                .build();
+    }
+
+    /**
+     * Lấy chi tiết điểm danh theo classId và date cho Admin (không check
+     * ownership) Nếu không tìm thấy session, sẽ tự động tạo dựa trên
+     * ClassSchedule
+     */
+    @Transactional
+    public AttendanceSessionDetailResponse getSessionDetailByClassAndDateForAdmin(Long classId, String dateStr, Long slotId) {
+        LocalDate date = LocalDate.parse(dateStr);
+        System.out.println("🔍 Admin viewing class " + classId + " on date " + dateStr + " slotId: " + slotId);
+
+        // 1) Tìm session theo slot nếu có truyền slotId (tránh lỗi nhiều bản ghi)
+        ClassSession session = null;
+        if (slotId != null) {
+            session = classSessionRepository
+                    .findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElse(null);
+        }
+
+        // 2) Nếu chưa có, thử tìm các session cùng ngày cho lớp này
+        if (session == null) {
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (!sameDay.isEmpty()) {
+                // Nếu không có slotId, chọn session đầu tiên để tránh fail; ưu tiên an toàn
+                session = sameDay.stream()
+                        .filter(s -> slotId == null || s.getTimeSlot().getId().equals(slotId))
+                        .findFirst()
+                        .orElse(sameDay.get(0));
+            }
+        }
+
+        // 3) Nếu vẫn chưa có, tạo mới dựa vào ClassSchedule (lọc theo slot nếu có)
+        if (session == null) {
+            System.out.println("⚠️ Session not found, creating new session for class " + classId + " on " + date);
+
+            Clazz clazz = clazzRepository.findById(classId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+
+            int dayOfWeek = date.getDayOfWeek().getValue(); // 1-7 (Mon-Sun)
+            System.out.println("📅 Looking for schedule on dayOfWeek: " + dayOfWeek + ", slotId: " + slotId);
+
+            List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(classId);
+            System.out.println("📋 Found " + schedules.size() + " schedules for class " + classId);
+
+            ClassSchedule matchingSchedule = schedules.stream()
+                    .filter(s -> {
+                        System.out.println("   - Schedule dayOfWeek: " + s.getDayOfWeek() + ", timeSlot: " + s.getTimeSlot().getId());
+                        boolean dayMatch = s.getDayOfWeek() == dayOfWeek;
+                        boolean slotMatch = slotId == null || s.getTimeSlot().getId().equals(slotId);
+                        return dayMatch && slotMatch;
+                    })
+                    .findFirst()
+                    .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                    "Không có lịch học nào cho lớp này vào ngày đã chọn (thứ " + dayOfWeek + ", slot " + slotId + ")."));
+
+            System.out.println("✅ Creating session with timeSlot: " + matchingSchedule.getTimeSlot().getId());
+
+            ClassSession newSession = new ClassSession();
+            newSession.setClazz(clazz);
+            newSession.setDate(date);
+            newSession.setTimeSlot(matchingSchedule.getTimeSlot());
+            newSession.setRoom(clazz.getRoom());
+            session = classSessionRepository.save(newSession);
+        }
+
+        System.out.println("✅ Session found/created: ID = " + session.getId());
+
+        var enrollments = classEnrollmentRepository.findByClazz_Id(classId);
+        System.out.println("👥 Found " + enrollments.size() + " enrolled students");
+
+        var attendanceMap = attendanceRepository.findBySession_Id(session.getId())
+                .stream().collect(Collectors.toMap(a -> a.getStudent().getId(), a -> a));
+
+        var students = enrollments.stream().map(en -> {
+            var att = attendanceMap.get(en.getStudent().getId());
+            return AttendanceStudentItem.builder()
+                    .studentId(en.getStudent().getId())
+                    .studentName(en.getStudent().getUser().getFullName())
+                    .status(att != null ? att.getStatus() : AttendanceStatus.UNMARKED)
+                    .note(att != null ? att.getNote() : null)
+                    .build();
+        }).toList();
+
+        System.out.println("📦 Returning " + students.size() + " students in response");
+
+        if (students.isEmpty()) {
+            System.out.println("⚠️ WARNING: No students enrolled in this class!");
+        }
+
+        return AttendanceSessionDetailResponse.builder()
+                .sessionId(session.getId())
+                .classId(session.getClazz().getId())
+                .className(session.getClazz().getName())
+                .subjectName(session.getClazz().getSubject().getName())
+                .roomName(session.getRoom() != null ? session.getRoom().getName() : "N/A")
                 .timeStart(session.getTimeSlot().getStartTime().toString())
                 .timeEnd(session.getTimeSlot().getEndTime().toString())
                 .students(students)

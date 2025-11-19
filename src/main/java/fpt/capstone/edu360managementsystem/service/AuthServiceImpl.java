@@ -62,19 +62,19 @@ public class AuthServiceImpl implements AuthService {
     public ResponseEntity<?> registerStudentWithParent(RegisterStudentWithParentRequest request) {
         // 1. Basic validations
         if (!request.getStudentPassword().equals(request.getStudentRePassword())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Student passwords do not match!"));
+            return ResponseEntity.badRequest().body(new MessageResponse("Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại."));
         }
 
         if (userRepository.existsByUsername(request.getStudentUsername())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Student username is already taken!"));
+            return ResponseEntity.badRequest().body(new MessageResponse("Tên đăng nhập này đã tồn tại. Vui lòng chọn tên khác."));
         }
 
         if (userRepository.existsByEmail(request.getStudentEmail())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Student email is already in use!"));
+            return ResponseEntity.badRequest().body(new MessageResponse("Email học sinh này đã được sử dụng. Vui lòng sử dụng email khác."));
         }
 
         if (request.getParentEmail() != null && userRepository.existsByEmail(request.getParentEmail())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Parent email is already in use!"));
+            return ResponseEntity.badRequest().body(new MessageResponse("Email phụ huynh này đã được sử dụng. Vui lòng sử dụng email khác."));
         }
 
         // 2. Create parent user
@@ -140,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
             return ResponseEntity.ok(new MessageResponse("User created but failed to send email to parent: " + ex.getMessage()));
         }
 
-        return ResponseEntity.ok(new MessageResponse("Student and parent accounts created successfully! Parent username: " + parentUsername));
+        return ResponseEntity.ok(new MessageResponse("Đăng ký thành công! Tài khoản phụ huynh: " + parentUsername + ". Thông tin đăng nhập đã được gửi qua email."));
     }
 
     @Override
