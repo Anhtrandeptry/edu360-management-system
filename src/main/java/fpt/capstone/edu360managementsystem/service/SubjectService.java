@@ -1,14 +1,16 @@
 package fpt.capstone.edu360managementsystem.service;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import fpt.capstone.edu360managementsystem.dto.request.SubjectRequest;
 import fpt.capstone.edu360managementsystem.dto.response.SubjectResponse;
 import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.enums.SubjectStatus;
 import fpt.capstone.edu360managementsystem.mapper.SubjectMapper;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.util.List;
 
 @Service
 public class SubjectService {
@@ -76,6 +78,18 @@ public class SubjectService {
 
     public List<Subject> getAvailableSubjects() {
         return subjectRepository.findByStatus(SubjectStatus.AVAILABLE);
+    }
+
+    // New: list AVAILABLE subjects as SubjectResponse with classCount
+    public List<SubjectResponse> getAvailableSubjectResponses() {
+        return subjectRepository.findByStatus(SubjectStatus.AVAILABLE).stream()
+                .map(s -> {
+                    long cnt = clazzRepository.countActiveBySubject(s.getId());
+                    SubjectResponse resp = subjectMapper.toResponse(s);
+                    resp.setClassCount(cnt);
+                    return resp;
+                })
+                .toList();
     }
 
     @Autowired
