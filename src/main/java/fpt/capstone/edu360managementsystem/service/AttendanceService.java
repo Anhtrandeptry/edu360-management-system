@@ -206,9 +206,47 @@ public class AttendanceService {
      */
     public AttendanceSessionDetailResponse getSessionDetailByClassAndDate(Long userId, Long classId, String dateStr) {
         LocalDate date = LocalDate.parse(dateStr);
-        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException("Không có buổi học nào cho lớp này vào ngày đã chọn."));
 
+        // Try to find an existing session for the class on the date
+        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date).orElse(null);
+
+        // If multiple sessions in a day, pick the first one (time slot order)
+        if (session == null) {
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (!sameDay.isEmpty()) {
+                session = sameDay.get(0);
+            }
+        }
+
+        // If still not found, try to create session from ClassSchedule (but ensure teacher ownership)
+        if (session == null) {
+            Clazz clazz = clazzRepository.findById(classId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+
+            // Ownership check: only class teacher can create session here
+            if (!clazz.getTeacher().getUser().getId().equals(userId)) {
+                throw new RuntimeException("Not owner of this class");
+            }
+
+            int dayOfWeek = date.getDayOfWeek().getValue();
+            List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(classId);
+
+            ClassSchedule matchingSchedule = schedules.stream()
+                    .filter(s -> s.getDayOfWeek() == dayOfWeek)
+                    .findFirst()
+                    .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                    "Không có lịch học nào cho lớp này vào ngày đã chọn (thứ " + dayOfWeek + ")."));
+
+            ClassSession newSession = new ClassSession();
+            newSession.setClazz(clazz);
+            newSession.setDate(date);
+            newSession.setTimeSlot(matchingSchedule.getTimeSlot());
+            newSession.setRoom(clazz.getRoom());
+            session = classSessionRepository.save(newSession);
+        }
+
+        // Final ownership verification
         if (!session.getClazz().getTeacher().getUser().getId().equals(userId)) {
             throw new RuntimeException("Not owner of this class");
         }
@@ -232,7 +270,7 @@ public class AttendanceService {
                 .classId(session.getClazz().getId())
                 .className(session.getClazz().getName())
                 .subjectName(session.getClazz().getSubject().getName())
-                .roomName(session.getRoom().getName())
+                .roomName(session.getRoom() != null ? session.getRoom().getName() : "N/A")
                 .timeStart(session.getTimeSlot().getStartTime().toString())
                 .timeEnd(session.getTimeSlot().getEndTime().toString())
                 .students(students)
