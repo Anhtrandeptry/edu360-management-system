@@ -228,8 +228,12 @@ public class ClassService {
         // Debug: Log schedule data
         System.out.println("📚 Total classes: " + classes.size());
         System.out.println("📅 Total schedules: " + allSchedules.size());
+        classes.forEach(c -> {
+            System.out.println("  Class " + c.getId() + ": " + c.getName());
+        });
         schedulesByClass.forEach((classId, schedules) -> {
-            System.out.println("  Class " + classId + " has " + schedules.size() + " schedule items");
+            System.out.println("  Class " + classId + " has " + schedules.size() + " schedule items:");
+            schedules.forEach(s -> System.out.println("    - Day " + s.getDayOfWeek() + ", Slot " + s.getTimeSlot().getId()));
         });
 
         return classes.stream()
