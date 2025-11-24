@@ -77,6 +77,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/classes/**").permitAll()
                 // Temporary: allow teacher endpoints until role rules are finalized
                 .requestMatchers("/api/teachers/**").permitAll()
+                // Allow news endpoints for public access (GET only)
+                .requestMatchers("/api/news/**").permitAll()
                 .anyRequest().authenticated()
                 );
 

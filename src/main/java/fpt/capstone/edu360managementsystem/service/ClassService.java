@@ -29,6 +29,7 @@ import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
 import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.RoomRepository;
 import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
@@ -48,6 +49,8 @@ public class ClassService {
     private RoomRepository roomRepository;
     @Autowired
     private ClazzRepository clazzRepository;
+    @Autowired
+    private ClassEnrollmentRepository classEnrollmentRepository;
     @Autowired
     private ClassScheduleRepository classScheduleRepository;
     @Autowired
@@ -225,17 +228,6 @@ public class ClassService {
         Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
                 .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
 
-        // Debug: Log schedule data
-        System.out.println("📚 Total classes: " + classes.size());
-        System.out.println("📅 Total schedules: " + allSchedules.size());
-        classes.forEach(c -> {
-            System.out.println("  Class " + c.getId() + ": " + c.getName());
-        });
-        schedulesByClass.forEach((classId, schedules) -> {
-            System.out.println("  Class " + classId + " has " + schedules.size() + " schedule items:");
-            schedules.forEach(s -> System.out.println("    - Day " + s.getDayOfWeek() + ", Slot " + s.getTimeSlot().getId()));
-        });
-
         return classes.stream()
                 .filter(c -> {
                     if (timeSlotId == null) {
@@ -246,7 +238,11 @@ public class ClassService {
                 })
                 .map(c -> {
                     List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
-                    return classMapper.toResponse(c, classSchedules, 0);
+                    // Count current enrolled students
+                    int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
+                    ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
+                    response.setCurrentStudents(currentStudents);
+                    return response;
                 })
                 .toList();
     }
