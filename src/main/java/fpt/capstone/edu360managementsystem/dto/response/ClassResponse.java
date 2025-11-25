@@ -33,6 +33,9 @@ public class ClassResponse {
     private List<ScheduleItemView> schedule;
     private Integer sessionsGenerated;
 
+    private Long courseId;
+    private String courseTitle;
+
     // Derived display fields for class list cards
     private String subjectName;
     private String teacherFullName;

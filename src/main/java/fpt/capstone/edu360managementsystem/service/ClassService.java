@@ -8,6 +8,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import fpt.capstone.edu360managementsystem.entity.*;
+import fpt.capstone.edu360managementsystem.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,25 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
-import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
-import fpt.capstone.edu360managementsystem.entity.ClassSession;
-import fpt.capstone.edu360managementsystem.entity.Clazz;
-import fpt.capstone.edu360managementsystem.entity.Room;
-import fpt.capstone.edu360managementsystem.entity.Semester;
-import fpt.capstone.edu360managementsystem.entity.Subject;
-import fpt.capstone.edu360managementsystem.entity.Teacher;
-import fpt.capstone.edu360managementsystem.entity.TimeSlot;
 import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 import fpt.capstone.edu360managementsystem.enums.SessionStatus;
 import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
-import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
-import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
-import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
-import fpt.capstone.edu360managementsystem.repository.RoomRepository;
-import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
-import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
-import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
-import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
 
 @Service
 public class ClassService {
@@ -57,6 +43,9 @@ public class ClassService {
     @Autowired
     private ClassMapper classMapper;
 
+    @Autowired
+    private CourseRepository courseRepository;
+
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
         // 1) Load & validate
@@ -68,6 +57,21 @@ public class ClassService {
 
         Subject subject = subjectRepository.findById(req.getSubjectId())
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
+
+        // Load course nếu có
+        Course course = null;
+        if (req.getCourseId() != null) {
+            course = courseRepository.findById(req.getCourseId())
+                    .orElseThrow(() -> new RuntimeException("Course not found"));
+
+            if (!course.getSubject().getId().equals(subject.getId())) {
+                throw new RuntimeException("Course does not belong to selected subject");
+            }
+            if (course.getStatus() != fpt.capstone.edu360managementsystem.enums.CourseStatus.APPROVED) {
+                throw new RuntimeException("Course is not approved");
+            }
+        }
+
         // Note: teacherId from frontend is actually userId, so we need to find Teacher by userId
         Teacher teacher = teacherRepository.findByUserId(req.getTeacherId())
                 .orElseThrow(() -> new RuntimeException("Teacher not found with userId: " + req.getTeacherId()));
@@ -185,9 +189,11 @@ public class ClassService {
                 .endDate(classEnd)
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
-                .meetingLink(req.getMeetingLink()) // for online classes
+                .meetingLink(req.getMeetingLink())
                 .status(semester != null ? deriveClassStatus(semester) : ClassStatus.AVAILABLE)
+                .course(course)
                 .build();
+
         clazzRepository.save(clazz);
 
         // Lưu lịch lặp (ClassSchedule)

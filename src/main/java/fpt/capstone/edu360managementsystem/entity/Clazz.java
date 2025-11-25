@@ -69,4 +69,8 @@ public class Clazz {
     @Column(nullable = false)
     @Builder.Default
     private ClassStatus status = ClassStatus.AVAILABLE;
+
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "course_id")
+    private Course course;
 }
