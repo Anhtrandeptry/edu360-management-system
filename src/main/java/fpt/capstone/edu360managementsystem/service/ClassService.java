@@ -18,6 +18,7 @@ import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Course;
 import fpt.capstone.edu360managementsystem.entity.Room;
 import fpt.capstone.edu360managementsystem.entity.Semester;
 import fpt.capstone.edu360managementsystem.entity.Subject;
@@ -29,7 +30,7 @@ import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
 import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
-import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
 import fpt.capstone.edu360managementsystem.repository.RoomRepository;
 import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
@@ -50,8 +51,6 @@ public class ClassService {
     @Autowired
     private ClazzRepository clazzRepository;
     @Autowired
-    private ClassEnrollmentRepository classEnrollmentRepository;
-    @Autowired
     private ClassScheduleRepository classScheduleRepository;
     @Autowired
     private ClassSessionRepository classSessionRepository;
@@ -59,6 +58,9 @@ public class ClassService {
     private TimeSlotRepository timeSlotRepository;
     @Autowired
     private ClassMapper classMapper;
+
+    @Autowired
+    private CourseRepository courseRepository;
 
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
@@ -71,6 +73,21 @@ public class ClassService {
 
         Subject subject = subjectRepository.findById(req.getSubjectId())
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
+
+        // Load course nếu có
+        Course course = null;
+        if (req.getCourseId() != null) {
+            course = courseRepository.findById(req.getCourseId())
+                    .orElseThrow(() -> new RuntimeException("Course not found"));
+
+            if (!course.getSubject().getId().equals(subject.getId())) {
+                throw new RuntimeException("Course does not belong to selected subject");
+            }
+            if (course.getStatus() != fpt.capstone.edu360managementsystem.enums.CourseStatus.APPROVED) {
+                throw new RuntimeException("Course is not approved");
+            }
+        }
+
         // Note: teacherId from frontend is actually userId, so we need to find Teacher by userId
         Teacher teacher = teacherRepository.findByUserId(req.getTeacherId())
                 .orElseThrow(() -> new RuntimeException("Teacher not found with userId: " + req.getTeacherId()));
@@ -188,9 +205,11 @@ public class ClassService {
                 .endDate(classEnd)
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
-                .meetingLink(req.getMeetingLink()) // for online classes
+                .meetingLink(req.getMeetingLink())
                 .status(semester != null ? deriveClassStatus(semester) : ClassStatus.AVAILABLE)
+                .course(course)
                 .build();
+
         clazzRepository.save(clazz);
 
         // Lưu lịch lặp (ClassSchedule)
@@ -228,6 +247,13 @@ public class ClassService {
         Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
                 .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
 
+        // Debug: Log schedule data
+        System.out.println("📚 Total classes: " + classes.size());
+        System.out.println("📅 Total schedules: " + allSchedules.size());
+        schedulesByClass.forEach((classId, schedules) -> {
+            System.out.println("  Class " + classId + " has " + schedules.size() + " schedule items");
+        });
+
         return classes.stream()
                 .filter(c -> {
                     if (timeSlotId == null) {
@@ -238,11 +264,7 @@ public class ClassService {
                 })
                 .map(c -> {
                     List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
-                    // Count current enrolled students
-                    int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
-                    ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
-                    response.setCurrentStudents(currentStudents);
-                    return response;
+                    return classMapper.toResponse(c, classSchedules, 0);
                 })
                 .toList();
     }

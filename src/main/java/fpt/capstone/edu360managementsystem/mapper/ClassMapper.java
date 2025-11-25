@@ -33,21 +33,24 @@ public interface ClassMapper {
                 .teacherUserId(entity.getTeacher().getUser().getId())
                 .roomName(entity.getRoom() != null ? entity.getRoom().getName() : null)
                 .online(entity.getMeetingLink() != null && !entity.getMeetingLink().isBlank())
-                .meetingLink(entity.getMeetingLink()) // Map meeting link for online classes
+                .meetingLink(entity.getMeetingLink())
+                .courseId(entity.getCourse() != null ? entity.getCourse().getId() : null)
+                .courseTitle(entity.getCourse() != null ? entity.getCourse().getTitle() : null)
                 .build();
 
         if (schedules != null) {
             resp.setSchedule(
                     schedules.stream()
                             .map(s -> new ClassResponse.ScheduleItemView(
-                            s.getDayOfWeek(),
-                            s.getTimeSlot().getId(),
-                            s.getTimeSlot().getStartTime().toString(),
-                            s.getTimeSlot().getEndTime().toString()
-                    ))
+                                    s.getDayOfWeek(),
+                                    s.getTimeSlot().getId(),
+                                    s.getTimeSlot().getStartTime().toString(),
+                                    s.getTimeSlot().getEndTime().toString()
+                            ))
                             .toList()
             );
         }
         return resp;
     }
 }
+

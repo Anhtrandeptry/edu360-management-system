@@ -19,10 +19,15 @@ public class CreateClassRequest {
     private Long semesterId; // optional - tự tính theo startDate/endDate
     @NotNull
     private Long subjectId;
+
+    private Long courseId; // course thuộc subject
+
     @NotNull
     private Long teacherId;
 
     private Long roomId; // nullable for online classes
+
+
 
     @NotNull
     @Size(min = 1, message = "Select at least one schedule item")
@@ -40,5 +45,5 @@ public class CreateClassRequest {
     @NotNull
     private LocalDate startDate; // required
     @NotNull
-    private LocalDate endDate; // required
+    private LocalDate endDate; // required //Fix to fit with service
 }
