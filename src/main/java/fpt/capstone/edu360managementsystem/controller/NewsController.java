@@ -9,8 +9,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/news")
@@ -18,6 +26,63 @@ import java.util.Map;
 public class NewsController {
 
     private final NewsService newsService;
+    
+    // ===================== IMAGE UPLOAD =====================
+    private static final String UPLOAD_DIR = "uploads/news-images/";
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
+    private static final String ERROR_KEY = "error";
+    
+    /**
+     * POST /api/news/upload-image - Upload ảnh cho tin tức (Admin only)
+     */
+    @PostMapping("/upload-image")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> uploadImage(
+            @RequestParam("file") MultipartFile file) {
+        try {
+            // Validate file
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
+            }
+            
+            if (file.getSize() > MAX_FILE_SIZE) {
+                return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File size exceeds 5MB"));
+            }
+            
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image (PNG, JPG, JPEG, GIF, WebP)"));
+            }
+            
+            // Generate unique filename
+            String originalFilename = file.getOriginalFilename();
+            String extension = originalFilename != null && originalFilename.contains(".") 
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : ".jpg";
+            String filename = UUID.randomUUID().toString() + extension;
+            
+            // Create upload directory if not exists
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            
+            // Save file
+            Path filePath = uploadPath.resolve(filename);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            
+            // Return URL
+            String fileUrl = "/uploads/news-images/" + filename;
+            Map<String, String> response = new HashMap<>();
+            response.put("url", fileUrl);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of(ERROR_KEY, "Failed to upload file: " + e.getMessage()));
+        }
+    }
 
     /**
      * GET /api/news - Lấy danh sách tin tức (có phân trang)

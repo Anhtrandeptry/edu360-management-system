@@ -62,6 +62,9 @@ public class ClassService {
     @Autowired
     private CourseRepository courseRepository;
 
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository classEnrollmentRepository;
+
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
         // 1) Load & validate
@@ -239,8 +242,18 @@ public class ClassService {
      */
     @Transactional(readOnly = true)
     public List<ClassResponse> listClasses(Long teacherUserId, Long timeSlotId) {
+        System.out.println("📋 [LIST_CLASSES] Called with filters - teacherUserId: " + teacherUserId + ", timeSlotId: " + timeSlotId);
+
         // fetch base classes with teacher filter
         List<Clazz> classes = clazzRepository.findAllWithFilters(teacherUserId);
+        System.out.println("📚 [LIST_CLASSES] Found " + classes.size() + " classes after teacher filter");
+
+        // Log first few classes for debugging
+        classes.stream().limit(5).forEach(c
+                -> System.out.println("   Class: id=" + c.getId() + ", name=" + c.getName()
+                        + ", teacher=" + c.getTeacher().getUser().getFullName()
+                        + " (userId=" + c.getTeacher().getUser().getId() + ")")
+        );
 
         // Load ALL schedules once to avoid N+1 queries
         List<ClassSchedule> allSchedules = classScheduleRepository.findAll();
@@ -264,7 +277,18 @@ public class ClassService {
                 })
                 .map(c -> {
                     List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
-                    return classMapper.toResponse(c, classSchedules, 0);
+                    // Count current enrolled students
+                    int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
+                    ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
+                    response.setCurrentStudents(currentStudents);
+
+                    // Log each class being returned
+                    System.out.println("   ✅ Returning class: id=" + c.getId() + ", name=" + c.getName()
+                            + ", teacher=" + c.getTeacher().getUser().getFullName()
+                            + ", schedules=" + classSchedules.size()
+                            + ", students=" + currentStudents);
+
+                    return response;
                 })
                 .toList();
     }

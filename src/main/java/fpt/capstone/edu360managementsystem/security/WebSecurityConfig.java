@@ -79,6 +79,10 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/teachers/**").permitAll()
                 // Allow news endpoints for public access (GET only)
                 .requestMatchers("/api/news/**").permitAll()
+                // Allow file upload endpoints
+                .requestMatchers("/api/upload/**").permitAll()
+                // Allow serving uploaded files
+                .requestMatchers("/uploads/**").permitAll()
                 .anyRequest().authenticated()
                 );
 

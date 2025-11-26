@@ -77,8 +77,9 @@ public class AttendanceController {
             @AuthenticationPrincipal UserDetailsImpl user,
             @PathVariable Long classId,
             @RequestParam String date,
+            @RequestParam(required = false) Long slotId,
             @Valid @RequestBody AttendanceUpsertRequest body) {
-        attendanceService.upsertAttendanceByClassAndDate(user.getId(), classId, date, body);
+        attendanceService.upsertAttendanceByClassAndDate(user.getId(), classId, date, slotId, body);
         return ResponseEntity.ok("Đã lưu điểm danh.");
     }
 
@@ -90,9 +91,10 @@ public class AttendanceController {
     public ResponseEntity<AttendanceSessionDetailResponse> detailByClass(
             @AuthenticationPrincipal UserDetailsImpl user,
             @PathVariable Long classId,
-            @RequestParam String date) {
+            @RequestParam String date,
+            @RequestParam(required = false) Long slotId) {
         return ResponseEntity.ok(
-                attendanceService.getSessionDetailByClassAndDate(user.getId(), classId, date)
+                attendanceService.getSessionDetailByClassAndDate(user.getId(), classId, date, slotId)
         );
     }
 

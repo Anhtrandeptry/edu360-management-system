@@ -39,6 +39,7 @@ public class ClassResponse {
     // Derived display fields for class list cards
     private String subjectName;
     private String teacherFullName;
+    private String teacherAvatarUrl; // Avatar URL of the teacher
     private Long teacherUserId; // User ID of the teacher (for filtering in schedule)
     private String roomName;
     private Boolean online; // true nếu meetingLink != null
