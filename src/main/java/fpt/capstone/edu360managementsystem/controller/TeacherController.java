@@ -4,16 +4,23 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import fpt.capstone.edu360managementsystem.dto.request.TeacherProfileUpdateRequest;
 import fpt.capstone.edu360managementsystem.dto.response.BusySlotResponse;
+import fpt.capstone.edu360managementsystem.dto.response.TeacherProfileResponse;
 import fpt.capstone.edu360managementsystem.dto.response.TeacherResponse;
 import fpt.capstone.edu360managementsystem.service.ScheduleService;
 import fpt.capstone.edu360managementsystem.service.TeacherService;
+import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
+import jakarta.validation.Valid;
 
 /**
  * Controller for teacher-related operations. Provides free-busy schedule
@@ -73,5 +80,84 @@ public class TeacherController {
     public ResponseEntity<TeacherResponse> getTeacherByUserId(@PathVariable Long userId) {
         TeacherResponse resp = teacherService.getByUserId(userId);
         return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * GET /api/teachers/by-user/{userId}/profile
+     * Get public teacher profile by userId
+     * @param userId User ID of the teacher
+     * @return Teacher profile response with full details
+     */
+    @GetMapping("/by-user/{userId}/profile")
+    public ResponseEntity<TeacherProfileResponse> getTeacherProfileByUserId(@PathVariable Long userId) {
+        TeacherProfileResponse profile = teacherService.getTeacherProfile(userId);
+        return ResponseEntity.ok(profile);
+    }
+
+    /**
+     * GET /api/teachers/profile
+     * Get current teacher's profile information
+     * @param auth Spring Security authentication object
+     * @return Teacher profile response
+     */
+    @GetMapping("/profile")
+    public ResponseEntity<TeacherProfileResponse> getMyProfile(Authentication auth) {
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        // Extract userId from UserDetailsImpl
+        Long userId;
+        if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
+            org.springframework.security.core.userdetails.UserDetails userDetails = 
+                (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
+            
+            // UserDetailsImpl has getId() method
+            if (userDetails instanceof fpt.capstone.edu360managementsystem.service.UserDetailsImpl) {
+                userId = ((fpt.capstone.edu360managementsystem.service.UserDetailsImpl) userDetails).getId();
+            } else {
+                return ResponseEntity.status(401).build();
+            }
+        } else {
+            return ResponseEntity.status(401).build();
+        }
+        
+        TeacherProfileResponse profile = teacherService.getTeacherProfile(userId);
+        return ResponseEntity.ok(profile);
+    }
+
+    /**
+     * PUT /api/teachers/profile
+     * Update current teacher's profile information
+     * @param auth Spring Security authentication object
+     * @param request Profile update request
+     * @return Updated teacher profile response
+     */
+    @PutMapping("/profile")
+    public ResponseEntity<TeacherProfileResponse> updateMyProfile(
+            Authentication auth,
+            @Valid @RequestBody TeacherProfileUpdateRequest request
+    ) {
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        // Extract userId from UserDetailsImpl
+        Long userId;
+        if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
+            org.springframework.security.core.userdetails.UserDetails userDetails = 
+                (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
+            
+            if (userDetails instanceof fpt.capstone.edu360managementsystem.service.UserDetailsImpl) {
+                userId = ((fpt.capstone.edu360managementsystem.service.UserDetailsImpl) userDetails).getId();
+            } else {
+                return ResponseEntity.status(401).build();
+            }
+        } else {
+            return ResponseEntity.status(401).build();
+        }
+        
+        TeacherProfileResponse updated = teacherService.updateTeacherProfile(userId, request);
+        return ResponseEntity.ok(updated);
     }
 }

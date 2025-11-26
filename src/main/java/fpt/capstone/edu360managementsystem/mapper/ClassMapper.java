@@ -30,6 +30,7 @@ public interface ClassMapper {
                 .sessionsGenerated(sessionsGenerated)
                 .subjectName(entity.getSubject().getName())
                 .teacherFullName(entity.getTeacher().getUser().getFullName())
+                .teacherAvatarUrl(entity.getTeacher().getAvatarUrl())
                 .teacherUserId(entity.getTeacher().getUser().getId())
                 .roomName(entity.getRoom() != null ? entity.getRoom().getName() : null)
                 .online(entity.getMeetingLink() != null && !entity.getMeetingLink().isBlank())
