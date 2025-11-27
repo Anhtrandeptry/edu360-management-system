@@ -102,28 +102,28 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
   """)
     List<Clazz> findAllWithSchedules();
 
-    // Đếm số lớp (chưa COMPLETE) đang dùng subject
+    // Đếm số lớp (chưa ARCHIVED) đang dùng subject
     @Query("""
         select count(c) from Clazz c
         where c.subject.id = :subjectId
-          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveBySubject(Long subjectId);
 
-    // Đếm số lớp (chưa COMPLETE) đang dùng room
+    // Đếm số lớp (chưa ARCHIVED) đang dùng room
     @Query("""
         select count(c) from Clazz c
         where c.room.id = :roomId
-          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByRoom(Long roomId);
 
-    // Đếm số lớp (chưa COMPLETE) đang dạy bởi teacher (userId)
+    // Đếm số lớp (chưa ARCHIVED) đang dạy bởi teacher (userId)
     @Query("""
         select count(c) from Clazz c
         join c.teacher t
         where t.user.id = :teacherUserId
-          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByTeacherUser(Long teacherUserId);
 
@@ -131,7 +131,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
     @Query("""
         select count(c) from Clazz c
         where c.teacher.id = :teacherId
-          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByTeacherId(Long teacherId);
 }

@@ -58,14 +58,14 @@ public class ScheduleService {
         LocalDateTime to = parseIsoDateTime(toStr);
 
         // Find all class schedules where this teacher is teaching
-        // Only include classes that are active (not COMPLETE)
+        // Only include classes that are active (exclude ARCHIVED)
         List<ClassSchedule> schedules = classScheduleRepository.findAll().stream()
                 .filter(cs -> {
                     Clazz clazz = cs.getClazz();
                     return clazz != null
                             && clazz.getTeacher() != null
                             && teacher.getId().equals(clazz.getTeacher().getId())
-                            && clazz.getStatus() != ClassStatus.COMPLETE;
+                            && clazz.getStatus() != ClassStatus.ARCHIVED;
                 })
                 .toList();
 
@@ -94,14 +94,14 @@ public class ScheduleService {
         LocalDateTime to = parseIsoDateTime(toStr);
 
         // Find all class schedules using this room
-        // Only include classes that are active (not COMPLETE)
+        // Only include classes that are active (exclude ARCHIVED)
         List<ClassSchedule> schedules = classScheduleRepository.findAll().stream()
                 .filter(cs -> {
                     Clazz clazz = cs.getClazz();
                     return clazz != null
                             && clazz.getRoom() != null
                             && roomId.equals(clazz.getRoom().getId())
-                            && clazz.getStatus() != ClassStatus.COMPLETE;
+                            && clazz.getStatus() != ClassStatus.ARCHIVED;
                 })
                 .toList();
 

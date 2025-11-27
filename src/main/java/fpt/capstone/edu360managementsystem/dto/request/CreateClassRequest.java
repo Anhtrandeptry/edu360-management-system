@@ -20,14 +20,13 @@ public class CreateClassRequest {
     @NotNull
     private Long subjectId;
 
-    private Long courseId; // course thuộc subject
+    @NotNull
+    private Long courseId; // course thuộc subject (bắt buộc để tránh lỗi DB NOT NULL)
 
     @NotNull
     private Long teacherId;
 
     private Long roomId; // nullable for online classes
-
-
 
     @NotNull
     @Size(min = 1, message = "Select at least one schedule item")

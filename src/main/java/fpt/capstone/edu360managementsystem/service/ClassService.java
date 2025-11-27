@@ -241,7 +241,8 @@ public class ClassService {
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
                 .meetingLink(req.getMeetingLink())
-                .status(semester != null ? deriveClassStatus(semester) : ClassStatus.AVAILABLE)
+                // New lifecycle: default to DRAFT on creation
+                .status(ClassStatus.DRAFT)
                 .course(course)
                 .build();
 
@@ -360,14 +361,34 @@ public class ClassService {
     }
 
     private ClassStatus deriveClassStatus(Semester sem) {
+        // For new lifecycle, classes created are DRAFT by default; this helper is not used for status anymore
+        return ClassStatus.DRAFT;
+    }
+
+    public void publishClass(Long id) {
+        System.out.println("\uD83D\uDD0D [ClassService] publishClass id=" + id);
+        Clazz clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
+        System.out.println("   -> Current status=" + clazz.getStatus());
+        clazz.setStatus(ClassStatus.PUBLIC);
+        clazzRepository.save(clazz);
+        System.out.println("   -> New status=" + clazz.getStatus());
+    }
+
+    public void revertToDraft(Long id) {
+        System.out.println("\uD83D\uDD0D [ClassService] revertToDraft id=" + id);
+        Clazz clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
+        System.out.println("   -> Current status=" + clazz.getStatus());
         LocalDate today = LocalDate.now();
-        if (today.isBefore(sem.getStartDate())) {
-            return ClassStatus.COMING_SOON;
+        // Guard: if any session date is before today, cannot revert
+        boolean hasPastSession = classSessionRepository.existsByClazz_IdAndDateBefore(clazz.getId(), today);
+        System.out.println("   -> hasPastSessionBeforeToday=" + hasPastSession + ", today=" + today);
+        if (hasPastSession) {
+            System.out.println("   ✋ Revert blocked: sessions have started.");
+            throw new IllegalStateException("Cannot revert to DRAFT after sessions have started");
         }
-        if (today.isAfter(sem.getEndDate())) {
-            return ClassStatus.COMPLETE;
-        }
-        return ClassStatus.STUDYING;
+        clazz.setStatus(ClassStatus.DRAFT);
+        clazzRepository.save(clazz);
+        System.out.println("   -> New status=" + clazz.getStatus());
     }
 
     private String getDayName(int dayOfWeek) {
