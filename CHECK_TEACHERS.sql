@@ -1,1 +1,0 @@
-SELECT u.id as user_id, u.username, u.full_name, u.email, t.id as teacher_id, t.subject_id FROM users u LEFT JOIN teachers t ON u.user_id = t.user_id INNER JOIN user_roles ur ON u.id = ur.user_id INNER JOIN roles r ON ur.role_id = r.id WHERE r.name = 'ROLE_TEACHER'; 

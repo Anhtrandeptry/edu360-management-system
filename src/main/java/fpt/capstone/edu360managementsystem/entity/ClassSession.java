@@ -40,4 +40,7 @@ public class ClassSession {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SessionStatus status = SessionStatus.PLANNED;
+
+    @Column(columnDefinition = "TEXT")
+    private String lessonContent;  // Nội dung text buổi học do giáo viên ghi
 }

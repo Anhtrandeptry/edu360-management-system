@@ -161,7 +161,23 @@ public class ClassService {
         var teacherConflicts = clazzRepository.findTeacherConflictsByDateRange(
                 teacher.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
         if (!teacherConflicts.isEmpty()) {
-            throw new RuntimeException("Teacher has conflicting class schedules in this date range");
+            System.out.println("❌ [CONFLICT] Teacher conflict detected!");
+            System.out.println("   Teacher: " + teacher.getUser().getFullName() + " (ID: " + teacher.getId() + ")");
+            System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
+            System.out.println("   Requested days: " + dows.stream().map(this::getDayName).collect(Collectors.joining(", ")));
+            System.out.println("   Requested slots: " + slotIds);
+            System.out.println("   Conflicting classes:");
+            teacherConflicts.forEach(c -> {
+                var schedules = classScheduleRepository.findByClazz_Id(c.getId());
+                String scheduleInfo = schedules.stream()
+                        .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
+                        .collect(Collectors.joining(", "));
+                System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
+                        + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                        + " [" + scheduleInfo + "]");
+            });
+            throw new RuntimeException("Giáo viên " + teacher.getUser().getFullName()
+                    + " đã có lớp xung đột. Vui lòng chọn khung giờ hoặc ngày khác.");
         }
 
         // Check xung đột phòng (chỉ khi offline)
@@ -169,7 +185,23 @@ public class ClassService {
             var roomConflicts = clazzRepository.findRoomConflictsByDateRange(
                     room.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
             if (!roomConflicts.isEmpty()) {
-                throw new RuntimeException("Room has conflicting class schedules in this date range");
+                System.out.println("❌ [CONFLICT] Room conflict detected!");
+                System.out.println("   Room: " + room.getName() + " (ID: " + room.getId() + ")");
+                System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
+                System.out.println("   Requested days: " + dows.stream().map(this::getDayName).collect(Collectors.joining(", ")));
+                System.out.println("   Requested slots: " + slotIds);
+                System.out.println("   Conflicting classes:");
+                roomConflicts.forEach(c -> {
+                    var schedules = classScheduleRepository.findByClazz_Id(c.getId());
+                    String scheduleInfo = schedules.stream()
+                            .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
+                            .collect(Collectors.joining(", "));
+                    System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
+                            + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                            + " [" + scheduleInfo + "]");
+                });
+                throw new RuntimeException("Phòng " + room.getName()
+                        + " đã có lớp xung đột. Vui lòng chọn phòng, khung giờ hoặc ngày khác.");
             }
         }
 

@@ -1,9 +1,9 @@
 package fpt.capstone.edu360managementsystem.dto.response;
 
+import java.util.List;
+
 import lombok.Builder;
 import lombok.Data;
-
-import java.util.List;
 
 @Data
 @Builder
@@ -16,4 +16,5 @@ public class SessionContentResponse {
     private String courseTitle;
 
     private List<ChapterResponse> chapters;   // chỉ những chapter/lesson đã link
+    private String content;  // nội dung text buổi học (lesson_content)
 }

@@ -1,7 +1,23 @@
 package fpt.capstone.edu360managementsystem.controller;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import fpt.capstone.edu360managementsystem.dto.request.ChapterCreateRequest;
 import fpt.capstone.edu360managementsystem.dto.request.CourseCreateRequest;
+import fpt.capstone.edu360managementsystem.dto.request.CourseUpdateRequest;
 import fpt.capstone.edu360managementsystem.dto.request.LessonCreateRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ChapterResponse;
 import fpt.capstone.edu360managementsystem.dto.response.CourseResponse;
@@ -10,13 +26,6 @@ import fpt.capstone.edu360managementsystem.enums.CourseStatus;
 import fpt.capstone.edu360managementsystem.service.CourseService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/courses")
@@ -63,8 +72,26 @@ public class CourseController {
         return ResponseEntity.ok("Course approved");
     }
 
-    // --- Chapter & Lesson ---
+    // Admin từ chối course
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> rejectCourse(@PathVariable Long id) {
+        courseService.rejectCourse(id);
+        return ResponseEntity.ok("Course rejected");
+    }
 
+    // Update course (teacher/admin edit)
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<?> updateCourse(
+            @PathVariable Long id,
+            @RequestBody CourseUpdateRequest req
+    ) {
+        courseService.updateCourse(id, req);
+        return ResponseEntity.ok("Course updated and reset to PENDING");
+    }
+
+    // --- Chapter & Lesson ---
     @PostMapping("/chapters")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<ChapterResponse> createChapter(
