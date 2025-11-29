@@ -88,6 +88,15 @@ public class CourseService {
                 .toList();
     }
 
+    public List<CourseResponse> listCoursesOfTeacher(Long userId) {
+        Teacher teacher = teacherRepository.findByUserId(userId).orElse(null);
+        if (teacher == null) {
+            return List.of();
+        }
+        List<Course> courses = courseRepository.findByOwnerTeacher_Id(teacher.getId());
+        return courses.stream().map(c -> mapCourse(c, null)).toList();
+    }
+
     public CourseResponse getCourseDetail(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course not found"));
@@ -130,8 +139,8 @@ public class CourseService {
             course.setSubject(subject);
         }
 
-        // Reset status to PENDING after edit (requires re-approval)
-        course.setStatus(CourseStatus.PENDING);
+        // Giữ nguyên trạng thái hiện tại sau khi chỉnh sửa trong module cá nhân
+        // Nghiệp vụ mới: KHÔNG reset về PENDING
         courseRepository.save(course);
     }
 
@@ -162,6 +171,29 @@ public class CourseService {
                 .build();
         lesson = lessonRepository.save(lesson);
         return mapLesson(lesson);
+    }
+
+    // Xóa toàn bộ bài học trong chương rồi xóa chương
+    @Transactional
+    public void removeChapter(Long chapterId) {
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Chapter not found"));
+
+        List<CourseLesson> lessons = lessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapterId);
+        if (lessons != null && !lessons.isEmpty()) {
+            for (CourseLesson l : lessons) {
+                lessonRepository.delete(l);
+            }
+        }
+        chapterRepository.delete(chapter);
+    }
+
+    // Xóa một bài học
+    @Transactional
+    public void removeLesson(Long lessonId) {
+        CourseLesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        lessonRepository.delete(lesson);
     }
 
     // --- Mapping helpers ---

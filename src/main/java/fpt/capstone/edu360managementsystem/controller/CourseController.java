@@ -5,7 +5,9 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,6 +61,23 @@ public class CourseController {
         return ResponseEntity.ok(courseService.listCourses(subjectId, st));
     }
 
+    // Danh sách khóa học cá nhân của giáo viên hiện tại
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<List<CourseResponse>> listMyCourses(Authentication auth) {
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(401).build();
+        }
+        Long userId;
+        if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails userDetails
+                && userDetails instanceof fpt.capstone.edu360managementsystem.service.UserDetailsImpl impl) {
+            userId = impl.getId();
+        } else {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(courseService.listCoursesOfTeacher(userId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CourseResponse> getCourseDetail(@PathVariable Long id) {
         return ResponseEntity.ok(courseService.getCourseDetail(id));
@@ -106,5 +125,21 @@ public class CourseController {
             @Valid @RequestBody LessonCreateRequest req
     ) {
         return ResponseEntity.ok(courseService.createLesson(req));
+    }
+
+    // Remove chapter (and its lessons)
+    @DeleteMapping("/chapters/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<?> removeChapter(@PathVariable Long id) {
+        courseService.removeChapter(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // Remove single lesson
+    @DeleteMapping("/lessons/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<?> removeLesson(@PathVariable Long id) {
+        courseService.removeLesson(id);
+        return ResponseEntity.noContent().build();
     }
 }

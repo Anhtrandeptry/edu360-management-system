@@ -20,8 +20,8 @@ public class CreateClassRequest {
     @NotNull
     private Long subjectId;
 
-    @NotNull
-    private Long courseId; // course thuộc subject (bắt buộc để tránh lỗi DB NOT NULL)
+    // Cho phép tùy chọn: không chọn cũng không sao (Offline/Online)
+    private Long courseId; // optional: course thuộc subject (nullable)
 
     @NotNull
     private Long teacherId;
