@@ -14,7 +14,6 @@ import fpt.capstone.edu360managementsystem.dto.request.CreateTeacherCourseVersio
 import fpt.capstone.edu360managementsystem.dto.response.TeacherCourseVersionResponse;
 import fpt.capstone.edu360managementsystem.entity.Course;
 import fpt.capstone.edu360managementsystem.entity.TeacherCourseVersion;
-import fpt.capstone.edu360managementsystem.enums.CourseStatus;
 import fpt.capstone.edu360managementsystem.repository.CourseRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherCourseVersionRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
@@ -80,28 +79,15 @@ public class TeacherCourseVersionService {
         log.info("📌 Fetch personal course versions: baseCourseId={}, teacherId={}", baseCourseId, teacherId);
         log.info("➡ SQL Query executed => SELECT * FROM teacher_course_versions WHERE base_course_id={} AND teacher_id={} ", baseCourseId, teacherId);
 
+        // Chỉ trả về các phiên bản CÓ MAPPING đúng theo teacher_id + base_course_id.
+        // Không lọc theo status phê duyệt ở luồng khóa học cá nhân (theo nghiệp vụ mô tả),
+        // và KHÔNG dùng fallback, vì dropdown chỉ phải hiển thị đúng các phiên bản đã chỉnh từ khóa học gốc A-1.
         List<TeacherCourseVersion> mappings = teacherCourseVersionRepository
                 .findByBaseCourse_IdAndTeacher_Id(baseCourseId, teacherId);
 
         if (mappings == null || mappings.isEmpty()) {
-            // Fallback: return teacher-owned courses for the same subject as base course
-            Course baseCourse = courseRepository.findById(baseCourseId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học gốc"));
-
-            log.warn("❌ No explicit mappings found. Fallback to teacher-owned personal courses with same subject.");
-            var fallbackCourses = courseRepository
-                    .findByOwnerTeacher_IdAndSubject_IdAndStatus(teacherId, baseCourse.getSubject().getId(), CourseStatus.APPROVED);
-
-            log.info("🔍 Fallback found {} personal courses for subject {}", fallbackCourses.size(), baseCourse.getSubject().getId());
-            return fallbackCourses.stream()
-                    .map(tc -> TeacherCourseVersionResponse.builder()
-                    .id(null) // no mapping id
-                    .baseCourseId(baseCourseId)
-                    .teacherCourseId(tc.getId())
-                    .teacherId(teacherId)
-                    .teacherCourseTitle(tc.getTitle())
-                    .build())
-                    .toList();
+            log.warn("❌ Không tìm thấy phiên bản cá nhân đã ghép cho baseCourseId={} và teacherId={}", baseCourseId, teacherId);
+            return List.of();
         }
 
         // Log summary and per-item mapping

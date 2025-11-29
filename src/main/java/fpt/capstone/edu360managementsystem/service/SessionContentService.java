@@ -20,11 +20,13 @@ import fpt.capstone.edu360managementsystem.entity.Course;
 import fpt.capstone.edu360managementsystem.entity.CourseChapter;
 import fpt.capstone.edu360managementsystem.entity.CourseLesson;
 import fpt.capstone.edu360managementsystem.entity.SessionChapter;
+import fpt.capstone.edu360managementsystem.entity.SessionContentConfig;
 import fpt.capstone.edu360managementsystem.entity.SessionLesson;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionContentConfigRepository;
 import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherCourseVersionRepository;
 
@@ -45,6 +47,8 @@ public class SessionContentService {
     private CourseLessonRepository lessonRepository;
     @Autowired
     private TeacherCourseVersionRepository teacherCourseVersionRepository;
+    @Autowired
+    private SessionContentConfigRepository sessionContentConfigRepository;
 
     @Transactional
     public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, SessionContentUpsertRequest req) {
@@ -157,6 +161,32 @@ public class SessionContentService {
         log.info("💾 Saving lesson content: length={}", req.getContent() != null ? req.getContent().length() : 0);
         session.setLessonContent(req.getContent());
         classSessionRepository.save(session);
+
+        // Persist explicit configuration: sourceType, course ids, chapter/lesson
+        String sourceType = req.getSourceType();
+        Long baseCourseId = (sourceType != null && sourceType.equalsIgnoreCase("ADMIN")) ? course.getId() : req.getCourseId();
+        Long teacherCourseId = (sourceType != null && sourceType.equalsIgnoreCase("PERSONAL")) ? req.getTeacherCourseId() : null;
+        // Fallback to the first ids from arrays if single fields not provided
+        Long selectedChapterId = req.getChapterId() != null ? req.getChapterId() : (req.getChapterIds() != null && !req.getChapterIds().isEmpty() ? req.getChapterIds().get(0) : null);
+        Long selectedLessonId = req.getLessonId() != null ? req.getLessonId() : (req.getLessonIds() != null && !req.getLessonIds().isEmpty() ? req.getLessonIds().get(0) : null);
+
+        if (sourceType == null) {
+            // Infer sourceType from links if not provided
+            sourceType = (selectedChapterId != null) ? (chapterRepository.findById(selectedChapterId)
+                    .map(ch -> ch.getCourse().getId().equals(course.getId()) ? "ADMIN" : "PERSONAL")
+                    .orElse("ADMIN")) : "ADMIN";
+        }
+
+        var existingOpt = sessionContentConfigRepository.findBySession_Id(sessionId);
+        SessionContentConfig cfg = existingOpt.orElseGet(() -> SessionContentConfig.builder()
+                .session(session)
+                .build());
+        cfg.setSourceType(sourceType);
+        cfg.setBaseCourseId(baseCourseId != null ? baseCourseId : course.getId());
+        cfg.setTeacherCourseId(teacherCourseId);
+        cfg.setChapterId(selectedChapterId);
+        cfg.setLessonId(selectedLessonId);
+        sessionContentConfigRepository.save(cfg);
         log.info("🟢 COMPLETED upsertSessionContent successfully");
     }
 
@@ -174,18 +204,13 @@ public class SessionContentService {
         }
         log.info("✅ Course found: id={}, title={}", course.getId(), course.getTitle());
 
-        log.info("📚 Loading SessionChapters for sessionId={}", sessionId);
+        // Load existing links
         List<SessionChapter> scs = sessionChapterRepository.findBySession_Id(sessionId);
-        log.info("✅ Found {} SessionChapters", scs.size());
-
-        log.info("📖 Loading SessionLessons for sessionId={}", sessionId);
         List<SessionLesson> sls = sessionLessonRepository.findBySession_Id(sessionId);
-        log.info("✅ Found {} SessionLessons", sls.size());
 
         var chapterIds = scs.stream().map(sc -> sc.getChapter().getId()).distinct().toList();
         var lessonIds = sls.stream().map(sl -> sl.getLesson().getId()).distinct().toList();
 
-        // load chapters + lessons theo danh sách đã link
         List<CourseChapter> chapters = chapterRepository.findAllById(chapterIds);
         List<CourseLesson> lessons = lessonRepository.findAllById(lessonIds);
 
@@ -202,7 +227,7 @@ public class SessionContentService {
                     .toList();
             return ChapterResponse.builder()
                     .id(ch.getId())
-                    .courseId(course.getId())
+                    .courseId(ch.getCourse().getId())
                     .title(ch.getTitle())
                     .description(ch.getDescription())
                     .orderIndex(ch.getOrderIndex())
@@ -210,14 +235,49 @@ public class SessionContentService {
                     .build();
         }).toList();
 
+        Long baseCourseId = course.getId();
+        var linkedCourseIds = chapters.stream().map(ch -> ch.getCourse().getId()).distinct().toList();
+        String inferredSourceType;
+        Long inferredSelectedCourseId;
+        if (linkedCourseIds.isEmpty() || (linkedCourseIds.size() == 1 && linkedCourseIds.get(0).equals(baseCourseId))) {
+            inferredSourceType = "ADMIN";
+            inferredSelectedCourseId = baseCourseId;
+        } else {
+            inferredSourceType = "PERSONAL";
+            inferredSelectedCourseId = linkedCourseIds.stream().filter(id -> !id.equals(baseCourseId)).findFirst().orElse(baseCourseId);
+        }
+
+        var cfgOpt = sessionContentConfigRepository.findBySession_Id(session.getId());
+        String respSourceType = null;
+        Long respSelectedCourseId = null;
+        Long respTeacherCourseId = null;
+        Long respChapterId = null;
+        Long respLessonId = null;
+        if (cfgOpt.isPresent()) {
+            var cfg = cfgOpt.get();
+            respSourceType = cfg.getSourceType();
+            respSelectedCourseId = (respSourceType != null && respSourceType.equalsIgnoreCase("PERSONAL")) ? cfg.getTeacherCourseId() : course.getId();
+            respTeacherCourseId = cfg.getTeacherCourseId();
+            respChapterId = cfg.getChapterId();
+            respLessonId = cfg.getLessonId();
+        }
+
         return SessionContentResponse.builder()
                 .sessionId(session.getId())
                 .classId(session.getClazz().getId())
                 .className(session.getClazz().getName())
                 .subjectName(session.getClazz().getSubject().getName())
                 .courseTitle(course.getTitle())
+                .baseCourseId(baseCourseId)
+                .sourceType(respSourceType != null ? respSourceType : inferredSourceType)
+                .selectedCourseId(respSelectedCourseId != null ? respSelectedCourseId : inferredSelectedCourseId)
+                .teacherCourseId(respTeacherCourseId)
+                .chapterId(respChapterId)
+                .lessonId(respLessonId)
+                .linkedChapterIds(chapterIds)
+                .linkedLessonIds(lessonIds)
                 .chapters(chapterResponses)
-                .content(session.getLessonContent()) // thêm nội dung text
+                .content(session.getLessonContent())
                 .build();
     }
 
