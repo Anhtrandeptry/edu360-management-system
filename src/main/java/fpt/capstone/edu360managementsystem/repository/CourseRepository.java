@@ -17,4 +17,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     // Các khóa học cá nhân thuộc một giáo viên (teacher ownership)
     List<Course> findByOwnerTeacher_Id(Long teacherId);
+
+    // Các khóa học cá nhân thuộc giáo viên theo cùng môn học và trạng thái
+    List<Course> findByOwnerTeacher_IdAndSubject_IdAndStatus(Long teacherId, Long subjectId, CourseStatus status);
 }
