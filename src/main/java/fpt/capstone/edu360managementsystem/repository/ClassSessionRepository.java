@@ -34,4 +34,9 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     Optional<ClassSession> findByClazz_IdAndDateAndTimeSlot_Id(Long classId, LocalDate date, Long timeSlotId);
 
     List<ClassSession> findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
+
+    // ClassSessionRepository.java
+
+    long countByClazz_Id(Long classId);
+
 }

@@ -190,6 +190,7 @@ public class ClassService {
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
                 .meetingLink(req.getMeetingLink())
+                .pricePerSession(req.getPricePerSession())
                 .status(semester != null ? deriveClassStatus(semester) : ClassStatus.AVAILABLE)
                 .course(course)
                 .build();
