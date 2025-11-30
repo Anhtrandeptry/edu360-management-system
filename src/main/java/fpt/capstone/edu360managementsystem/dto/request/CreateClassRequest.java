@@ -42,6 +42,10 @@ public class CreateClassRequest {
     private String meetingLink; // optional, for online classes
 
     @NotNull
+    @Min(0)
+    private Long pricePerSession;
+
+    @NotNull
     private LocalDate startDate; // required
     @NotNull
     private LocalDate endDate; // required //Fix to fit with service

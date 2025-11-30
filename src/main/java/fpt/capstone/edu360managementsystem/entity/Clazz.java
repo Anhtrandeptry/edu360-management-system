@@ -73,4 +73,9 @@ public class Clazz {
     @ManyToOne(optional = true)
     @JoinColumn(name = "course_id")
     private Course course;
+
+
+    @Column(nullable = false)
+    private Long pricePerSession; // giá 1 buổi, đơn vị: VND
+
 }
