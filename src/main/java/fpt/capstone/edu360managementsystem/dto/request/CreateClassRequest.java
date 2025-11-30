@@ -20,14 +20,13 @@ public class CreateClassRequest {
     @NotNull
     private Long subjectId;
 
-    private Long courseId; // course thuộc subject
+    // Cho phép tùy chọn: không chọn cũng không sao (Offline/Online)
+    private Long courseId; // optional: course thuộc subject (nullable)
 
     @NotNull
     private Long teacherId;
 
     private Long roomId; // nullable for online classes
-
-
 
     @NotNull
     @Size(min = 1, message = "Select at least one schedule item")

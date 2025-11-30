@@ -8,18 +8,35 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
+import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
+import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
+import fpt.capstone.edu360managementsystem.entity.ClassSession;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Course;
+import fpt.capstone.edu360managementsystem.entity.Room;
+import fpt.capstone.edu360managementsystem.entity.Semester;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.TimeSlot;
 import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 import fpt.capstone.edu360managementsystem.enums.SessionStatus;
 import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
+import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
+import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.RoomRepository;
+import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
 
 @Service
 public class ClassService {
@@ -45,6 +62,9 @@ public class ClassService {
 
     @Autowired
     private CourseRepository courseRepository;
+
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository classEnrollmentRepository;
 
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
@@ -142,7 +162,23 @@ public class ClassService {
         var teacherConflicts = clazzRepository.findTeacherConflictsByDateRange(
                 teacher.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
         if (!teacherConflicts.isEmpty()) {
-            throw new RuntimeException("Teacher has conflicting class schedules in this date range");
+            System.out.println("❌ [CONFLICT] Teacher conflict detected!");
+            System.out.println("   Teacher: " + teacher.getUser().getFullName() + " (ID: " + teacher.getId() + ")");
+            System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
+            System.out.println("   Requested days: " + dows.stream().map(this::getDayName).collect(Collectors.joining(", ")));
+            System.out.println("   Requested slots: " + slotIds);
+            System.out.println("   Conflicting classes:");
+            teacherConflicts.forEach(c -> {
+                var schedules = classScheduleRepository.findByClazz_Id(c.getId());
+                String scheduleInfo = schedules.stream()
+                        .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
+                        .collect(Collectors.joining(", "));
+                System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
+                        + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                        + " [" + scheduleInfo + "]");
+            });
+            throw new RuntimeException("Giáo viên " + teacher.getUser().getFullName()
+                    + " đã có lớp xung đột. Vui lòng chọn khung giờ hoặc ngày khác.");
         }
 
         // Check xung đột phòng (chỉ khi offline)
@@ -150,7 +186,23 @@ public class ClassService {
             var roomConflicts = clazzRepository.findRoomConflictsByDateRange(
                     room.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
             if (!roomConflicts.isEmpty()) {
-                throw new RuntimeException("Room has conflicting class schedules in this date range");
+                System.out.println("❌ [CONFLICT] Room conflict detected!");
+                System.out.println("   Room: " + room.getName() + " (ID: " + room.getId() + ")");
+                System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
+                System.out.println("   Requested days: " + dows.stream().map(this::getDayName).collect(Collectors.joining(", ")));
+                System.out.println("   Requested slots: " + slotIds);
+                System.out.println("   Conflicting classes:");
+                roomConflicts.forEach(c -> {
+                    var schedules = classScheduleRepository.findByClazz_Id(c.getId());
+                    String scheduleInfo = schedules.stream()
+                            .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
+                            .collect(Collectors.joining(", "));
+                    System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
+                            + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                            + " [" + scheduleInfo + "]");
+                });
+                throw new RuntimeException("Phòng " + room.getName()
+                        + " đã có lớp xung đột. Vui lòng chọn phòng, khung giờ hoặc ngày khác.");
             }
         }
 
@@ -190,8 +242,8 @@ public class ClassService {
                 .maxStudents(maxStudents)
                 .description(req.getDescription())
                 .meetingLink(req.getMeetingLink())
-                .pricePerSession(req.getPricePerSession())
-                .status(semester != null ? deriveClassStatus(semester) : ClassStatus.AVAILABLE)
+                // New lifecycle: default to DRAFT on creation
+                .status(ClassStatus.DRAFT)
                 .course(course)
                 .build();
 
@@ -224,8 +276,18 @@ public class ClassService {
      */
     @Transactional(readOnly = true)
     public List<ClassResponse> listClasses(Long teacherUserId, Long timeSlotId) {
+        System.out.println("📋 [LIST_CLASSES] Called with filters - teacherUserId: " + teacherUserId + ", timeSlotId: " + timeSlotId);
+
         // fetch base classes with teacher filter
         List<Clazz> classes = clazzRepository.findAllWithFilters(teacherUserId);
+        System.out.println("📚 [LIST_CLASSES] Found " + classes.size() + " classes after teacher filter");
+
+        // Log first few classes for debugging
+        classes.stream().limit(5).forEach(c
+                -> System.out.println("   Class: id=" + c.getId() + ", name=" + c.getName()
+                        + ", teacher=" + c.getTeacher().getUser().getFullName()
+                        + " (userId=" + c.getTeacher().getUser().getId() + ")")
+        );
 
         // Load ALL schedules once to avoid N+1 queries
         List<ClassSchedule> allSchedules = classScheduleRepository.findAll();
@@ -249,9 +311,30 @@ public class ClassService {
                 })
                 .map(c -> {
                     List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
-                    return classMapper.toResponse(c, classSchedules, 0);
+                    // Count current enrolled students
+                    int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
+                    ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
+                    response.setCurrentStudents(currentStudents);
+
+                    // Log each class being returned
+                    System.out.println("   ✅ Returning class: id=" + c.getId() + ", name=" + c.getName()
+                            + ", teacher=" + c.getTeacher().getUser().getFullName()
+                            + ", schedules=" + classSchedules.size()
+                            + ", students=" + currentStudents);
+
+                    return response;
                 })
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ClassResponse getClassById(Long id) {
+        var clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
+        var schedules = classScheduleRepository.findByClazz_Id(id);
+        int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
+        ClassResponse response = classMapper.toResponse(clazz, schedules, 0);
+        response.setCurrentStudents(currentStudents);
+        return response;
     }
 
     private List<ClassSession> generateSessionsByDateRange(Clazz clazz, Room room,
@@ -289,14 +372,219 @@ public class ClassService {
     }
 
     private ClassStatus deriveClassStatus(Semester sem) {
+        // For new lifecycle, classes created are DRAFT by default; this helper is not used for status anymore
+        return ClassStatus.DRAFT;
+    }
+
+    public void publishClass(Long id) {
+        System.out.println("\uD83D\uDD0D [ClassService] publishClass id=" + id);
+        Clazz clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
+        System.out.println("   -> Current status=" + clazz.getStatus());
+        clazz.setStatus(ClassStatus.PUBLIC);
+        clazzRepository.save(clazz);
+        System.out.println("   -> New status=" + clazz.getStatus());
+    }
+
+    public void revertToDraft(Long id) {
+        System.out.println("\uD83D\uDD0D [ClassService] revertToDraft id=" + id);
+        Clazz clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
+        System.out.println("   -> Current status=" + clazz.getStatus());
         LocalDate today = LocalDate.now();
-        if (today.isBefore(sem.getStartDate())) {
-            return ClassStatus.COMING_SOON;
+        // Guard: if any session date is before today, cannot revert
+        boolean hasPastSession = classSessionRepository.existsByClazz_IdAndDateBefore(clazz.getId(), today);
+        System.out.println("   -> hasPastSessionBeforeToday=" + hasPastSession + ", today=" + today);
+        if (hasPastSession) {
+            System.out.println("   ✋ Revert blocked: sessions have started.");
+            throw new IllegalStateException("Cannot revert to DRAFT after sessions have started");
         }
-        if (today.isAfter(sem.getEndDate())) {
-            return ClassStatus.COMPLETE;
+        clazz.setStatus(ClassStatus.DRAFT);
+        clazzRepository.save(clazz);
+        System.out.println("   -> New status=" + clazz.getStatus());
+    }
+
+    @Transactional
+    public ClassResponse updateClass(Long id, UpdateClassRequest req) {
+        var clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
+
+        boolean isDraft = clazz.getStatus() == ClassStatus.DRAFT;
+        LocalDate today = LocalDate.now();
+        boolean upcoming = clazz.getStartDate() == null || clazz.getStartDate().isAfter(today);
+
+        // Only a subset allowed for PUBLIC/active
+        if (!isDraft || !upcoming) {
+            // Update room (null => online)
+            Room room = null;
+            if (req.getRoomId() != null) {
+                room = roomRepository.findById(req.getRoomId()).orElseThrow(() -> new RuntimeException("Room not found"));
+            }
+            clazz.setRoom(room);
+
+            // Update maxStudents
+            if (req.getMaxStudents() != null) {
+                int max = req.getMaxStudents();
+                if (room != null && max > room.getCapacity()) {
+                    throw new IllegalStateException("maxStudents cannot exceed room capacity");
+                }
+                clazz.setMaxStudents(max);
+            }
+
+            // Allow meetingLink update for PUBLIC online classes
+            if (req.getMeetingLink() != null) {
+                clazz.setMeetingLink(req.getMeetingLink());
+            }
+        } else {
+            // Full edit for upcoming drafts
+            if (req.getName() != null) {
+                clazz.setName(req.getName());
+            }
+            if (req.getDescription() != null) {
+                clazz.setDescription(req.getDescription());
+            }
+            if (req.getMeetingLink() != null) {
+                clazz.setMeetingLink(req.getMeetingLink());
+            }
+
+            // Subject / Course / Teacher updates (chỉ khi DRAFT và chưa bắt đầu)
+            if (req.getSubjectId() != null) {
+                Subject subject = subjectRepository.findById(req.getSubjectId())
+                        .orElseThrow(() -> new RuntimeException("Subject not found"));
+                if (subject.getStatus() != fpt.capstone.edu360managementsystem.enums.SubjectStatus.AVAILABLE) {
+                    throw new RuntimeException("Subject is not available");
+                }
+                clazz.setSubject(subject);
+                // Course phải thuộc subject
+                if (req.getCourseId() != null) {
+                    Course course = courseRepository.findById(req.getCourseId())
+                            .orElseThrow(() -> new RuntimeException("Course not found"));
+                    if (!course.getSubject().getId().equals(subject.getId())) {
+                        throw new RuntimeException("Course does not belong to selected subject");
+                    }
+                    if (course.getStatus() != fpt.capstone.edu360managementsystem.enums.CourseStatus.APPROVED) {
+                        throw new RuntimeException("Course is not approved");
+                    }
+                    clazz.setCourse(course);
+                } else {
+                    clazz.setCourse(null);
+                }
+            } else if (req.getCourseId() != null) {
+                // Nếu không đổi subject nhưng đổi course, vẫn kiểm tra quan hệ
+                Course course = courseRepository.findById(req.getCourseId())
+                        .orElseThrow(() -> new RuntimeException("Course not found"));
+                if (!course.getSubject().getId().equals(clazz.getSubject().getId())) {
+                    throw new RuntimeException("Course does not belong to current subject");
+                }
+                if (course.getStatus() != fpt.capstone.edu360managementsystem.enums.CourseStatus.APPROVED) {
+                    throw new RuntimeException("Course is not approved");
+                }
+                clazz.setCourse(course);
+            }
+
+            if (req.getTeacherId() != null) {
+                Teacher teacher = teacherRepository.findByUserId(req.getTeacherId())
+                        .orElseThrow(() -> new RuntimeException("Teacher not found with userId: " + req.getTeacherId()));
+                // Kiểm tra teacher dạy được subject hiện tại
+                Subject subject = clazz.getSubject();
+                boolean teachesSubject = false;
+                if (teacher.getSubject() != null && teacher.getSubject().getId().equals(subject.getId())) {
+                    teachesSubject = true;
+                } else if (teacher.getSubjects() != null) {
+                    teachesSubject = teacher.getSubjects().stream().anyMatch(s -> s.getId().equals(subject.getId()));
+                }
+                if (!teachesSubject) {
+                    throw new RuntimeException("Teacher does not teach the selected subject");
+                }
+                clazz.setTeacher(teacher);
+            }
+
+            // Room/online switch
+            Room room = null;
+            if (req.getRoomId() != null) {
+                room = roomRepository.findById(req.getRoomId()).orElseThrow(() -> new RuntimeException("Room not found"));
+            }
+            clazz.setRoom(room);
+
+            if (req.getMaxStudents() != null) {
+                int max = req.getMaxStudents();
+                if (room != null && max > room.getCapacity()) {
+                    throw new IllegalStateException("maxStudents cannot exceed room capacity");
+                }
+                clazz.setMaxStudents(max);
+            }
+
+            // Allow adjusting dates simply (without regenerating sessions here)
+            if (req.getStartDate() != null) {
+                clazz.setStartDate(req.getStartDate());
+            }
+            if (req.getEndDate() != null) {
+                clazz.setEndDate(req.getEndDate());
+            }
+
+            // Lịch & totalSessions: nếu có gửi schedule mới thì cập nhật lại lịch + tính endDate nếu cần
+            boolean scheduleChanged = req.getSchedule() != null && !req.getSchedule().isEmpty();
+            Integer totalSessions = req.getTotalSessions();
+            if (scheduleChanged) {
+                // Xóa lịch cũ
+                var oldSchedules = classScheduleRepository.findByClazz_Id(id);
+                classScheduleRepository.deleteAll(oldSchedules);
+                // Tạo lịch mới
+                List<ClassSchedule> newSchedules = req.getSchedule().stream().map(si -> {
+                    // FE đang gửi dayOfWeek theo chuẩn 1..7? Nếu FE gửi 1..7 thì convert sang 1..7 cho entity.
+                    // Nếu FE gửi 0..6 (0=CN) thì chuyển 0->7.
+                    int dow = si.getDayOfWeek();
+                    if (dow == 0) {
+                        dow = 7; // normalize Sunday
+
+                                        }TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
+                            .orElseThrow(() -> new RuntimeException("Invalid time slot id: " + si.getTimeSlotId()));
+                    return ClassSchedule.builder()
+                            .clazz(clazz)
+                            .dayOfWeek(dow)
+                            .timeSlot(slot)
+                            .build();
+                }).toList();
+                classScheduleRepository.saveAll(newSchedules);
+
+                // Re-calc endDate nếu không được gửi trực tiếp nhưng có totalSessions
+                if (totalSessions != null && totalSessions > 0 && (req.getEndDate() == null)) {
+                    // Map slots per day
+                    var slotsPerDay = newSchedules.stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
+                    LocalDate newEnd = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay);
+                    clazz.setEndDate(newEnd);
+                }
+
+                // Regenerate sessions nếu có totalSessions mới
+                if (totalSessions != null && totalSessions > 0) {
+                    // Xóa session cũ (chưa bắt đầu nên an toàn)
+                    var oldSessions = classSessionRepository.findByClazz_Id(id);
+                    classSessionRepository.deleteAll(oldSessions);
+                    var slotsPerDay2 = classScheduleRepository.findByClazz_Id(id).stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
+                    LocalDate endDateEffective = clazz.getEndDate();
+                    // Nếu endDate chưa tính hoặc null, fallback tính lại
+                    if (endDateEffective == null) {
+                        endDateEffective = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay2);
+                        clazz.setEndDate(endDateEffective);
+                    }
+                    // Generate sessions mới
+                    List<ClassSchedule> currentSchedules = classScheduleRepository.findByClazz_Id(id);
+                    Room currentRoom = clazz.getRoom();
+                    List<ClassSession> regenerated = generateSessionsByDateRange(clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(), currentSchedules, totalSessions);
+                    classSessionRepository.saveAll(regenerated);
+                }
+            } else if (totalSessions != null && totalSessions > 0 && req.getStartDate() != null && req.getEndDate() == null) {
+                // Không đổi lịch nhưng muốn tính lại endDate dựa trên totalSessions mới
+                var existingSchedules = classScheduleRepository.findByClazz_Id(id);
+                var slotsPerDay = existingSchedules.stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
+                LocalDate newEnd = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay);
+                clazz.setEndDate(newEnd);
+            }
         }
-        return ClassStatus.STUDYING;
+
+        clazzRepository.save(clazz);
+        var schedules = classScheduleRepository.findByClazz_Id(id);
+        int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
+        ClassResponse response = classMapper.toResponse(clazz, schedules, 0);
+        response.setCurrentStudents(currentStudents);
+        return response;
     }
 
     private String getDayName(int dayOfWeek) {

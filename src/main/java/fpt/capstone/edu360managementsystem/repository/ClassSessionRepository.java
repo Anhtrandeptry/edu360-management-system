@@ -35,8 +35,8 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     List<ClassSession> findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
 
-    // ClassSessionRepository.java
+    boolean existsByClazz_IdAndDateBefore(Long classId, LocalDate date);
 
-    long countByClazz_Id(Long classId);
-
+    // Thêm tiện ích lấy toàn bộ session theo class để xoá/regenerate khi chỉnh sửa draft
+    List<ClassSession> findByClazz_Id(Long classId);
 }

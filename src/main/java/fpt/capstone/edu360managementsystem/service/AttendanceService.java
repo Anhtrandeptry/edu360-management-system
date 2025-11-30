@@ -160,14 +160,24 @@ public class AttendanceService {
      * Chấm điểm danh theo classId và date
      */
     @Transactional
-    public void upsertAttendanceByClassAndDate(Long userId, Long classId, String dateStr, AttendanceUpsertRequest req) {
+    public void upsertAttendanceByClassAndDate(Long userId, Long classId, String dateStr, Long slotId, AttendanceUpsertRequest req) {
         LocalDate date = LocalDate.parse(dateStr);
 
-        // Find session by classId and date
-        ClassSession session = classSessionRepository.findAll().stream()
-                .filter(s -> s.getClazz().getId().equals(classId) && s.getDate().isEqual(date))
-                .findFirst()
-                .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException("Không có buổi học nào cho lớp này vào ngày đã chọn."));
+        // Find session by classId, date, and optionally slotId
+        ClassSession session;
+        if (slotId != null) {
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                            "Không có buổi học nào cho lớp này vào ngày đã chọn với slot này."));
+        } else {
+            // Fallback to first session of the day if no slotId provided
+            List<ClassSession> sameDaySessions = classSessionRepository.findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (sameDaySessions.isEmpty()) {
+                throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                        "Không có buổi học nào cho lớp này vào ngày đã chọn.");
+            }
+            session = sameDaySessions.get(0);
+        }
 
         // Verify teacher ownership
         if (!session.getClazz().getTeacher().getUser().getId().equals(userId)) {
@@ -204,11 +214,98 @@ public class AttendanceService {
     /**
      * Lấy chi tiết điểm danh theo classId và date (cho FE load lại)
      */
-    public AttendanceSessionDetailResponse getSessionDetailByClassAndDate(Long userId, Long classId, String dateStr) {
-        LocalDate date = LocalDate.parse(dateStr);
-        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException("Không có buổi học nào cho lớp này vào ngày đã chọn."));
+    public AttendanceSessionDetailResponse getSessionDetailByClassAndDate(Long userId, Long classId, String dateStr, Long slotId) {
+        System.out.println("🔍 getSessionDetailByClassAndDate called: userId=" + userId + ", classId=" + classId + ", date=" + dateStr + ", slotId=" + slotId);
+        
+        LocalDate date;
+        try {
+            date = LocalDate.parse(dateStr);
+        } catch (Exception e) {
+            System.err.println("❌ Error parsing date: " + dateStr);
+            throw new RuntimeException("Invalid date format: " + dateStr);
+        }
 
+        // Try to find an existing session for the class on the date with slotId if provided
+        ClassSession session = null;
+        if (slotId != null) {
+            System.out.println("🔎 Looking for session with slotId: " + slotId);
+            session = classSessionRepository
+                    .findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElse(null);
+            System.out.println("📍 Found session by slotId: " + (session != null ? session.getId() : "null"));
+        }
+
+        // If multiple sessions in a day and no slotId, pick the first one (time slot order)
+        if (session == null) {
+            System.out.println("🔎 Looking for sessions on date without slotId");
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            System.out.println("📍 Found " + sameDay.size() + " sessions on this date");
+            if (!sameDay.isEmpty()) {
+                session = sameDay.get(0);
+                System.out.println("📍 Using first session: " + session.getId());
+            }
+        }
+
+        // If still not found, try to create session from ClassSchedule (but ensure teacher ownership)
+        if (session == null) {
+            System.out.println("⚠️ No existing session found, attempting to create new session...");
+            
+            Clazz clazz = clazzRepository.findById(classId)
+                    .orElseThrow(() -> {
+                        System.err.println("❌ Class not found: " + classId);
+                        return new RuntimeException("Không tìm thấy lớp học");
+                    });
+
+            System.out.println("📚 Found class: " + clazz.getName() + ", Teacher: " + clazz.getTeacher().getUser().getFullName());
+
+            // Ownership check: only class teacher can create session here
+            if (!clazz.getTeacher().getUser().getId().equals(userId)) {
+                System.err.println("❌ Ownership check failed: userId=" + userId + ", teacherUserId=" + clazz.getTeacher().getUser().getId());
+                throw new RuntimeException("Not owner of this class");
+            }
+            
+            System.out.println("✅ Ownership check passed");
+
+            int dayOfWeek = date.getDayOfWeek().getValue();
+            System.out.println("📅 Looking for schedule on dayOfWeek: " + dayOfWeek + ", slotId: " + slotId);
+            
+            List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(classId);
+            System.out.println("📋 Found " + schedules.size() + " schedules for class");
+
+            // Filter by slotId if provided, otherwise pick first matching schedule for the day
+            List<ClassSchedule> matchingSchedules = schedules.stream()
+                    .filter(s -> {
+                        boolean dayMatch = s.getDayOfWeek() == dayOfWeek;
+                        boolean slotMatch = slotId == null || s.getTimeSlot().getId().equals(slotId);
+                        System.out.println("   Schedule check: dayOfWeek=" + s.getDayOfWeek() + " (match:" + dayMatch + "), slotId=" + s.getTimeSlot().getId() + " (match:" + slotMatch + ")");
+                        return dayMatch && slotMatch;
+                    })
+                    .toList();
+
+            System.out.println("✅ Matching schedules: " + matchingSchedules.size());
+
+            if (matchingSchedules.isEmpty()) {
+                System.err.println("❌ No matching schedule found for dayOfWeek=" + dayOfWeek + ", slotId=" + slotId);
+                throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                        "Không có lịch học nào cho lớp này vào ngày đã chọn (thứ " + dayOfWeek + ").");
+            }
+
+            // If multiple schedules match and no slotId, pick the first one
+            ClassSchedule matchingSchedule = matchingSchedules.get(0);
+            System.out.println("✅ Using schedule with timeSlot: " + matchingSchedule.getTimeSlot().getId());
+
+            ClassSession newSession = new ClassSession();
+            newSession.setClazz(clazz);
+            newSession.setDate(date);
+            newSession.setDayOfWeek(dayOfWeek);
+            newSession.setTimeSlot(matchingSchedule.getTimeSlot());
+            newSession.setRoom(clazz.getRoom());
+            session = classSessionRepository.save(newSession);
+            System.out.println("✅ Created new session: " + session.getId());
+        }
+
+        // Final ownership verification
         if (!session.getClazz().getTeacher().getUser().getId().equals(userId)) {
             throw new RuntimeException("Not owner of this class");
         }
@@ -232,7 +329,7 @@ public class AttendanceService {
                 .classId(session.getClazz().getId())
                 .className(session.getClazz().getName())
                 .subjectName(session.getClazz().getSubject().getName())
-                .roomName(session.getRoom().getName())
+                .roomName(session.getRoom() != null ? session.getRoom().getName() : "N/A")
                 .timeStart(session.getTimeSlot().getStartTime().toString())
                 .timeEnd(session.getTimeSlot().getEndTime().toString())
                 .students(students)
@@ -247,7 +344,7 @@ public class AttendanceService {
     @Transactional
     public AttendanceSessionDetailResponse getSessionDetailByClassAndDateForAdmin(Long classId, String dateStr, Long slotId) {
         LocalDate date = LocalDate.parse(dateStr);
-        System.out.println("🔍 Admin viewing class " + classId + " on date " + dateStr + " slotId: " + slotId);
+        System.out.println("🔍 [ADMIN] getSessionDetailByClassAndDateForAdmin called: classId=" + classId + ", date=" + dateStr + ", slotId=" + slotId);
 
         // 1) Tìm session theo slot nếu có truyền slotId (tránh lỗi nhiều bản ghi)
         ClassSession session = null;
@@ -299,6 +396,7 @@ public class AttendanceService {
             ClassSession newSession = new ClassSession();
             newSession.setClazz(clazz);
             newSession.setDate(date);
+            newSession.setDayOfWeek(dayOfWeek);
             newSession.setTimeSlot(matchingSchedule.getTimeSlot());
             newSession.setRoom(clazz.getRoom());
             session = classSessionRepository.save(newSession);

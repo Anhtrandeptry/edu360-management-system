@@ -1,21 +1,24 @@
 package fpt.capstone.edu360managementsystem.repository;
 
-import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
-import fpt.capstone.edu360managementsystem.entity.Clazz;
-import fpt.capstone.edu360managementsystem.entity.Student;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Student;
+
 public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment, Long> {
+
     List<ClassEnrollment> findByClazz_Id(Long classId);
+
     int countByClazz_Id(Long classId);
+
     void deleteByClazz_IdAndStudent_Id(Long classId, Long studentId);
 
     boolean existsByClazzAndStudent(Clazz clazz, Student student);
-
 
     List<ClassEnrollment> findByStudent_IdAndClazz_Semester_Id(Long studentId, Long semesterId);
 
@@ -31,7 +34,7 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
         )
     """)
     List<ClassEnrollment> findScheduleConflicts(Long studentId, Long semesterId,
-                                                Set<Integer> dow, Set<Long> slotIds);
+            Set<Integer> dow, Set<Long> slotIds);
 
     List<ClassEnrollment> findByStudent_Id(Long studentId);
 

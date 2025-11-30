@@ -76,8 +76,12 @@ public class EnrollmentController {
     public ResponseEntity<?> selfEnroll(
             @AuthenticationPrincipal UserDetailsImpl user,
             @PathVariable Long classId) {
-        enrollmentService.selfEnroll(classId, user.getId());
-        return ResponseEntity.ok("Enrolled");
+        try {
+            enrollmentService.selfEnroll(classId, user.getId());
+            return ResponseEntity.ok("Enrolled");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
     }
 
 }

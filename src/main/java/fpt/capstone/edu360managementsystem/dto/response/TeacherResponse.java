@@ -21,6 +21,7 @@ public class TeacherResponse {
     private String fullName;      // user.fullName
     private String email;         // user.email
     private String phoneNumber;   // user.phoneNumber
+    private String avatarUrl;     // teacher.avatarUrl
     // Backward compatibility: still expose first subject as subjectId/subjectName
     private Long subjectId;       // first subject id (for legacy FE)
     private String subjectName;   // first subject name
@@ -29,6 +30,10 @@ public class TeacherResponse {
     private java.util.List<String> subjectNames;  // all subject names
     private String specialization; // teacher.specialization
     private String degree;        // teacher.degree
+    private Integer yearsOfExperience; // teacher.yearsOfExperience
+    private Double rating;        // teacher.rating
+    private String bio;           // teacher.bio
+    private String workplace;     // teacher.workplace
     private Boolean active;       // user.active
     private long classCount;      // số lớp chưa COMPLETE mà giáo viên đang dạy
 

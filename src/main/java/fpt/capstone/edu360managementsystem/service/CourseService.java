@@ -1,19 +1,31 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.request.ChapterCreateRequest;
-import fpt.capstone.edu360managementsystem.dto.request.CourseCreateRequest;
-import fpt.capstone.edu360managementsystem.dto.request.LessonCreateRequest;
-import fpt.capstone.edu360managementsystem.dto.response.ChapterResponse;
-import fpt.capstone.edu360managementsystem.dto.response.CourseResponse;
-import fpt.capstone.edu360managementsystem.dto.response.LessonResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.enums.CourseStatus;
-import fpt.capstone.edu360managementsystem.repository.*;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import fpt.capstone.edu360managementsystem.dto.request.ChapterCreateRequest;
+import fpt.capstone.edu360managementsystem.dto.request.CourseCreateRequest;
+import fpt.capstone.edu360managementsystem.dto.request.CourseUpdateRequest;
+import fpt.capstone.edu360managementsystem.dto.request.LessonCreateRequest;
+import fpt.capstone.edu360managementsystem.dto.response.ChapterResponse;
+import fpt.capstone.edu360managementsystem.dto.response.CourseResponse;
+import fpt.capstone.edu360managementsystem.dto.response.LessonResponse;
+import fpt.capstone.edu360managementsystem.entity.Course;
+import fpt.capstone.edu360managementsystem.entity.CourseChapter;
+import fpt.capstone.edu360managementsystem.entity.CourseLesson;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.CourseStatus;
+import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
 
 @Service
 public class CourseService {
@@ -76,6 +88,15 @@ public class CourseService {
                 .toList();
     }
 
+    public List<CourseResponse> listCoursesOfTeacher(Long userId) {
+        Teacher teacher = teacherRepository.findByUserId(userId).orElse(null);
+        if (teacher == null) {
+            return List.of();
+        }
+        List<Course> courses = courseRepository.findByOwnerTeacher_Id(teacher.getId());
+        return courses.stream().map(c -> mapCourse(c, null)).toList();
+    }
+
     public CourseResponse getCourseDetail(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course not found"));
@@ -92,8 +113,38 @@ public class CourseService {
         courseRepository.save(course);
     }
 
-    // --- Chapter & Lesson ---
+    @Transactional
+    public void rejectCourse(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        course.setStatus(CourseStatus.REJECTED);
+        courseRepository.save(course);
+    }
 
+    @Transactional
+    public void updateCourse(Long courseId, CourseUpdateRequest req) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        // Update fields if provided
+        if (req.getTitle() != null && !req.getTitle().isBlank()) {
+            course.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            course.setDescription(req.getDescription());
+        }
+        if (req.getSubjectId() != null) {
+            Subject subject = subjectRepository.findById(req.getSubjectId())
+                    .orElseThrow(() -> new RuntimeException("Subject not found"));
+            course.setSubject(subject);
+        }
+
+        // Giữ nguyên trạng thái hiện tại sau khi chỉnh sửa trong module cá nhân
+        // Nghiệp vụ mới: KHÔNG reset về PENDING
+        courseRepository.save(course);
+    }
+
+    // --- Chapter & Lesson ---
     @Transactional
     public ChapterResponse createChapter(ChapterCreateRequest req) {
         Course course = courseRepository.findById(req.getCourseId())
@@ -122,8 +173,30 @@ public class CourseService {
         return mapLesson(lesson);
     }
 
-    // --- Mapping helpers ---
+    // Xóa toàn bộ bài học trong chương rồi xóa chương
+    @Transactional
+    public void removeChapter(Long chapterId) {
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Chapter not found"));
 
+        List<CourseLesson> lessons = lessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapterId);
+        if (lessons != null && !lessons.isEmpty()) {
+            for (CourseLesson l : lessons) {
+                lessonRepository.delete(l);
+            }
+        }
+        chapterRepository.delete(chapter);
+    }
+
+    // Xóa một bài học
+    @Transactional
+    public void removeLesson(Long lessonId) {
+        CourseLesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        lessonRepository.delete(lesson);
+    }
+
+    // --- Mapping helpers ---
     private CourseResponse mapCourse(Course c, List<CourseChapter> chaptersOpt) {
         List<ChapterResponse> chapterResponses = null;
         List<CourseChapter> chapters = chaptersOpt;
@@ -152,8 +225,8 @@ public class CourseService {
     }
 
     private ChapterResponse mapChapter(CourseChapter ch, List<CourseLesson> lessonsOpt) {
-        List<CourseLesson> lessons = lessonsOpt != null ? lessonsOpt :
-                lessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
+        List<CourseLesson> lessons = lessonsOpt != null ? lessonsOpt
+                : lessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
 
         return ChapterResponse.builder()
                 .id(ch.getId())

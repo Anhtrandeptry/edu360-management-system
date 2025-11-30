@@ -68,7 +68,7 @@ public class Clazz {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private ClassStatus status = ClassStatus.AVAILABLE;
+    private ClassStatus status = ClassStatus.DRAFT;
 
     @ManyToOne(optional = true)
     @JoinColumn(name = "course_id")
