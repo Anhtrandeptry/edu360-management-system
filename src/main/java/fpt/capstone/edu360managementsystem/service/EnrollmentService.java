@@ -5,8 +5,10 @@ import fpt.capstone.edu360managementsystem.dto.request.EnrollStudentRequest;
 import fpt.capstone.edu360managementsystem.dto.response.EnrolledStudentResponse;
 import fpt.capstone.edu360managementsystem.entity.*;
 import fpt.capstone.edu360managementsystem.enums.PaymentStatus;
+import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 import fpt.capstone.edu360managementsystem.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +22,13 @@ public class EnrollmentService {
     @Autowired private StudentRepository studentRepository;
     @Autowired private ClassEnrollmentRepository classEnrollmentRepository;
     @Autowired private ClassScheduleRepository classScheduleRepository;
+    @Autowired private ClassSessionRepository classSessionRepository;
     @Autowired private TeacherRepository teacherRepository;
     @Autowired private PaymentRepository paymentRepository;
+
+    // Feature flag: yêu cầu thanh toán trước khi tự đăng ký
+    @Value("${enrollment.requirePaid:true}")
+    private boolean requirePaid;
 
     /** Chỉ ADMIN hoặc giáo viên chủ lớp được thao tác */
     private void ensureOwnerOrAdmin(Long userId, Clazz clazz, boolean isAdmin) {
@@ -186,16 +193,26 @@ public class EnrollmentService {
         Clazz clazz = clazzRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
 
+        // Chỉ cho phép self-enroll khi lớp ở trạng thái PUBLIC
+        if (clazz.getStatus() != ClassStatus.PUBLIC) {
+            throw new RuntimeException("Lớp chưa được mở đăng ký (không ở trạng thái PUBLIC)");
+        }
+
         // map user -> student
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
 
-        // ✅ 1. BẮT BUỘC ĐÃ THANH TOÁN
-        boolean paid = paymentRepository.existsByClazz_IdAndStudent_IdAndStatus(
-                classId, student.getId(), PaymentStatus.PAID
-        );
-        if (!paid) {
-            throw new RuntimeException("Bạn chưa thanh toán học phí cho lớp này.");
+        // ✅ 1. Thanh toán: chỉ enforce khi cấu hình bật và học phí > 0
+        long sessionsCount = classSessionRepository.countByClazz_Id(classId);
+        long unitPrice = clazz.getPricePerSession() == null ? 0L : clazz.getPricePerSession();
+        long totalFee = unitPrice * sessionsCount;
+        if (requirePaid && totalFee > 0) {
+            boolean paid = paymentRepository.existsByClazz_IdAndStudent_IdAndStatus(
+                    classId, student.getId(), PaymentStatus.PAID
+            );
+            if (!paid) {
+                throw new RuntimeException("Bạn chưa thanh toán học phí cho lớp này.");
+            }
         }
 
         // 2. Capacity

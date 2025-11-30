@@ -35,14 +35,15 @@ public class SessionContentController {
             @AuthenticationPrincipal UserDetailsImpl user,
             @RequestParam Long classId,
             @RequestParam String date,
+            @RequestParam(required = false) Long slotId,
             @Valid @RequestBody SessionContentUpsertRequest req
     ) {
-        log.info("➡️ API upsertSessionContentByClassDate userId={}, classId={}, date={}, chapters={}, lessons={}, contentLength={}",
-                user.getId(), classId, date,
+        log.info("➡️ API upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, chapters={}, lessons={}, contentLength={}",
+                user.getId(), classId, date, slotId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
                 req.getLessonIds() != null ? req.getLessonIds() : "[]",
                 req.getContent() != null ? req.getContent().length() : 0);
-        sessionContentService.upsertSessionContentByClassDate(user.getId(), classId, date, req);
+        sessionContentService.upsertSessionContentByClassDate(user.getId(), classId, date, slotId, req);
         return ResponseEntity.status(HttpStatus.CREATED).body("Session content saved");
     }
 
@@ -64,11 +65,12 @@ public class SessionContentController {
 
     @GetMapping("/content/by-class-date")
     @PreAuthorize("hasRole('TEACHER') or hasRole('STUDENT') or hasRole('ADMIN')")
-    public ResponseEntity<SessionContentResponse> getSessionContentByClassDate(
-            @RequestParam Long classId,
-            @RequestParam String date
+        public ResponseEntity<SessionContentResponse> getSessionContentByClassDate(
+                        @RequestParam Long classId,
+                        @RequestParam String date,
+                        @RequestParam(required = false) Long slotId
     ) {
-        return ResponseEntity.ok(sessionContentService.getSessionContentByClassDate(classId, date));
+                return ResponseEntity.ok(sessionContentService.getSessionContentByClassDate(classId, date, slotId));
     }
 
     @GetMapping("/{sessionId}/content")

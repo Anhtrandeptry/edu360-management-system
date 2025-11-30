@@ -53,13 +53,28 @@ public class SessionContentService {
     private SessionContentConfigRepository sessionContentConfigRepository;
 
     @Transactional
-    public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, SessionContentUpsertRequest req) {
+    public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, Long slotId, SessionContentUpsertRequest req) {
         LocalDate date = LocalDate.parse(dateStr);
-        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "No session found for class " + classId + " on date " + dateStr));
-        log.info("➡️ upsertSessionContentByClassDate userId={}, classId={}, date={}, incomingChapters={}, incomingLessons={}",
-                userId, classId, dateStr,
+        ClassSession session;
+        if (slotId != null) {
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId));
+        } else {
+            // Avoid IncorrectResultSize: fetch list and choose earliest time slot
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (sameDay.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No session found for class " + classId + " on date " + dateStr);
+            }
+            if (sameDay.size() > 1) {
+                log.warn("Multiple sessions found for class {} on {}. Consider passing slotId. Picking earliest.", classId, dateStr);
+            }
+            session = sameDay.get(0);
+        }
+        log.info("➡️ upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, incomingChapters={}, incomingLessons={}",
+                userId, classId, dateStr, slotId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
                 req.getLessonIds() != null ? req.getLessonIds() : "[]");
         upsertSessionContent(userId, session.getId(), req);
@@ -316,10 +331,23 @@ public class SessionContentService {
     }
 
     @Transactional(readOnly = true)
-    public SessionContentResponse getSessionContentByClassDate(Long classId, String dateStr) {
+    public SessionContentResponse getSessionContentByClassDate(Long classId, String dateStr, Long slotId) {
         LocalDate date = LocalDate.parse(dateStr);
-        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr));
+        ClassSession session;
+        if (slotId != null) {
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId));
+        } else {
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (sameDay.isEmpty()) {
+                throw new RuntimeException("No session found for class " + classId + " on date " + dateStr);
+            }
+            if (sameDay.size() > 1) {
+                log.warn("Multiple sessions found for class {} on {}. Consider passing slotId. Picking earliest.", classId, dateStr);
+            }
+            session = sameDay.get(0);
+        }
         return getSessionContent(session.getId());
     }
 }

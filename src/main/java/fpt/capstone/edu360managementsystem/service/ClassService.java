@@ -165,51 +165,64 @@ public class ClassService {
         }
 
         // Check xung đột giáo viên (theo khoảng thời gian startDate-endDate)
-        var teacherConflicts = clazzRepository.findTeacherConflictsByDateRange(
-                teacher.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
+        var teacherConflictsRaw = clazzRepository.findTeacherConflictsByDateRange(
+            teacher.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
+        // Lọc lại theo cặp (dayOfWeek,timeSlotId) chính xác để tránh false-positive
+        Set<String> requestedPairs = req.getSchedule().stream()
+            .map(si -> si.getDayOfWeek() + "-" + si.getTimeSlotId())
+            .collect(Collectors.toSet());
+        var teacherConflicts = teacherConflictsRaw.stream()
+            .filter(c -> classScheduleRepository.findByClazz_Id(c.getId()).stream()
+                .anyMatch(s -> requestedPairs.contains(s.getDayOfWeek() + "-" + s.getTimeSlot().getId())))
+            .toList();
         if (!teacherConflicts.isEmpty()) {
-            System.out.println("❌ [CONFLICT] Teacher conflict detected!");
+            System.out.println("❌ [CONFLICT] Teacher conflict detected (filtered exact pairs)!");
             System.out.println("   Teacher: " + teacher.getUser().getFullName() + " (ID: " + teacher.getId() + ")");
             System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
-            System.out.println("   Requested days: " + dows.stream().map(this::getDayName).collect(Collectors.joining(", ")));
-            System.out.println("   Requested slots: " + slotIds);
+            System.out.println("   Requested schedule pairs: " + requestedPairs);
             System.out.println("   Conflicting classes:");
             teacherConflicts.forEach(c -> {
-                var schedules = classScheduleRepository.findByClazz_Id(c.getId());
-                String scheduleInfo = schedules.stream()
-                        .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
-                        .collect(Collectors.joining(", "));
-                System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
-                        + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
-                        + " [" + scheduleInfo + "]");
+            var schedules = classScheduleRepository.findByClazz_Id(c.getId());
+            String scheduleInfo = schedules.stream()
+                .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
+                .collect(Collectors.joining(", "));
+            System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
+                + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                + " [" + scheduleInfo + "]");
             });
             throw new RuntimeException("Giáo viên " + teacher.getUser().getFullName()
-                    + " đã có lớp xung đột. Vui lòng chọn khung giờ hoặc ngày khác.");
+                + " đã có lớp xung đột. Vui lòng chọn khung giờ hoặc ngày khác.");
         }
 
         // Check xung đột phòng (chỉ khi offline)
         if (!isOnline && room != null) {
-            var roomConflicts = clazzRepository.findRoomConflictsByDateRange(
+                var roomConflictsRaw = clazzRepository.findRoomConflictsByDateRange(
                     room.getId(), req.getStartDate(), req.getEndDate(), dows, slotIds);
-            if (!roomConflicts.isEmpty()) {
-                System.out.println("❌ [CONFLICT] Room conflict detected!");
+                Set<String> requestedPairsRoom = req.getSchedule().stream()
+                    .map(si -> si.getDayOfWeek() + "-" + si.getTimeSlotId())
+                    .collect(Collectors.toSet());
+                var roomConflicts = roomConflictsRaw.stream()
+                    .filter(c -> classScheduleRepository.findByClazz_Id(c.getId()).stream()
+                        .anyMatch(s -> requestedPairsRoom.contains(s.getDayOfWeek() + "-" + s.getTimeSlot().getId())))
+                    .toList();
+                if (!roomConflicts.isEmpty()) {
+                System.out.println("❌ [CONFLICT] Room conflict detected (filtered exact pairs)!");
                 System.out.println("   Room: " + room.getName() + " (ID: " + room.getId() + ")");
                 System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
-                System.out.println("   Requested days: " + dows.stream().map(this::getDayName).collect(Collectors.joining(", ")));
-                System.out.println("   Requested slots: " + slotIds);
+                System.out.println("   Requested schedule pairs: " + requestedPairsRoom);
                 System.out.println("   Conflicting classes:");
                 roomConflicts.forEach(c -> {
                     var schedules = classScheduleRepository.findByClazz_Id(c.getId());
                     String scheduleInfo = schedules.stream()
-                            .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
-                            .collect(Collectors.joining(", "));
+                        .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
+                        .collect(Collectors.joining(", "));
                     System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
-                            + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
-                            + " [" + scheduleInfo + "]");
+                        + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                        + " [" + scheduleInfo + "]");
                 });
                 throw new RuntimeException("Phòng " + room.getName()
-                        + " đã có lớp xung đột. Vui lòng chọn phòng, khung giờ hoặc ngày khác.");
-            }
+                    + " đã có lớp xung đột. Vui lòng chọn phòng, khung giờ hoặc ngày khác.");
+                }
         }
 
         // Xác định maxStudents
