@@ -20,4 +20,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     // Các khóa học cá nhân thuộc giáo viên theo cùng môn học và trạng thái
     List<Course> findByOwnerTeacher_IdAndSubject_IdAndStatus(Long teacherId, Long subjectId, CourseStatus status);
+
+    // Tìm theo tiêu đề để nhận diện course của lớp đã clone (deterministic naming)
+    List<Course> findByOwnerTeacher_IdAndTitle(Long teacherId, String title);
 }

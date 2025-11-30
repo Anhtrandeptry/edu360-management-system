@@ -41,9 +41,9 @@ public class CreateClassRequest {
     private String description;
     private String meetingLink; // optional, for online classes
 
-    @NotNull
+    // Giá mỗi buổi: KHÔNG bắt buộc trong payload FE để tránh 400; xử lý mặc định ở service nếu cần
     @Min(0)
-    private Long pricePerSession;
+    private Long pricePerSession; // nullable
 
     @NotNull
     private LocalDate startDate; // required

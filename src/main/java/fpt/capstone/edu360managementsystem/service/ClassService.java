@@ -25,6 +25,8 @@ import fpt.capstone.edu360managementsystem.entity.Semester;
 import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.TimeSlot;
+import fpt.capstone.edu360managementsystem.entity.CourseChapter;
+import fpt.capstone.edu360managementsystem.entity.CourseLesson;
 import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 import fpt.capstone.edu360managementsystem.enums.SessionStatus;
 import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
@@ -62,6 +64,10 @@ public class ClassService {
 
     @Autowired
     private CourseRepository courseRepository;
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.CourseChapterRepository courseChapterRepository;
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.CourseLessonRepository courseLessonRepository;
 
     @Autowired
     private fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository classEnrollmentRepository;
@@ -225,6 +231,9 @@ public class ClassService {
             }
         }
 
+        // Giá mỗi buổi: nếu FE không gửi, đặt mặc định 0
+        Long pricePerSession = Optional.ofNullable(req.getPricePerSession()).orElse(0L);
+
         // startDate: sử dụng từ request
         // endDate: tự động tính dựa trên startDate, totalSessions và schedule
         LocalDate classStart = req.getStartDate();
@@ -240,6 +249,7 @@ public class ClassService {
                 .startDate(classStart)
                 .endDate(classEnd)
                 .maxStudents(maxStudents)
+                .pricePerSession(pricePerSession)
                 .description(req.getDescription())
                 .meetingLink(req.getMeetingLink())
                 // New lifecycle: default to DRAFT on creation
@@ -266,7 +276,62 @@ public class ClassService {
         List<ClassSession> sessions = generateSessionsByDateRange(clazz, room, classStart, classEnd, schedules, total);
         classSessionRepository.saveAll(sessions);
 
+        // Auto-create ClassCourse (clone course template to teacher-owned course for this class)
+        if (course != null) {
+            createClassCourseForClass(clazz, teacher, course);
+        }
+
         return classMapper.toResponse(clazz, schedules, sessions.size());
+    }
+
+    /**
+     * Clone toàn bộ chương/bài từ course template sang một course mới thuộc
+     * giáo viên (ClassCourse). Tiêu đề gợi ý: "<course.title> – <clazz.name>".
+     * Course mới sẽ có subject giống template, ownerTeacher là giáo viên của
+     * lớp, createdBy là user của giáo viên.
+     */
+    private void createClassCourseForClass(Clazz clazz, Teacher teacher, Course template) {
+        try {
+            String newTitle = template.getTitle() + " – " + clazz.getName();
+            Course newCourse = Course.builder()
+                    .subject(template.getSubject())
+                    .title(newTitle)
+                    .description(template.getDescription())
+                    .status(fpt.capstone.edu360managementsystem.enums.CourseStatus.APPROVED)
+                    .createdBy(teacher.getUser())
+                    .ownerTeacher(teacher)
+                    .build();
+            courseRepository.save(newCourse);
+
+            // Clone chapters
+            var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(template.getId());
+            for (var ch : chapters) {
+                CourseChapter newChapter = CourseChapter.builder()
+                        .course(newCourse)
+                        .title(ch.getTitle())
+                        .description(ch.getDescription())
+                        .orderIndex(ch.getOrderIndex())
+                        .build();
+                courseChapterRepository.save(newChapter);
+
+                // Clone lessons for this chapter
+                var lessons = courseLessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
+                for (var ls : lessons) {
+                    CourseLesson newLesson = CourseLesson.builder()
+                            .chapter(newChapter)
+                            .title(ls.getTitle())
+                            .description(ls.getDescription())
+                            .orderIndex(ls.getOrderIndex())
+                            .build();
+                    courseLessonRepository.save(newLesson);
+                }
+            }
+
+            System.out.println("✅ [ClassService] Created class course '" + newTitle + "' for class " + clazz.getId());
+        } catch (Exception e) {
+            System.out.println("❌ [ClassService] Failed to create class course: " + e.getMessage());
+            // Do not fail class creation due to class-course cloning; log and continue
+        }
     }
 
     /**
@@ -534,7 +599,8 @@ public class ClassService {
                     if (dow == 0) {
                         dow = 7; // normalize Sunday
 
-                                        }TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
+                    }
+                    TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
                             .orElseThrow(() -> new RuntimeException("Invalid time slot id: " + si.getTimeSlotId()));
                     return ClassSchedule.builder()
                             .clazz(clazz)
