@@ -38,6 +38,15 @@ public class StudentClassService {
             return enrollments.stream()
                 .map(en -> {
                 var clazz = en.getClazz();
+                
+                // Lấy course của lớp trực tiếp (mỗi lớp có 1 course riêng)
+                Long courseId = clazz.getCourse() != null ? clazz.getCourse().getId() : null;
+                String courseTitle = clazz.getCourse() != null ? clazz.getCourse().getTitle() : null;
+                
+                org.slf4j.LoggerFactory.getLogger(StudentClassService.class)
+                    .info("[StudentClassService] Class {} - courseId={}, courseTitle={}", 
+                        clazz.getId(), courseId, courseTitle);
+                
                 return StudentClassResponse.builder()
                     .classId(clazz.getId())
                     .className(clazz.getName())
@@ -50,6 +59,8 @@ public class StudentClassService {
                     .startDate(clazz.getStartDate())
                     .endDate(clazz.getEndDate())
                     .status(clazz.getStatus())
+                    .courseId(courseId)
+                    .courseTitle(courseTitle)
                     .build();
                 })
                 .toList();
