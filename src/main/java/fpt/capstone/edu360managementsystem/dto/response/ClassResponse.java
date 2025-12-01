@@ -32,6 +32,9 @@ public class ClassResponse {
 
     private List<ScheduleItemView> schedule;
     private Integer sessionsGenerated;
+    // Thêm trường phục vụ hiển thị học phí
+    private Long pricePerSession;   // Giá mỗi buổi (VND)
+    private Integer totalSessions;  // Tổng số buổi của lớp
 
     private Long courseId;
     private String courseTitle;
