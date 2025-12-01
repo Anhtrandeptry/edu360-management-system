@@ -16,6 +16,7 @@ import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
 import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
+import fpt.capstone.edu360managementsystem.dto.response.ClassPublicDetailResponse;
 import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
@@ -176,7 +177,7 @@ public class ClassService {
                 .anyMatch(s -> requestedPairs.contains(s.getDayOfWeek() + "-" + s.getTimeSlot().getId())))
             .toList();
         if (!teacherConflicts.isEmpty()) {
-            System.out.println("❌ [CONFLICT] Teacher conflict detected (filtered exact pairs)!");
+            System.out.println(" [CONFLICT] Teacher conflict detected (filtered exact pairs)!");
             System.out.println("   Teacher: " + teacher.getUser().getFullName() + " (ID: " + teacher.getId() + ")");
             System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
             System.out.println("   Requested schedule pairs: " + requestedPairs);
@@ -206,7 +207,7 @@ public class ClassService {
                         .anyMatch(s -> requestedPairsRoom.contains(s.getDayOfWeek() + "-" + s.getTimeSlot().getId())))
                     .toList();
                 if (!roomConflicts.isEmpty()) {
-                System.out.println("❌ [CONFLICT] Room conflict detected (filtered exact pairs)!");
+                System.out.println(" [CONFLICT] Room conflict detected (filtered exact pairs)!");
                 System.out.println("   Room: " + room.getName() + " (ID: " + room.getId() + ")");
                 System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
                 System.out.println("   Requested schedule pairs: " + requestedPairsRoom);
@@ -302,6 +303,7 @@ public class ClassService {
      * giáo viên (ClassCourse). Tiêu đề gợi ý: "<course.title> – <clazz.name>".
      * Course mới sẽ có subject giống template, ownerTeacher là giáo viên của
      * lớp, createdBy là user của giáo viên.
+     * SAU ĐÓ GÁN course mới cho lớp.
      */
     private void createClassCourseForClass(Clazz clazz, Teacher teacher, Course template) {
         try {
@@ -340,9 +342,13 @@ public class ClassService {
                 }
             }
 
-            System.out.println("✅ [ClassService] Created class course '" + newTitle + "' for class " + clazz.getId());
+            // GÁN course mới cho lớp (thay thế course base)
+            clazz.setCourse(newCourse);
+            clazzRepository.save(clazz);
+
+            System.out.println(" [ClassService] Created class course '" + newTitle + "' (id=" + newCourse.getId() + ") for class " + clazz.getId());
         } catch (Exception e) {
-            System.out.println("❌ [ClassService] Failed to create class course: " + e.getMessage());
+            System.out.println(" [ClassService] Failed to create class course: " + e.getMessage());
             // Do not fail class creation due to class-course cloning; log and continue
         }
     }
@@ -354,11 +360,11 @@ public class ClassService {
      */
     @Transactional(readOnly = true)
     public List<ClassResponse> listClasses(Long teacherUserId, Long timeSlotId) {
-        System.out.println("📋 [LIST_CLASSES] Called with filters - teacherUserId: " + teacherUserId + ", timeSlotId: " + timeSlotId);
+        System.out.println(" [LIST_CLASSES] Called with filters - teacherUserId: " + teacherUserId + ", timeSlotId: " + timeSlotId);
 
         // fetch base classes with teacher filter
         List<Clazz> classes = clazzRepository.findAllWithFilters(teacherUserId);
-        System.out.println("📚 [LIST_CLASSES] Found " + classes.size() + " classes after teacher filter");
+        System.out.println(" [LIST_CLASSES] Found " + classes.size() + " classes after teacher filter");
 
         // Log first few classes for debugging
         classes.stream().limit(5).forEach(c
@@ -373,8 +379,8 @@ public class ClassService {
                 .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
 
         // Debug: Log schedule data
-        System.out.println("📚 Total classes: " + classes.size());
-        System.out.println("📅 Total schedules: " + allSchedules.size());
+        System.out.println(" Total classes: " + classes.size());
+        System.out.println(" Total schedules: " + allSchedules.size());
         schedulesByClass.forEach((classId, schedules) -> {
             System.out.println("  Class " + classId + " has " + schedules.size() + " schedule items");
         });
@@ -395,7 +401,7 @@ public class ClassService {
                     response.setCurrentStudents(currentStudents);
 
                     // Log each class being returned
-                    System.out.println("   ✅ Returning class: id=" + c.getId() + ", name=" + c.getName()
+                    System.out.println("    Returning class: id=" + c.getId() + ", name=" + c.getName()
                             + ", teacher=" + c.getTeacher().getUser().getFullName()
                             + ", schedules=" + classSchedules.size()
                             + ", students=" + currentStudents);
@@ -472,7 +478,7 @@ public class ClassService {
         boolean hasPastSession = classSessionRepository.existsByClazz_IdAndDateBefore(clazz.getId(), today);
         System.out.println("   -> hasPastSessionBeforeToday=" + hasPastSession + ", today=" + today);
         if (hasPastSession) {
-            System.out.println("   ✋ Revert blocked: sessions have started.");
+            System.out.println("    Revert blocked: sessions have started.");
             throw new IllegalStateException("Cannot revert to DRAFT after sessions have started");
         }
         clazz.setStatus(ClassStatus.DRAFT);
@@ -717,5 +723,93 @@ public class ClassService {
         }
 
         return lastDate;
+    }
+
+    /**
+     * Public API: Get class detail for guest/unauthenticated users.
+     * Returns class info with base course (from Admin), not teacher's customized version.
+     */
+    @Transactional(readOnly = true)
+    public ClassPublicDetailResponse getClassPublicDetail(Long classId) {
+        Clazz clazz = clazzRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        var schedules = classScheduleRepository.findByClazz_Id(classId);
+        int currentStudents = classEnrollmentRepository.countByClazz_Id(classId);
+        long sessionsCount = classSessionRepository.countByClazz_Id(classId);
+        int sessionsGenerated = (int) sessionsCount;
+
+        // Build schedule view
+        List<ClassPublicDetailResponse.ScheduleItemView> scheduleViews = schedules.stream()
+                .map(s -> new ClassPublicDetailResponse.ScheduleItemView(
+                        s.getDayOfWeek(),
+                        s.getTimeSlot().getId(),
+                        s.getTimeSlot().getStartTime().toString(),
+                        s.getTimeSlot().getEndTime().toString()
+                ))
+                .toList();
+
+        // Build course lessons view (from base course)
+        List<ClassPublicDetailResponse.CourseLessonView> lessonViews = new ArrayList<>();
+        if (clazz.getCourse() != null) {
+            var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(clazz.getCourse().getId());
+            for (var chapter : chapters) {
+                var lessons = courseLessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapter.getId());
+                for (var lesson : lessons) {
+                    lessonViews.add(ClassPublicDetailResponse.CourseLessonView.builder()
+                            .id(lesson.getId())
+                            .title(lesson.getTitle())
+                            .orderIndex(lesson.getOrderIndex())
+                            .description(lesson.getDescription())
+                            .build());
+                }
+            }
+        }
+
+        // Calculate total price
+        Long totalPrice = null;
+        if (clazz.getPricePerSession() != null && sessionsGenerated > 0) {
+            totalPrice = clazz.getPricePerSession() * sessionsGenerated;
+        }
+
+        return ClassPublicDetailResponse.builder()
+                .id(clazz.getId())
+                .name(clazz.getName())
+                .description(clazz.getDescription())
+                .startDate(clazz.getStartDate())
+                .endDate(clazz.getEndDate())
+                .maxStudents(clazz.getMaxStudents())
+                .currentStudents(currentStudents)
+                .status(clazz.getStatus())
+                .online(clazz.getMeetingLink() != null && !clazz.getMeetingLink().isBlank())
+                .meetingLink(clazz.getMeetingLink())
+                // Subject
+                .subjectId(clazz.getSubject().getId())
+                .subjectName(clazz.getSubject().getName())
+                // Room
+                .roomId(clazz.getRoom() != null ? clazz.getRoom().getId() : null)
+                .roomName(clazz.getRoom() != null ? clazz.getRoom().getName() : null)
+                // Semester
+                .semesterId(clazz.getSemester() != null ? clazz.getSemester().getId() : null)
+                .semesterName(clazz.getSemester() != null ? clazz.getSemester().getName() : null)
+                // Teacher
+                .teacherId(clazz.getTeacher().getId())
+                .teacherFullName(clazz.getTeacher().getUser().getFullName())
+                .teacherAvatarUrl(clazz.getTeacher().getAvatarUrl())
+                .teacherBio(clazz.getTeacher().getBio())
+                .teacherDepartment(clazz.getTeacher().getWorkplace())
+                // Course (base course from Admin)
+                .courseId(clazz.getCourse() != null ? clazz.getCourse().getId() : null)
+                .courseTitle(clazz.getCourse() != null ? clazz.getCourse().getTitle() : null)
+                .courseDescription(clazz.getCourse() != null ? clazz.getCourse().getDescription() : null)
+                .courseThumbnail(null)
+                .courseLessons(lessonViews)
+                // Schedule
+                .schedule(scheduleViews)
+                .sessionsGenerated(sessionsGenerated)
+                // Price
+                .pricePerSession(clazz.getPricePerSession())
+                .totalPrice(totalPrice)
+                .build();
     }
 }
