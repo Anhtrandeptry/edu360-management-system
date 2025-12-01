@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
 import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
-import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.dto.response.ClassPublicDetailResponse;
+import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
@@ -179,7 +179,7 @@ public class ClassService {
         if (!teacherConflicts.isEmpty()) {
             System.out.println(" [CONFLICT] Teacher conflict detected (filtered exact pairs)!");
             System.out.println("   Teacher: " + teacher.getUser().getFullName() + " (ID: " + teacher.getId() + ")");
-            System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
+            System.out.println("   Requested date range: " + req.getStartDate() + " -> " + req.getEndDate());
             System.out.println("   Requested schedule pairs: " + requestedPairs);
             System.out.println("   Conflicting classes:");
             teacherConflicts.forEach(c -> {
@@ -188,7 +188,7 @@ public class ClassService {
                         .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
                         .collect(Collectors.joining(", "));
                 System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
-                        + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                        + " (" + c.getStartDate() + " -> " + c.getEndDate() + ")"
                         + " [" + scheduleInfo + "]");
             });
             throw new RuntimeException("Giáo viên " + teacher.getUser().getFullName()
@@ -206,15 +206,10 @@ public class ClassService {
                     .filter(c -> classScheduleRepository.findByClazz_Id(c.getId()).stream()
                     .anyMatch(s -> requestedPairsRoom.contains(s.getDayOfWeek() + "-" + s.getTimeSlot().getId())))
                     .toList();
-<<<<<<< HEAD
             if (!roomConflicts.isEmpty()) {
-                System.out.println("❌ [CONFLICT] Room conflict detected (filtered exact pairs)!");
-=======
-                if (!roomConflicts.isEmpty()) {
                 System.out.println(" [CONFLICT] Room conflict detected (filtered exact pairs)!");
->>>>>>> origin/hung-payment
                 System.out.println("   Room: " + room.getName() + " (ID: " + room.getId() + ")");
-                System.out.println("   Requested date range: " + req.getStartDate() + " → " + req.getEndDate());
+                System.out.println("   Requested date range: " + req.getStartDate() + " -> " + req.getEndDate());
                 System.out.println("   Requested schedule pairs: " + requestedPairsRoom);
                 System.out.println("   Conflicting classes:");
                 roomConflicts.forEach(c -> {
@@ -223,7 +218,7 @@ public class ClassService {
                             .map(s -> getDayName(s.getDayOfWeek()) + " slot-" + s.getTimeSlot().getId())
                             .collect(Collectors.joining(", "));
                     System.out.println("      - Class ID " + c.getId() + ": " + c.getName()
-                            + " (" + c.getStartDate() + " → " + c.getEndDate() + ")"
+                            + " (" + c.getStartDate() + " -> " + c.getEndDate() + ")"
                             + " [" + scheduleInfo + "]");
                 });
                 throw new RuntimeException("Phòng " + room.getName()
@@ -305,14 +300,13 @@ public class ClassService {
 
     /**
      * Clone toàn bộ chương/bài từ course template sang một course mới thuộc
-     * giáo viên (ClassCourse). Tiêu đề gợi ý: "<course.title> – <clazz.name>".
+     * giáo viên (ClassCourse). Tiêu đề gợi ý: "<course.title> - <clazz.name>".
      * Course mới sẽ có subject giống template, ownerTeacher là giáo viên của
-     * lớp, createdBy là user của giáo viên.
-     * SAU ĐÓ GÁN course mới cho lớp.
+     * lớp, createdBy là user của giáo viên. SAU ĐÓ GÁN course mới cho lớp.
      */
     private void createClassCourseForClass(Clazz clazz, Teacher teacher, Course template) {
         try {
-            String newTitle = template.getTitle() + " – " + clazz.getName();
+            String newTitle = template.getTitle() + " - " + clazz.getName();
             Course newCourse = Course.builder()
                     .subject(template.getSubject())
                     .title(newTitle)
@@ -732,8 +726,9 @@ public class ClassService {
     }
 
     /**
-     * Public API: Get class detail for guest/unauthenticated users.
-     * Returns class info with base course (from Admin), not teacher's customized version.
+     * Public API: Get class detail for guest/unauthenticated users. Returns
+     * class info with base course (from Admin), not teacher's customized
+     * version.
      */
     @Transactional(readOnly = true)
     public ClassPublicDetailResponse getClassPublicDetail(Long classId) {
@@ -748,11 +743,11 @@ public class ClassService {
         // Build schedule view
         List<ClassPublicDetailResponse.ScheduleItemView> scheduleViews = schedules.stream()
                 .map(s -> new ClassPublicDetailResponse.ScheduleItemView(
-                        s.getDayOfWeek(),
-                        s.getTimeSlot().getId(),
-                        s.getTimeSlot().getStartTime().toString(),
-                        s.getTimeSlot().getEndTime().toString()
-                ))
+                s.getDayOfWeek(),
+                s.getTimeSlot().getId(),
+                s.getTimeSlot().getStartTime().toString(),
+                s.getTimeSlot().getEndTime().toString()
+        ))
                 .toList();
 
         // Build course lessons view (from base course)
