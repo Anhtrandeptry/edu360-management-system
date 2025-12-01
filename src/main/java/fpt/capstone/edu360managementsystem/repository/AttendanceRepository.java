@@ -13,4 +13,6 @@ import java.util.Optional;
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     List<Attendance> findBySession_Id(Long sessionId);
     Optional<Attendance> findBySessionAndStudent(ClassSession session, Student student);
+    // Batch load all attendance records for given session ids & a student
+    List<Attendance> findBySession_IdInAndStudent_Id(List<Long> sessionIds, Long studentId);
 }

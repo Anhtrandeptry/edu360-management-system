@@ -28,10 +28,14 @@ public class StudentScheduleService {
 
     /** Lấy lịch cho 1 ngày (date) */
     public List<StudentScheduleItemResponse> getScheduleByDate(Long userId, LocalDate date) {
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] getScheduleByDate called for userId=" + userId + ", date=" + date);
+        
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Found student: " + student.getUser().getFullName() + " (ID: " + student.getId() + ")");
 
         List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudent_Id(student.getId());
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Found " + enrollments.size() + " enrollments");
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -40,11 +44,13 @@ public class StudentScheduleService {
                 .map(en -> en.getClazz().getId())
                 .distinct()
                 .toList();
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Enrolled class IDs: " + classIds);
 
         List<ClassSession> sessions = classSessionRepository
                 .findByClazz_IdInAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
                         classIds, date, date
                 );
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Found " + sessions.size() + " sessions for date " + date);
 
         return sessions.stream()
                 .map(s -> StudentScheduleItemResponse.builder()
@@ -65,11 +71,14 @@ public class StudentScheduleService {
     /** Lấy lịch cho 1 tuần: weekStart là ngày bắt đầu (thường là Monday) */
     public List<StudentScheduleItemResponse> getScheduleByWeek(Long userId, LocalDate weekStart) {
         LocalDate weekEnd = weekStart.plusDays(6); // 7 ngày: weekStart..weekEnd
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] getScheduleByWeek called for userId=" + userId + ", weekStart=" + weekStart + ", weekEnd=" + weekEnd);
 
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Found student: " + student.getUser().getFullName() + " (ID: " + student.getId() + ")");
 
         List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudent_Id(student.getId());
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Found " + enrollments.size() + " enrollments");
         if (enrollments.isEmpty()) {
             return List.of();
         }
@@ -78,11 +87,13 @@ public class StudentScheduleService {
                 .map(en -> en.getClazz().getId())
                 .distinct()
                 .toList();
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Enrolled class IDs: " + classIds);
 
         List<ClassSession> sessions = classSessionRepository
                 .findByClazz_IdInAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
                         classIds, weekStart, weekEnd
                 );
+        System.out.println(" [STUDENT_SCHEDULE_SERVICE] Found " + sessions.size() + " sessions for week " + weekStart + " to " + weekEnd);
 
         return sessions.stream()
                 .map(s -> StudentScheduleItemResponse.builder()

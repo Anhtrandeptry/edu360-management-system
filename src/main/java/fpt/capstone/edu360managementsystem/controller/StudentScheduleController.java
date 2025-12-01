@@ -21,6 +21,20 @@ public class StudentScheduleController {
     private StudentScheduleService studentScheduleService;
 
     /**
+     * Test endpoint to check if controller is accessible
+     */
+    @GetMapping("/test")
+    public ResponseEntity<String> test(@AuthenticationPrincipal UserDetailsImpl user) {
+        if (user == null) {
+            System.out.println(" [STUDENT_SCHEDULE] test endpoint called - NO USER (anonymous)");
+            return ResponseEntity.ok("Test endpoint works - No user authenticated");
+        }
+        System.out.println(" [STUDENT_SCHEDULE] test endpoint called by user: " + user.getUsername() + " (ID: " + user.getId() + ")");
+        System.out.println(" [STUDENT_SCHEDULE] User roles: " + user.getAuthorities());
+        return ResponseEntity.ok("Test endpoint works - User: " + user.getUsername() + ", Roles: " + user.getAuthorities());
+    }
+
+    /**
      * Lịch theo NGÀY.
      * Nếu không truyền ?date= thì mặc định là hôm nay.
      * Ví dụ:
@@ -28,18 +42,21 @@ public class StudentScheduleController {
      * GET /api/my-schedule/day?date=2025-11-20
      */
     @GetMapping("/day")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<StudentScheduleItemResponse>> getDaySchedule(
             @AuthenticationPrincipal UserDetailsImpl user,
             @RequestParam(value = "date", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
+        System.out.println(" [STUDENT_SCHEDULE] getDaySchedule called by user: " + user.getUsername() + " (ID: " + user.getId() + ")");
+        System.out.println(" [STUDENT_SCHEDULE] User roles: " + user.getAuthorities());
         if (date == null) {
             date = LocalDate.now();
         }
-        return ResponseEntity.ok(
-                studentScheduleService.getScheduleByDate(user.getId(), date)
-        );
+        System.out.println(" [STUDENT_SCHEDULE] Fetching schedule for date: " + date);
+        List<StudentScheduleItemResponse> result = studentScheduleService.getScheduleByDate(user.getId(), date);
+        System.out.println(" [STUDENT_SCHEDULE] Found " + result.size() + " schedule items");
+        return ResponseEntity.ok(result);
     }
 
     /**
@@ -50,17 +67,20 @@ public class StudentScheduleController {
      * GET /api/my-schedule/week?weekStart=2025-11-17
      */
     @GetMapping("/week")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<StudentScheduleItemResponse>> getWeekSchedule(
             @AuthenticationPrincipal UserDetailsImpl user,
             @RequestParam(value = "weekStart", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart
     ) {
+        System.out.println(" [STUDENT_SCHEDULE] getWeekSchedule called by user: " + user.getUsername() + " (ID: " + user.getId() + ")");
+        System.out.println(" [STUDENT_SCHEDULE] User roles: " + user.getAuthorities());
         if (weekStart == null) {
             weekStart = studentScheduleService.getCurrentWeekStart(LocalDate.now());
         }
-        return ResponseEntity.ok(
-                studentScheduleService.getScheduleByWeek(user.getId(), weekStart)
-        );
+        System.out.println(" [STUDENT_SCHEDULE] Fetching schedule for week starting: " + weekStart);
+        List<StudentScheduleItemResponse> result = studentScheduleService.getScheduleByWeek(user.getId(), weekStart);
+        System.out.println(" [STUDENT_SCHEDULE] Found " + result.size() + " schedule items for the week");
+        return ResponseEntity.ok(result);
     }
 }
