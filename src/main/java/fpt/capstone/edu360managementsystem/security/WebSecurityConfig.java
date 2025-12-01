@@ -86,6 +86,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/upload/**").permitAll()
                 // Allow serving uploaded files
                 .requestMatchers("/uploads/**").permitAll()
+                // Student profile endpoints (require STUDENT role - handled by @PreAuthorize)
+                .requestMatchers("/api/students/profile/**").authenticated()
                 .anyRequest().authenticated()
                 );
 

@@ -25,7 +25,12 @@ import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParent
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
+import fpt.capstone.edu360managementsystem.entity.Student;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.repository.RoleRepository;
+import fpt.capstone.edu360managementsystem.repository.StudentRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.security.jwt.JwtUtils;
 import fpt.capstone.edu360managementsystem.service.AuthService;
@@ -42,6 +47,12 @@ public class AuthController {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    StudentRepository studentRepository;
+
+    @Autowired
+    TeacherRepository teacherRepository;
 
     @Autowired
     RoleRepository roleRepository;
@@ -72,10 +83,33 @@ public class AuthController {
                 .map(item -> item.getAuthority())
                 .collect(Collectors.toList());
 
+        // Get additional user info from Student/Teacher entities
+        String fullName = null;
+        String avatarUrl = null;
+        
+        User user = userRepository.findById(userDetails.getId()).orElse(null);
+        if (user != null) {
+            fullName = user.getFullName();
+            
+            // Check if user is a student and get avatar from Student entity
+            Student student = studentRepository.findByUser_Id(userDetails.getId()).orElse(null);
+            if (student != null && student.getAvatarUrl() != null) {
+                avatarUrl = student.getAvatarUrl();
+            } else {
+                // Check if user is a teacher and get avatar from Teacher entity  
+                Teacher teacher = teacherRepository.findByUserId(userDetails.getId()).orElse(null);
+                if (teacher != null && teacher.getAvatarUrl() != null) {
+                    avatarUrl = teacher.getAvatarUrl();
+                }
+            }
+        }
+
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .body(new UserInfoResponse(userDetails.getId(),
                         userDetails.getUsername(),
                         userDetails.getEmail(),
+                        fullName,
+                        avatarUrl,
                         roles));
     }
 
@@ -93,8 +127,30 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
         var roles = user.getAuthorities().stream().map(a -> a.getAuthority()).toList();
+        
+        // Get additional user info from Student/Teacher entities
+        String fullName = null;
+        String avatarUrl = null;
+        
+        User userEntity = userRepository.findById(user.getId()).orElse(null);
+        if (userEntity != null) {
+            fullName = userEntity.getFullName();
+            
+            // Check if user is a student and get avatar from Student entity
+            Student student = studentRepository.findByUser_Id(user.getId()).orElse(null);
+            if (student != null && student.getAvatarUrl() != null) {
+                avatarUrl = student.getAvatarUrl();
+            } else {
+                // Check if user is a teacher and get avatar from Teacher entity  
+                Teacher teacher = teacherRepository.findByUserId(user.getId()).orElse(null);
+                if (teacher != null && teacher.getAvatarUrl() != null) {
+                    avatarUrl = teacher.getAvatarUrl();
+                }
+            }
+        }
+        
         return ResponseEntity.ok(new fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse(
-                user.getId(), user.getUsername(), user.getEmail(), roles
+                user.getId(), user.getUsername(), user.getEmail(), fullName, avatarUrl, roles
         ));
     }
 
