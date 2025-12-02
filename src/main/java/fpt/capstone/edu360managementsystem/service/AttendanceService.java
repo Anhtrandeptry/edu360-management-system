@@ -14,9 +14,7 @@ import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionDetailR
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionSummaryResponse;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceStudentItem;
 import fpt.capstone.edu360managementsystem.entity.Attendance;
-import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
-import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.enums.AttendanceStatus;
@@ -247,62 +245,11 @@ public class AttendanceService {
             }
         }
 
-        // If still not found, try to create session from ClassSchedule (but ensure teacher ownership)
+        // If still not found, throw error (DO NOT auto-create sessions to avoid unexpected session count increase)
         if (session == null) {
-            System.out.println("⚠️ No existing session found, attempting to create new session...");
-
-            Clazz clazz = clazzRepository.findById(classId)
-                    .orElseThrow(() -> {
-                        System.err.println("❌ Class not found: " + classId);
-                        return new RuntimeException("Không tìm thấy lớp học");
-                    });
-
-            System.out.println("📚 Found class: " + clazz.getName() + ", Teacher: " + clazz.getTeacher().getUser().getFullName());
-
-            // Ownership check: only class teacher can create session here
-            if (!clazz.getTeacher().getUser().getId().equals(userId)) {
-                System.err.println("❌ Ownership check failed: userId=" + userId + ", teacherUserId=" + clazz.getTeacher().getUser().getId());
-                throw new RuntimeException("Not owner of this class");
-            }
-
-            System.out.println("✅ Ownership check passed");
-
-            int dayOfWeek = date.getDayOfWeek().getValue();
-            System.out.println("📅 Looking for schedule on dayOfWeek: " + dayOfWeek + ", slotId: " + slotId);
-
-            List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(classId);
-            System.out.println("📋 Found " + schedules.size() + " schedules for class");
-
-            // Filter by slotId if provided, otherwise pick first matching schedule for the day
-            List<ClassSchedule> matchingSchedules = schedules.stream()
-                    .filter(s -> {
-                        boolean dayMatch = s.getDayOfWeek() == dayOfWeek;
-                        boolean slotMatch = slotId == null || s.getTimeSlot().getId().equals(slotId);
-                        System.out.println("   Schedule check: dayOfWeek=" + s.getDayOfWeek() + " (match:" + dayMatch + "), slotId=" + s.getTimeSlot().getId() + " (match:" + slotMatch + ")");
-                        return dayMatch && slotMatch;
-                    })
-                    .toList();
-
-            System.out.println("✅ Matching schedules: " + matchingSchedules.size());
-
-            if (matchingSchedules.isEmpty()) {
-                System.err.println("❌ No matching schedule found for dayOfWeek=" + dayOfWeek + ", slotId=" + slotId);
-                throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
-                        "Không có lịch học nào cho lớp này vào ngày đã chọn (thứ " + dayOfWeek + ").");
-            }
-
-            // If multiple schedules match and no slotId, pick the first one
-            ClassSchedule matchingSchedule = matchingSchedules.get(0);
-            System.out.println("✅ Using schedule with timeSlot: " + matchingSchedule.getTimeSlot().getId());
-
-            ClassSession newSession = new ClassSession();
-            newSession.setClazz(clazz);
-            newSession.setDate(date);
-            newSession.setDayOfWeek(dayOfWeek);
-            newSession.setTimeSlot(matchingSchedule.getTimeSlot());
-            newSession.setRoom(clazz.getRoom());
-            session = classSessionRepository.save(newSession);
-            System.out.println("✅ Created new session: " + session.getId());
+            System.out.println("⚠️ No existing session found for classId=" + classId + ", date=" + date + ", slotId=" + slotId);
+            throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                    "Không tìm thấy buổi học cho ngày " + date + ". Buổi học này chưa được tạo trong hệ thống.");
         }
 
         // Final ownership verification
@@ -367,39 +314,11 @@ public class AttendanceService {
             }
         }
 
-        // 3) Nếu vẫn chưa có, tạo mới dựa vào ClassSchedule (lọc theo slot nếu có)
+        // 3) Nếu vẫn chưa có, throw error (KHÔNG tự động tạo session để tránh tăng số buổi không mong muốn)
         if (session == null) {
-            System.out.println("⚠️ Session not found, creating new session for class " + classId + " on " + date);
-
-            Clazz clazz = clazzRepository.findById(classId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
-
-            int dayOfWeek = date.getDayOfWeek().getValue(); // 1-7 (Mon-Sun)
-            System.out.println("📅 Looking for schedule on dayOfWeek: " + dayOfWeek + ", slotId: " + slotId);
-
-            List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(classId);
-            System.out.println("📋 Found " + schedules.size() + " schedules for class " + classId);
-
-            ClassSchedule matchingSchedule = schedules.stream()
-                    .filter(s -> {
-                        System.out.println("   - Schedule dayOfWeek: " + s.getDayOfWeek() + ", timeSlot: " + s.getTimeSlot().getId());
-                        boolean dayMatch = s.getDayOfWeek() == dayOfWeek;
-                        boolean slotMatch = slotId == null || s.getTimeSlot().getId().equals(slotId);
-                        return dayMatch && slotMatch;
-                    })
-                    .findFirst()
-                    .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
-                    "Không có lịch học nào cho lớp này vào ngày đã chọn (thứ " + dayOfWeek + ", slot " + slotId + ")."));
-
-            System.out.println("✅ Creating session with timeSlot: " + matchingSchedule.getTimeSlot().getId());
-
-            ClassSession newSession = new ClassSession();
-            newSession.setClazz(clazz);
-            newSession.setDate(date);
-            newSession.setDayOfWeek(dayOfWeek);
-            newSession.setTimeSlot(matchingSchedule.getTimeSlot());
-            newSession.setRoom(clazz.getRoom());
-            session = classSessionRepository.save(newSession);
+            System.out.println("⚠️ Session not found for classId=" + classId + ", date=" + date + ", slotId=" + slotId);
+            throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                    "Không tìm thấy buổi học cho ngày " + date + ". Buổi học này chưa được tạo trong hệ thống.");
         }
 
         System.out.println("✅ Session found/created: ID = " + session.getId());
