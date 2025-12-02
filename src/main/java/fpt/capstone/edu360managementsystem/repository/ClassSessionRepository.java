@@ -2,6 +2,7 @@ package fpt.capstone.edu360managementsystem.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -26,12 +27,11 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
             LocalDate endDate
     );
 
-    // Avoid unique-result expectation; classes may have multiple sessions per day
-    List<ClassSession> findAllByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
+    Optional<ClassSession> findByClazz_IdAndDate(Long classId, LocalDate date);
 
-    // When a class has multiple sessions, duplicates may exist due to legacy generation
-    // Prefer list-returning methods and let service pick a stable one
-    List<ClassSession> findAllByClazz_IdAndDateAndTimeSlot_IdOrderByIdAsc(Long classId, LocalDate date, Long timeSlotId);
+    // When a class has multiple sessions in the same day (different time slots),
+    // use slot-aware lookups to avoid IncorrectResultSizeDataAccessException
+    Optional<ClassSession> findByClazz_IdAndDateAndTimeSlot_Id(Long classId, LocalDate date, Long timeSlotId);
 
     List<ClassSession> findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
 

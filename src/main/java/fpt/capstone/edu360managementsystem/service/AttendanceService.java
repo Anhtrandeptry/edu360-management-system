@@ -166,28 +166,15 @@ public class AttendanceService {
         // Find session by classId, date, and optionally slotId
         ClassSession session;
         if (slotId != null) {
-            List<ClassSession> sessions = classSessionRepository
-                    .findAllByClazz_IdAndDateAndTimeSlot_IdOrderByIdAsc(classId, date, slotId);
-            if (sessions.isEmpty()) {
-                throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
-                        "Không có buổi học nào cho lớp này vào ngày đã chọn với slot này.");
-            }
-            if (sessions.size() > 1) {
-                System.err.println("⚠️ Duplicate sessions detected for class=" + classId + ", date=" + date + ", slotId=" + slotId + ". Using the first by ID.");
-            }
-            session = sessions.get(0);
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
+                    "Không có buổi học nào cho lớp này vào ngày đã chọn với slot này."));
         } else {
-            // Nếu không có slotId, kiểm tra số lượng phiên trong ngày
+            // Fallback to first session of the day if no slotId provided
             List<ClassSession> sameDaySessions = classSessionRepository.findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
             if (sameDaySessions.isEmpty()) {
                 throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
                         "Không có buổi học nào cho lớp này vào ngày đã chọn.");
-            }
-            if (sameDaySessions.size() > 1) {
-                // Giáo viên bắt buộc truyền slotId nếu có nhiều phiên trong ngày
-                throw new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.BAD_REQUEST,
-                        "Ngày này có nhiều slot. Vui lòng chỉ định slotId để chọn đúng buổi học.");
             }
             session = sameDaySessions.get(0);
         }
@@ -242,32 +229,21 @@ public class AttendanceService {
         ClassSession session = null;
         if (slotId != null) {
             System.out.println("🔎 Looking for session with slotId: " + slotId);
-            List<ClassSession> sessions = classSessionRepository
-                    .findAllByClazz_IdAndDateAndTimeSlot_IdOrderByIdAsc(classId, date, slotId);
-            if (!sessions.isEmpty()) {
-                if (sessions.size() > 1) {
-                    System.err.println("⚠️ Duplicate sessions detected for GET detail (teacher). Using the first by ID.");
-                }
-                session = sessions.get(0);
-            }
+            session = classSessionRepository
+                    .findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElse(null);
             System.out.println("📍 Found session by slotId: " + (session != null ? session.getId() : "null"));
         }
 
-        // Nếu có nhiều phiên trong ngày và thiếu slotId, teacher phải chỉ định slotId
+        // If multiple sessions in a day and no slotId, pick the first one (time slot order)
         if (session == null) {
             System.out.println("🔎 Looking for sessions on date without slotId");
             List<ClassSession> sameDay = classSessionRepository
                     .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
             System.out.println("📍 Found " + sameDay.size() + " sessions on this date");
             if (!sameDay.isEmpty()) {
-                if (sameDay.size() > 1) {
-                    System.err.println("❌ Multiple sessions found on date without slotId. Teacher must specify slotId.");
-                    throw new org.springframework.web.server.ResponseStatusException(
-                            org.springframework.http.HttpStatus.BAD_REQUEST,
-                            "Ngày này có nhiều slot. Vui lòng chỉ định slotId để xem đúng buổi học.");
-                }
                 session = sameDay.get(0);
-                System.out.println("📍 Using single session: " + session.getId());
+                System.out.println("📍 Using first session: " + session.getId());
             }
         }
 
@@ -373,14 +349,9 @@ public class AttendanceService {
         // 1) Tìm session theo slot nếu có truyền slotId (tránh lỗi nhiều bản ghi)
         ClassSession session = null;
         if (slotId != null) {
-            List<ClassSession> sessions = classSessionRepository
-                    .findAllByClazz_IdAndDateAndTimeSlot_IdOrderByIdAsc(classId, date, slotId);
-            if (!sessions.isEmpty()) {
-                if (sessions.size() > 1) {
-                    System.err.println("⚠️ [ADMIN] Duplicate sessions detected for class=" + classId + ", date=" + date + ", slotId=" + slotId + ". Using the first by ID.");
-                }
-                session = sessions.get(0);
-            }
+            session = classSessionRepository
+                    .findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElse(null);
         }
 
         // 2) Nếu chưa có, thử tìm các session cùng ngày cho lớp này

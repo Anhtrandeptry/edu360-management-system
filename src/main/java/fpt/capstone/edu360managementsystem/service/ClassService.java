@@ -624,7 +624,8 @@ public class ClassService {
                     if (dow == 0) {
                         dow = 7; // normalize Sunday
 
-                                        }TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
+                    }
+                    TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
                             .orElse(null);
                     if (slot != null) {
                         requestedTimePairs.add(dow + "-" + slot.getStartTime() + "-" + slot.getEndTime());

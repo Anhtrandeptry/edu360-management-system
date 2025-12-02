@@ -57,16 +57,9 @@ public class SessionContentService {
         LocalDate date = LocalDate.parse(dateStr);
         ClassSession session;
         if (slotId != null) {
-            List<ClassSession> sessions = classSessionRepository
-                    .findAllByClazz_IdAndDateAndTimeSlot_IdOrderByIdAsc(classId, date, slotId);
-            if (sessions.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId);
-            }
-            if (sessions.size() > 1) {
-                log.warn("Duplicate sessions detected for class {} on {} slotId={}. Picking first by id.", classId, dateStr, slotId);
-            }
-            session = sessions.get(0);
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId));
         } else {
             // Avoid IncorrectResultSize: fetch list and choose earliest time slot
             List<ClassSession> sameDay = classSessionRepository
@@ -342,15 +335,8 @@ public class SessionContentService {
         LocalDate date = LocalDate.parse(dateStr);
         ClassSession session;
         if (slotId != null) {
-            List<ClassSession> sessions = classSessionRepository
-                    .findAllByClazz_IdAndDateAndTimeSlot_IdOrderByIdAsc(classId, date, slotId);
-            if (sessions.isEmpty()) {
-                throw new RuntimeException("No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId);
-            }
-            if (sessions.size() > 1) {
-                log.warn("Duplicate sessions detected for class {} on {} slotId={}. Picking first by id.", classId, dateStr, slotId);
-            }
-            session = sessions.get(0);
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId));
         } else {
             List<ClassSession> sameDay = classSessionRepository
                     .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
