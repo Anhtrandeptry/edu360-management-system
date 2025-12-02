@@ -21,6 +21,9 @@ public class UpdateClassRequest {
     @Min(1)
     private Integer maxStudents;
 
+    // Giá mỗi buổi (chỉ cho phép cập nhật khi lớp đang ở trạng thái DRAFT/upcoming)
+    private Long pricePerSession;
+
     // Mở rộng cho lớp DRAFT/upcoming: cho phép sửa các trường này
     private Long subjectId;     // subject mới (nếu đổi)
     private Long courseId;      // optional, phải thuộc subject

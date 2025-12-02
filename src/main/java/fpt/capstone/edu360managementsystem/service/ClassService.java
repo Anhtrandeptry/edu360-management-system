@@ -491,11 +491,9 @@ public class ClassService {
         var clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
 
         boolean isDraft = clazz.getStatus() == ClassStatus.DRAFT;
-        LocalDate today = LocalDate.now();
-        boolean upcoming = clazz.getStartDate() == null || clazz.getStartDate().isAfter(today);
 
-        // Only a subset allowed for PUBLIC/active
-        if (!isDraft || !upcoming) {
+        // Only a subset allowed for NON-DRAFT (PUBLIC or others)
+        if (!isDraft) {
             // Update room (null => online)
             Room room = null;
             if (req.getRoomId() != null) {
@@ -517,7 +515,7 @@ public class ClassService {
                 clazz.setMeetingLink(req.getMeetingLink());
             }
         } else {
-            // Full edit for upcoming drafts
+            // Full edit for drafts (allow regardless of date as per business rule)
             if (req.getName() != null) {
                 clazz.setName(req.getName());
             }
@@ -526,6 +524,14 @@ public class ClassService {
             }
             if (req.getMeetingLink() != null) {
                 clazz.setMeetingLink(req.getMeetingLink());
+            }
+            // Allow updating price per session for DRAFT
+            if (req.getPricePerSession() != null) {
+                Long p = req.getPricePerSession();
+                if (p < 0) {
+                    throw new IllegalArgumentException("pricePerSession must be >= 0");
+                }
+                clazz.setPricePerSession(p);
             }
 
             // Subject / Course / Teacher updates (chỉ khi DRAFT và chưa bắt đầu)
@@ -603,13 +609,37 @@ public class ClassService {
                 clazz.setEndDate(req.getEndDate());
             }
 
-            // Lịch & totalSessions: nếu có gửi schedule mới thì cập nhật lại lịch + tính endDate nếu cần
-            boolean scheduleChanged = req.getSchedule() != null && !req.getSchedule().isEmpty();
+            // Lịch & totalSessions: chỉ thực sự cập nhật khi THAY ĐỔI so với hiện tại
             Integer totalSessions = req.getTotalSessions();
+            // So sánh schedule hiện có và schedule từ request (nếu có) BẰNG THỜI GIAN (start-end)
+            var existingSchedules = classScheduleRepository.findByClazz_Id(id);
+            java.util.Set<String> existingTimePairs = existingSchedules.stream()
+                    .map(s -> s.getDayOfWeek() + "-" + s.getTimeSlot().getStartTime() + "-" + s.getTimeSlot().getEndTime())
+                    .collect(Collectors.toSet());
+            boolean hasReqSchedule = req.getSchedule() != null && !req.getSchedule().isEmpty();
+            java.util.Set<String> requestedTimePairs = new java.util.HashSet<>();
+            if (hasReqSchedule) {
+                for (var si : req.getSchedule()) {
+                    int dow = si.getDayOfWeek();
+                    if (dow == 0) {
+                        dow = 7; // normalize Sunday
+
+                                        }TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
+                            .orElse(null);
+                    if (slot != null) {
+                        requestedTimePairs.add(dow + "-" + slot.getStartTime() + "-" + slot.getEndTime());
+                    }
+                }
+            }
+            boolean scheduleChanged = hasReqSchedule && !requestedTimePairs.equals(existingTimePairs);
+
+            // Xác định số sessions hiện tại để tránh xoá/regen không cần thiết
+            int currentSessionsCount = (int) classSessionRepository.countByClazz_Id(id);
+            boolean totalSessionsChanged = totalSessions != null && totalSessions > 0 && totalSessions != currentSessionsCount;
+
             if (scheduleChanged) {
                 // Xóa lịch cũ
-                var oldSchedules = classScheduleRepository.findByClazz_Id(id);
-                classScheduleRepository.deleteAll(oldSchedules);
+                classScheduleRepository.deleteAll(existingSchedules);
                 // Tạo lịch mới
                 List<ClassSchedule> newSchedules = req.getSchedule().stream().map(si -> {
                     // FE đang gửi dayOfWeek theo chuẩn 1..7? Nếu FE gửi 1..7 thì convert sang 1..7 cho entity.
@@ -637,8 +667,8 @@ public class ClassService {
                     clazz.setEndDate(newEnd);
                 }
 
-                // Regenerate sessions nếu có totalSessions mới
-                if (totalSessions != null && totalSessions > 0) {
+                // Regenerate sessions nếu có totalSessions mới VÀ khác với hiện tại
+                if (totalSessionsChanged) {
                     // Xóa session cũ (chưa bắt đầu nên an toàn)
                     var oldSessions = classSessionRepository.findByClazz_Id(id);
                     classSessionRepository.deleteAll(oldSessions);
@@ -655,9 +685,8 @@ public class ClassService {
                     List<ClassSession> regenerated = generateSessionsByDateRange(clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(), currentSchedules, totalSessions);
                     classSessionRepository.saveAll(regenerated);
                 }
-            } else if (totalSessions != null && totalSessions > 0 && req.getStartDate() != null && req.getEndDate() == null) {
+            } else if (totalSessionsChanged && req.getStartDate() != null && req.getEndDate() == null) {
                 // Không đổi lịch nhưng muốn tính lại endDate dựa trên totalSessions mới
-                var existingSchedules = classScheduleRepository.findByClazz_Id(id);
                 var slotsPerDay = existingSchedules.stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
                 LocalDate newEnd = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay);
                 clazz.setEndDate(newEnd);
@@ -734,6 +763,11 @@ public class ClassService {
     public ClassPublicDetailResponse getClassPublicDetail(Long classId) {
         Clazz clazz = clazzRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        // Guests must not see DRAFT classes
+        if (clazz.getStatus() == ClassStatus.DRAFT) {
+            throw new RuntimeException("Class not available");
+        }
 
         var schedules = classScheduleRepository.findByClazz_Id(classId);
         int currentStudents = classEnrollmentRepository.countByClazz_Id(classId);

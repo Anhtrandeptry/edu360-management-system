@@ -1,6 +1,5 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -12,14 +11,17 @@ import fpt.capstone.edu360managementsystem.dto.request.TeacherCertificateRequest
 import fpt.capstone.edu360managementsystem.dto.request.TeacherEducationRequest;
 import fpt.capstone.edu360managementsystem.dto.request.TeacherExperienceRequest;
 import fpt.capstone.edu360managementsystem.dto.request.TeacherProfileUpdateRequest;
+import fpt.capstone.edu360managementsystem.dto.response.SubjectResponse;
 import fpt.capstone.edu360managementsystem.dto.response.TeacherProfileResponse;
 import fpt.capstone.edu360managementsystem.dto.response.TeacherResponse;
+import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.TeacherCertificate;
 import fpt.capstone.edu360managementsystem.entity.TeacherEducation;
 import fpt.capstone.edu360managementsystem.entity.TeacherExperience;
 import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherCertificateRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherEducationRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherExperienceRepository;
@@ -42,15 +44,18 @@ public class TeacherService {
 
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private TeacherCertificateRepository certificateRepository;
-    
+
     @Autowired
     private TeacherExperienceRepository experienceRepository;
-    
+
     @Autowired
     private TeacherEducationRepository educationRepository;
+
+    @Autowired
+    private SubjectRepository subjectRepository;
 
     /**
      * Get all teachers, optionally filtered by subject.
@@ -158,16 +163,17 @@ public class TeacherService {
 
     /**
      * Get teacher profile information
+     *
      * @param userId The user ID of the teacher
      * @return Teacher profile response with all details
      */
     public TeacherProfileResponse getTeacherProfile(Long userId) {
         Teacher teacher = teacherRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Teacher not found for userId=" + userId));
-        
+
         User user = teacher.getUser();
         String primarySubject = teacher.getSubject() != null ? teacher.getSubject().getName() : "";
-        
+
         // Get all subjects
         List<String> allSubjects = new java.util.ArrayList<>();
         if (teacher.getSubject() != null) {
@@ -175,29 +181,29 @@ public class TeacherService {
         }
         if (teacher.getSubjects() != null && !teacher.getSubjects().isEmpty()) {
             teacher.getSubjects().stream()
-                .map(s -> s.getName())
-                .filter(name -> !allSubjects.contains(name))
-                .forEach(allSubjects::add);
+                    .map(s -> s.getName())
+                    .filter(name -> !allSubjects.contains(name))
+                    .forEach(allSubjects::add);
         }
-        
+
         long classCount = 0;
         try {
             classCount = clazzRepository.countActiveByTeacherUser(userId);
         } catch (Exception ex) {
             // ignore
         }
-        
+
         // Load from separate tables instead of JSON
         List<TeacherCertificateRequest> certificates = certificateRepository.findByTeacherId(teacher.getId())
                 .stream()
                 .map(this::mapCertificateToDto)
                 .collect(Collectors.toList());
-        
+
         List<TeacherExperienceRequest> experiences = experienceRepository.findByTeacherId(teacher.getId())
                 .stream()
                 .map(this::mapExperienceToDto)
                 .collect(Collectors.toList());
-        
+
         List<TeacherEducationRequest> educationList = educationRepository.findByTeacherId(teacher.getId())
                 .stream()
                 .map(this::mapEducationToDto)
@@ -230,7 +236,7 @@ public class TeacherService {
                 .isActive(user.getActive())
                 .build();
     }
-    
+
     // Mapper methods
     private TeacherCertificateRequest mapCertificateToDto(TeacherCertificate entity) {
         return TeacherCertificateRequest.builder()
@@ -241,7 +247,7 @@ public class TeacherService {
                 .description(entity.getDescription())
                 .build();
     }
-    
+
     private TeacherExperienceRequest mapExperienceToDto(TeacherExperience entity) {
         return TeacherExperienceRequest.builder()
                 .id(entity.getId())
@@ -252,7 +258,7 @@ public class TeacherService {
                 .description(entity.getDescription())
                 .build();
     }
-    
+
     private TeacherEducationRequest mapEducationToDto(TeacherEducation entity) {
         return TeacherEducationRequest.builder()
                 .id(entity.getId())
@@ -265,6 +271,7 @@ public class TeacherService {
 
     /**
      * Update teacher profile information
+     *
      * @param userId The user ID of the teacher
      * @param request The update request with new profile data
      * @return Updated teacher profile response
@@ -273,72 +280,72 @@ public class TeacherService {
     public TeacherProfileResponse updateTeacherProfile(Long userId, TeacherProfileUpdateRequest request) {
         Teacher teacher = teacherRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Teacher not found for userId=" + userId));
-        
+
         User user = teacher.getUser();
-        
+
         // Update user fields
         if (request.getFullName() != null && !request.getFullName().trim().isEmpty()) {
             user.setFullName(request.getFullName().trim());
         }
-        
+
         if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
             user.setEmail(request.getEmail().trim());
         }
-        
+
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
             user.setPhoneNumber(request.getPhoneNumber().trim());
         }
-        
+
         userRepository.save(user);
-        
+
         // Update teacher fields
         if (request.getDegree() != null) {
             teacher.setDegree(request.getDegree().trim());
         }
-        
+
         if (request.getSpecialization() != null) {
             teacher.setSpecialization(request.getSpecialization().trim());
         }
-        
+
         if (request.getWorkplace() != null) {
             teacher.setWorkplace(request.getWorkplace().trim());
         }
-        
+
         if (request.getLinkedinUrl() != null) {
             teacher.setLinkedinUrl(request.getLinkedinUrl().trim());
         }
-        
+
         if (request.getFacebookUrl() != null) {
             teacher.setFacebookUrl(request.getFacebookUrl().trim());
         }
-        
+
         if (request.getBio() != null) {
             teacher.setBio(request.getBio().trim());
         }
-        
+
         if (request.getNote() != null) {
             teacher.setNote(request.getNote().trim());
         }
-        
+
         if (request.getAvatarUrl() != null) {
             teacher.setAvatarUrl(request.getAvatarUrl());
         }
-        
+
         // Update new fields
         if (request.getYearsOfExperience() != null) {
             teacher.setYearsOfExperience(request.getYearsOfExperience());
         }
-        
+
         if (request.getRating() != null) {
             teacher.setRating(request.getRating());
         }
-        
+
         if (request.getAchievements() != null) {
             teacher.setAchievements(request.getAchievements());
         }
-        
+
         teacherRepository.save(teacher);
-        
+
         // Update certificates - delete old and create new
         if (request.getCertificates() != null) {
             certificateRepository.deleteByTeacherId(teacher.getId());
@@ -353,7 +360,7 @@ public class TeacherService {
                 certificateRepository.save(cert);
             }
         }
-        
+
         // Update experiences
         if (request.getExperiences() != null) {
             experienceRepository.deleteByTeacherId(teacher.getId());
@@ -369,7 +376,7 @@ public class TeacherService {
                 experienceRepository.save(exp);
             }
         }
-        
+
         // Update educations
         if (request.getEducations() != null) {
             educationRepository.deleteByTeacherId(teacher.getId());
@@ -384,8 +391,135 @@ public class TeacherService {
                 educationRepository.save(edu);
             }
         }
-        
+
         // Return updated profile
         return getTeacherProfile(userId);
+    }
+
+    /**
+     * Get all subjects taught by a teacher via teacher_id. The list includes
+     * both primary subject and additional subjects.
+     */
+    public List<SubjectResponse> getSubjectsByTeacherId(Long teacherId) {
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Teacher not found for id=" + teacherId));
+
+        java.util.LinkedHashSet<Subject> all = new java.util.LinkedHashSet<>();
+        if (teacher.getSubject() != null) {
+            all.add(teacher.getSubject());
+        }
+        if (teacher.getSubjects() != null) {
+            all.addAll(teacher.getSubjects());
+        }
+
+        return all.stream()
+                .map(s -> SubjectResponse.builder()
+                .id(s.getId())
+                .name(s.getName())
+                .status(s.getStatus())
+                .classCount(clazzRepository.countActiveBySubject(s.getId()))
+                .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Update subjects taught by a teacher via teacher_id. Replace the
+     * additional subjects set (primary subject remains unchanged).
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public List<SubjectResponse> updateTeacherSubjects(Long teacherId, List<Long> subjectIds) {
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Teacher not found for id=" + teacherId));
+
+        // Tập môn mới (additional). Primary subject giữ nguyên.
+        List<Subject> newAdditional = subjectRepository.findAllById(subjectIds != null ? subjectIds : java.util.List.of());
+        java.util.Set<Long> newIds = newAdditional.stream().map(Subject::getId).collect(java.util.stream.Collectors.toSet());
+
+        // Tập môn hiện tại (primary + additional)
+        java.util.LinkedHashSet<Subject> currentAll = new java.util.LinkedHashSet<>();
+        if (teacher.getSubject() != null) {
+            currentAll.add(teacher.getSubject());
+        }
+        if (teacher.getSubjects() != null) {
+            currentAll.addAll(teacher.getSubjects());
+        }
+
+        // Tập môn sau cập nhật (primary + new additional)
+        java.util.LinkedHashSet<Subject> afterAll = new java.util.LinkedHashSet<>();
+        if (teacher.getSubject() != null) {
+            afterAll.add(teacher.getSubject());
+        }
+        afterAll.addAll(newAdditional);
+
+        // Các môn bị loại bỏ (có trong currentAll nhưng không có trong afterAll)
+        java.util.List<Subject> removed = currentAll.stream()
+                .filter(s -> afterAll.stream().noneMatch(ns -> java.util.Objects.equals(ns.getId(), s.getId())))
+                .collect(java.util.stream.Collectors.toList());
+
+        // Ràng buộc: không thể loại bỏ môn nếu giáo viên đang có lớp active của môn đó
+        java.util.List<String> blockingMessages = new java.util.ArrayList<>();
+        for (Subject s : removed) {
+            java.util.List<fpt.capstone.edu360managementsystem.entity.Clazz> activeClasses
+                    = clazzRepository.findActiveByTeacherAndSubject(teacherId, s.getId());
+            if (activeClasses != null && !activeClasses.isEmpty()) {
+                // Gom tên lớp để hiển thị rõ ràng
+                String classNames = activeClasses.stream()
+                        .map(fpt.capstone.edu360managementsystem.entity.Clazz::getName)
+                        .collect(java.util.stream.Collectors.joining(", "));
+                blockingMessages.add(String.format(
+                        "Giáo viên đang dạy lớp %s (%s), không thể chuyển môn",
+                        classNames, s.getName()
+                ));
+            }
+        }
+
+        if (!blockingMessages.isEmpty()) {
+            throw new IllegalStateException(String.join(". ", blockingMessages));
+        }
+
+        // Áp dụng cập nhật tập môn phụ
+        teacher.setSubjects(new java.util.HashSet<>(newAdditional));
+        teacherRepository.save(teacher);
+
+        return getSubjectsByTeacherId(teacherId);
+    }
+
+    /**
+     * Update primary subject for a teacher. Enforce business rule: cannot
+     * change (remove current primary) if teacher has active classes of current
+     * primary subject.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public SubjectResponse updatePrimarySubject(Long teacherId, Long newSubjectId) {
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Teacher not found for id=" + teacherId));
+
+        Subject currentPrimary = teacher.getSubject();
+        if (currentPrimary != null) {
+            java.util.List<fpt.capstone.edu360managementsystem.entity.Clazz> activeClasses
+                    = clazzRepository.findActiveByTeacherAndSubject(teacherId, currentPrimary.getId());
+            if (activeClasses != null && !activeClasses.isEmpty()) {
+                String classNames = activeClasses.stream()
+                        .map(fpt.capstone.edu360managementsystem.entity.Clazz::getName)
+                        .collect(java.util.stream.Collectors.joining(", "));
+                throw new IllegalStateException(String.format(
+                        "Giáo viên đang dạy lớp %s (%s), không thể chuyển môn",
+                        classNames, currentPrimary.getName()
+                ));
+            }
+        }
+
+        Subject newSubject = subjectRepository.findById(newSubjectId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Subject not found for id=" + newSubjectId));
+
+        teacher.setSubject(newSubject);
+        teacherRepository.save(teacher);
+
+        return SubjectResponse.builder()
+                .id(newSubject.getId())
+                .name(newSubject.getName())
+                .status(newSubject.getStatus())
+                .classCount(clazzRepository.countActiveBySubject(newSubject.getId()))
+                .build();
     }
 }
