@@ -72,6 +72,12 @@ public class ClassService {
 
     @Autowired
     private fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository classEnrollmentRepository;
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.SessionChapterRepository sessionChapterRepository;
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.SessionLessonRepository sessionLessonRepository;
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.SessionContentConfigRepository sessionContentConfigRepository;
 
     @Transactional
     public ClassResponse createClass(CreateClassRequest req) {
@@ -490,6 +496,10 @@ public class ClassService {
     public ClassResponse updateClass(Long id, UpdateClassRequest req) {
         var clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
 
+        // Capture pre-change references for teacher/course to detect changes later
+        Teacher oldTeacherRef = clazz.getTeacher();
+        Course oldCourseRef = clazz.getCourse();
+
         boolean isDraft = clazz.getStatus() == ClassStatus.DRAFT;
 
         // Only a subset allowed for NON-DRAFT (PUBLIC or others)
@@ -570,20 +580,75 @@ public class ClassService {
             }
 
             if (req.getTeacherId() != null) {
-                Teacher teacher = teacherRepository.findByUserId(req.getTeacherId())
+                Teacher newTeacher = teacherRepository.findByUserId(req.getTeacherId())
                         .orElseThrow(() -> new RuntimeException("Teacher not found with userId: " + req.getTeacherId()));
                 // Kiểm tra teacher dạy được subject hiện tại
                 Subject subject = clazz.getSubject();
                 boolean teachesSubject = false;
-                if (teacher.getSubject() != null && teacher.getSubject().getId().equals(subject.getId())) {
+                if (newTeacher.getSubject() != null && newTeacher.getSubject().getId().equals(subject.getId())) {
                     teachesSubject = true;
-                } else if (teacher.getSubjects() != null) {
-                    teachesSubject = teacher.getSubjects().stream().anyMatch(s -> s.getId().equals(subject.getId()));
+                } else if (newTeacher.getSubjects() != null) {
+                    teachesSubject = newTeacher.getSubjects().stream().anyMatch(s -> s.getId().equals(subject.getId()));
                 }
                 if (!teachesSubject) {
                     throw new RuntimeException("Teacher does not teach the selected subject");
                 }
-                clazz.setTeacher(teacher);
+                clazz.setTeacher(newTeacher);
+
+                // If teacher actually changed, handle teacher-course migration:
+                if (oldTeacherRef != null && !oldTeacherRef.getId().equals(newTeacher.getId())) {
+                    // 1) Determine template course for cloning to the new teacher
+                    Course templateCourse = null;
+                    if (req.getCourseId() != null) {
+                        templateCourse = courseRepository.findById(req.getCourseId())
+                                .orElseThrow(() -> new RuntimeException("Course not found"));
+                    } else if (oldCourseRef != null) {
+                        templateCourse = oldCourseRef;
+                    }
+
+                    // 2) Clear all session content to avoid FK conflicts with course chapters/lessons
+                    var oldSessionsForClass = classSessionRepository.findByClazz_Id(id);
+                    for (var s : oldSessionsForClass) {
+                        Long sid = s.getId();
+                        try {
+                            sessionChapterRepository.deleteBySession_Id(sid);
+                            sessionLessonRepository.deleteBySession_Id(sid);
+                            sessionContentConfigRepository.findBySession_Id(sid)
+                                    .ifPresent(sessionContentConfigRepository::delete);
+                            s.setLessonContent(null);
+                        } catch (Exception ignore) {
+                            // ignore per-session clean errors; proceed best-effort
+                        }
+                    }
+                    classSessionRepository.saveAll(oldSessionsForClass);
+
+                    // 3) Create new teacher-owned course for this class (clone from template if available)
+                    if (templateCourse != null) {
+                        createClassCourseForClass(clazz, newTeacher, templateCourse);
+                    }
+
+                    // 4) Delete the old teacher-owned course (only if owned by the old teacher)
+                    if (oldCourseRef != null
+                            && oldCourseRef.getOwnerTeacher() != null
+                            && oldCourseRef.getOwnerTeacher().getId().equals(oldTeacherRef.getId())) {
+                        // Detach from class if still linked (createClassCourseForClass should have switched it)
+                        if (clazz.getCourse() != null && clazz.getCourse().getId().equals(oldCourseRef.getId())) {
+                            clazz.setCourse(null);
+                            clazzRepository.save(clazz);
+                        }
+                        try {
+                            var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(oldCourseRef.getId());
+                            for (var ch : chapters) {
+                                var lessons = courseLessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
+                                courseLessonRepository.deleteAll(lessons);
+                            }
+                            courseChapterRepository.deleteAll(chapters);
+                            courseRepository.delete(oldCourseRef);
+                        } catch (Exception ignore) {
+                            // ignore delete issues to avoid blocking the update
+                        }
+                    }
+                }
             }
 
             // Room/online switch
@@ -670,8 +735,71 @@ public class ClassService {
 
                 // Regenerate sessions nếu có totalSessions mới VÀ khác với hiện tại
                 if (totalSessionsChanged) {
-                    // Xóa session cũ (chưa bắt đầu nên an toàn)
+                    // Nếu lớp có nội dung buổi, yêu cầu xác nhận trước khi xoá nội dung + khoá học GV
                     var oldSessions = classSessionRepository.findByClazz_Id(id);
+                    boolean hasContent = false;
+                    for (var s : oldSessions) {
+                        Long sid = s.getId();
+                        if (s.getLessonContent() != null && !s.getLessonContent().isBlank()) {
+                            hasContent = true;
+                            break;
+                        }
+                        if (!sessionChapterRepository.findBySession_Id(sid).isEmpty()) {
+                            hasContent = true;
+                            break;
+                        }
+                        if (!sessionLessonRepository.findBySession_Id(sid).isEmpty()) {
+                            hasContent = true;
+                            break;
+                        }
+                        if (sessionContentConfigRepository.existsBySession_Id(sid)) {
+                            hasContent = true;
+                            break;
+                        }
+                    }
+
+                    boolean force = Boolean.TRUE.equals(req.getForceDeleteContentAndCourse());
+                    if (hasContent && !force) {
+                        throw new IllegalStateException("Lớp đang có nội dung. Vui lòng xác nhận để xóa toàn bộ nội dung buổi học và khóa học của giáo viên.");
+                    }
+
+                    if (hasContent && force) {
+                        // 1) Xoá dữ liệu phụ thuộc của từng session
+                        for (var s : oldSessions) {
+                            Long sid = s.getId();
+                            sessionChapterRepository.deleteBySession_Id(sid);
+                            sessionLessonRepository.deleteBySession_Id(sid);
+                            sessionContentConfigRepository.findBySession_Id(sid)
+                                    .ifPresent(sessionContentConfigRepository::delete);
+                            s.setLessonContent(null);
+                        }
+                        classSessionRepository.saveAll(oldSessions);
+
+                        // 2) Xóa khoá học của giáo viên (nếu là khoá học thuộc giáo viên lớp này)
+                        Course currentCourse = clazz.getCourse();
+                        if (currentCourse != null
+                                && currentCourse.getOwnerTeacher() != null
+                                && clazz.getTeacher() != null
+                                && currentCourse.getOwnerTeacher().getId().equals(clazz.getTeacher().getId())) {
+                            // Gỡ liên kết khỏi lớp trước
+                            clazz.setCourse(null);
+                            clazzRepository.save(clazz);
+                            try {
+                                // Xoá lessons -> chapters -> course
+                                var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(currentCourse.getId());
+                                for (var ch : chapters) {
+                                    var lessons = courseLessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
+                                    courseLessonRepository.deleteAll(lessons);
+                                }
+                                courseChapterRepository.deleteAll(chapters);
+                                courseRepository.delete(currentCourse);
+                            } catch (Exception ignore) {
+                                // Nếu xoá cascade đã cấu hình ở DB/JPA, có thể bỏ qua lỗi nhỏ
+                            }
+                        }
+                    }
+
+                    // Xóa session cũ và sinh lại theo lịch mới
                     classSessionRepository.deleteAll(oldSessions);
                     var slotsPerDay2 = classScheduleRepository.findByClazz_Id(id).stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
                     LocalDate endDateEffective = clazz.getEndDate();

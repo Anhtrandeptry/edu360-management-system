@@ -30,4 +30,8 @@ public class UpdateClassRequest {
     private Long teacherId;     // teacher userId
     private Integer totalSessions; // tổng số buổi nếu muốn tính lại endDate & regenerate sessions
     private List<ScheduleItemRequest> schedule; // lịch lặp mới (dayOfWeek 1..7 hoặc 0..6? FE gửi 1..7 Mon..Sun)
+
+    // Xác nhận xóa toàn bộ nội dung buổi học và khóa học của giáo viên khi cần regen
+    // Mặc định = false. FE sẽ đặt true sau khi hiển thị confirm cho Admin.
+    private Boolean forceDeleteContentAndCourse;
 }
