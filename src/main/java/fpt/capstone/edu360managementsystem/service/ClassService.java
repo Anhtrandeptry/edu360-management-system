@@ -313,10 +313,13 @@ public class ClassService {
     private void createClassCourseForClass(Clazz clazz, Teacher teacher, Course template) {
         try {
             String newTitle = template.getTitle() + " - " + clazz.getName();
+            // Thêm SOURCE tag vào description để FE có thể tìm lại baseCourseId
+            String newDescription = (template.getDescription() != null ? template.getDescription() : "")
+                    + "\n[[SOURCE:" + template.getId() + "]]";
             Course newCourse = Course.builder()
                     .subject(template.getSubject())
                     .title(newTitle)
-                    .description(template.getDescription())
+                    .description(newDescription)
                     .status(fpt.capstone.edu360managementsystem.enums.CourseStatus.APPROVED)
                     .createdBy(teacher.getUser())
                     .ownerTeacher(teacher)
@@ -461,11 +464,10 @@ public class ClassService {
         return out;
     }
 
-    private ClassStatus deriveClassStatus(Semester sem) {
-        // For new lifecycle, classes created are DRAFT by default; this helper is not used for status anymore
-        return ClassStatus.DRAFT;
-    }
-
+    // private ClassStatus deriveClassStatus(Semester sem) {
+    //     // For new lifecycle, classes created are DRAFT by default; this helper is not used for status anymore
+    //     return ClassStatus.DRAFT;
+    // }
     public void publishClass(Long id) {
         System.out.println("\uD83D\uDD0D [ClassService] publishClass id=" + id);
         Clazz clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));

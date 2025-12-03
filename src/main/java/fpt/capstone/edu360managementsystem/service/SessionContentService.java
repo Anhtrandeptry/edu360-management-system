@@ -164,13 +164,7 @@ public class SessionContentService {
                 .build());
         cfg.setSourceType(sourceType);
         cfg.setBaseCourseId(baseCourseId != null ? baseCourseId : course.getId());
-        cfg.setTeacherCourseId(null);
-        try {
-            var field = SessionContentConfig.class.getDeclaredField("classCourseId");
-            field.setAccessible(true);
-            field.set(cfg, classCourseId);
-        } catch (Exception ignore) {
-        }
+        cfg.setTeacherCourseId(classCourseId); // Dùng teacherCourseId để lưu khóa học clone của lớp
         cfg.setChapterId(selectedChapterId);
         cfg.setLessonId(selectedLessonId);
         sessionContentConfigRepository.save(cfg);
@@ -239,15 +233,7 @@ public class SessionContentService {
         if (cfgOpt.isPresent()) {
             var cfg = cfgOpt.get();
             respSourceType = cfg.getSourceType();
-            try {
-                var field = SessionContentConfig.class.getDeclaredField("classCourseId");
-                field.setAccessible(true);
-                Object v = field.get(cfg);
-                if (v instanceof Long) {
-                    respClassCourseId = (Long) v;
-                }
-            } catch (Exception ignore) {
-            }
+            respClassCourseId = cfg.getTeacherCourseId(); // teacherCourseId lưu khóa học clone của lớp
             respChapterId = cfg.getChapterId();
             respLessonId = cfg.getLessonId();
         }
