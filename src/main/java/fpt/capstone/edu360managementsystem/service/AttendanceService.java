@@ -43,6 +43,7 @@ public class AttendanceService {
     private ClazzRepository clazzRepository;
     @Autowired
     private ClassScheduleRepository classScheduleRepository;
+    // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên
 
     /**
      * Danh sách buổi dạy hôm nay của giáo viên (theo userId)
@@ -152,6 +153,7 @@ public class AttendanceService {
                 attendanceRepository.save(existing);
             }
         }
+        // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
 
     /**
@@ -207,6 +209,7 @@ public class AttendanceService {
                 attendanceRepository.save(existing);
             }
         }
+        // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
 
     /**

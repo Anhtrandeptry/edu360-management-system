@@ -51,6 +51,7 @@ public class SessionContentService {
     // BỎ logic phiên bản/mapping
     @Autowired
     private SessionContentConfigRepository sessionContentConfigRepository;
+    // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên
 
     @Transactional
     public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, Long slotId, SessionContentUpsertRequest req) {
@@ -169,6 +170,7 @@ public class SessionContentService {
         cfg.setLessonId(selectedLessonId);
         sessionContentConfigRepository.save(cfg);
         log.info("🟢 COMPLETED upsertSessionContent successfully");
+        // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
 
     @Transactional(readOnly = true)
