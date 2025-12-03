@@ -42,7 +42,7 @@ public class SessionContentConfig {
     private Long baseCourseId; // nếu ADMIN
 
     @Column(name = "teacher_course_id")
-    private Long teacherCourseId; // nếu PERSONAL
+    private Long teacherCourseId; // nếu CLASS_PERSONAL (khóa học clone của lớp)
 
     @Column(name = "chapter_id")
     private Long chapterId;

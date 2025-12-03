@@ -16,4 +16,8 @@ public interface SessionLessonRepository extends JpaRepository<SessionLesson, Lo
     @Modifying
     @Query("DELETE FROM SessionLesson sl WHERE sl.session.id = :sessionId")
     void deleteBySession_Id(@Param("sessionId") Long sessionId);
+
+    @Modifying
+    @Query("DELETE FROM SessionLesson sl WHERE sl.lesson.id = :lessonId")
+    void deleteByLesson_Id(@Param("lessonId") Long lessonId);
 }

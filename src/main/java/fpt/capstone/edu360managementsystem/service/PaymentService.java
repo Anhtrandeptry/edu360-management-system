@@ -1,10 +1,13 @@
 package fpt.capstone.edu360managementsystem.service;
 
+import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.VietQrCallbackRequest;
 import fpt.capstone.edu360managementsystem.dto.response.PaymentCreateResponse;
+import fpt.capstone.edu360managementsystem.dto.response.PaymentResponse;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.entity.Payment;
 import fpt.capstone.edu360managementsystem.entity.Student;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.enums.PaymentStatus;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
@@ -13,11 +16,16 @@ import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class PaymentService {
@@ -51,6 +59,9 @@ public class PaymentService {
 
     @Autowired
     private EnrollmentService enrollmentService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Tạo Payment cho 1 lớp (mỗi học sinh - mỗi lớp 1 payment).
@@ -124,20 +135,44 @@ public class PaymentService {
 
     /**
      * Admin xác nhận đã thanh toán (sau khi check sao kê).
-     * Có thể mở rộng: auto enroll vào lớp.
+     * Tự động enroll học sinh vào lớp sau khi xác nhận.
      */
     @Transactional
     public void confirmPayment(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
+        // Chỉ xác nhận nếu đang PENDING
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            throw new RuntimeException("Payment đã được xác nhận trước đó");
+        }
+
         payment.setStatus(PaymentStatus.PAID);
         payment.setPaidAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // TODO (optional): tự động enroll học sinh vào lớp sau khi thanh toán
-        // Ví dụ:
-        // enrollmentService.selfEnroll(payment.getClazz().getId(), payment.getStudent().getUser().getId());
+        // ✅ Gửi thông báo thanh toán thành công
+        try {
+            notificationService.notifyPaymentSuccess(
+                    payment.getStudent().getUser().getId(),
+                    payment.getClazz().getName(),
+                    payment.getAmount()
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send payment notification: " + e.getMessage());
+        }
+
+        // ✅ Tự động enroll học sinh vào lớp sau khi thanh toán được xác nhận
+        try {
+            enrollmentService.enrollAfterPayment(
+                    payment.getClazz().getId(),
+                    payment.getStudent().getId()
+            );
+        } catch (Exception e) {
+            // Log lỗi nhưng không rollback payment confirmation
+            // Vì payment đã thành công, chỉ là auto-enroll bị lỗi (ví dụ: lớp đầy)
+            System.err.println("Auto-enroll failed after payment confirmation: " + e.getMessage());
+        }
     }
 
 
@@ -199,10 +234,16 @@ public class PaymentService {
         payment.setBankTransactionId(req.getTransactionId());
         paymentRepository.save(payment);
 
-        // 5) TỰ ĐỘNG ENROLL
-        Long classId = payment.getClazz().getId();
-        Long userId = payment.getStudent().getUser().getId();
-        enrollmentService.selfEnroll(classId, userId);
+        // 5) TỰ ĐỘNG ENROLL sau khi thanh toán thành công
+        try {
+            enrollmentService.enrollAfterPayment(
+                    payment.getClazz().getId(),
+                    payment.getStudent().getId()
+            );
+        } catch (Exception e) {
+            // Log lỗi nhưng không rollback payment
+            System.err.println("Auto-enroll failed after VietQR callback: " + e.getMessage());
+        }
     }
 
     private String extractOrderCode(String content) {
@@ -210,5 +251,162 @@ public class PaymentService {
         int idx = content.lastIndexOf("#PAY-");
         if (idx == -1) return null;
         return content.substring(idx + 1).trim(); // cắt phần "#PAY-..."
+    }
+
+    /**
+     * Xử lý webhook từ Casso.vn
+     * Casso sẽ gửi danh sách giao dịch khi có biến động số dư.
+     * 
+     * Luồng:
+     * 1. Nhận webhook từ Casso
+     * 2. Duyệt qua từng giao dịch (tiền vào = amount > 0)
+     * 3. Tìm orderCode trong description (nội dung chuyển khoản)
+     * 4. Tìm Payment trong DB theo orderCode
+     * 5. Verify số tiền và cập nhật trạng thái PAID
+     * 6. Tự động enroll student vào lớp
+     */
+    @Transactional
+    public void handleCassoWebhook(CassoWebhookRequest req) {
+        if (req.getError() != null && req.getError() != 0) {
+            throw new RuntimeException("Casso webhook error: " + req.getError());
+        }
+
+        if (req.getData() == null || req.getData().isEmpty()) {
+            return; // Không có giao dịch
+        }
+
+        for (CassoWebhookRequest.CassoTransaction tx : req.getData()) {
+            // Chỉ xử lý tiền vào (amount > 0)
+            if (tx.getAmount() == null || tx.getAmount() <= 0) {
+                continue;
+            }
+
+            // Tìm orderCode trong description
+            String orderCode = extractOrderCode(tx.getDescription());
+            if (orderCode == null) {
+                System.out.println("Casso: No orderCode found in: " + tx.getDescription());
+                continue;
+            }
+
+            // Tìm payment theo orderCode
+            var paymentOpt = paymentRepository.findByOrderCode(orderCode);
+            if (paymentOpt.isEmpty()) {
+                System.out.println("Casso: Payment not found for orderCode: " + orderCode);
+                continue;
+            }
+
+            Payment payment = paymentOpt.get();
+
+            // Đã xử lý rồi thì bỏ qua
+            if (payment.getStatus() == PaymentStatus.PAID) {
+                continue;
+            }
+
+            // Verify số tiền
+            if (!tx.getAmount().equals(payment.getAmount())) {
+                System.err.println("Casso: Amount mismatch for " + orderCode + 
+                        ". Expected: " + payment.getAmount() + ", Got: " + tx.getAmount());
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setBankTransactionId(tx.getTid());
+                paymentRepository.save(payment);
+                continue;
+            }
+
+            // ✅ Đúng tiền => Mark PAID
+            payment.setStatus(PaymentStatus.PAID);
+            payment.setPaidAt(LocalDateTime.now());
+            payment.setBankTransactionId(tx.getTid());
+            paymentRepository.save(payment);
+
+            System.out.println("✅ Casso: Payment confirmed for orderCode: " + orderCode);
+
+            // ✅ Tự động enroll student
+            try {
+                enrollmentService.enrollAfterPayment(
+                        payment.getClazz().getId(),
+                        payment.getStudent().getId()
+                );
+                System.out.println("✅ Casso: Student auto-enrolled for class: " + payment.getClazz().getId());
+            } catch (Exception e) {
+                System.err.println("Casso: Auto-enroll failed: " + e.getMessage());
+            }
+        }
+    }
+
+    // ===================== ADMIN METHODS =====================
+
+    /**
+     * Admin: Lấy danh sách payment với filter và phân trang.
+     */
+    public Page<PaymentResponse> getPayments(
+            PaymentStatus status,
+            String studentName,
+            Long classId,
+            LocalDateTime from,
+            LocalDateTime to,
+            int page,
+            int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Payment> payments = paymentRepository.findAllWithFilters(status, studentName, classId, from, to, pageable);
+        return payments.map(this::mapToResponse);
+    }
+
+    /**
+     * Admin: Lấy chi tiết 1 payment.
+     */
+    public PaymentResponse getPaymentById(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
+        return mapToResponse(payment);
+    }
+
+    /**
+     * Admin: Thống kê tổng quan.
+     */
+    public Map<String, Object> getPaymentStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalPaidAmount", paymentRepository.sumPaidAmount());
+        stats.put("pendingCount", paymentRepository.countByStatus(PaymentStatus.PENDING));
+        stats.put("paidCount", paymentRepository.countByStatus(PaymentStatus.PAID));
+        stats.put("failedCount", paymentRepository.countByStatus(PaymentStatus.FAILED));
+        stats.put("totalCount", paymentRepository.count());
+        return stats;
+    }
+
+    /**
+     * Map Payment entity -> PaymentResponse DTO
+     */
+    private PaymentResponse mapToResponse(Payment p) {
+        Student student = p.getStudent();
+        Clazz clazz = p.getClazz();
+        Teacher teacher = clazz.getTeacher();
+
+        String teacherName = teacher != null && teacher.getUser() != null
+                ? teacher.getUser().getFullName()
+                : "";
+        String subjectName = clazz.getSubject() != null
+                ? clazz.getSubject().getName()
+                : "";
+
+        return PaymentResponse.builder()
+                .id(p.getId())
+                .studentId(student.getId())
+                .studentUserId(student.getUser().getId())
+                .studentName(student.getUser().getFullName())
+                .studentEmail(student.getUser().getEmail())
+                .studentPhone(student.getUser().getPhoneNumber())
+                .classId(clazz.getId())
+                .className(clazz.getName())
+                .teacherName(teacherName)
+                .subjectName(subjectName)
+                .amount(p.getAmount())
+                .content(p.getContent())
+                .orderCode(p.getOrderCode())
+                .status(p.getStatus())
+                .bankTransactionId(p.getBankTransactionId())
+                .createdAt(p.getCreatedAt())
+                .paidAt(p.getPaidAt())
+                .build();
     }
 }

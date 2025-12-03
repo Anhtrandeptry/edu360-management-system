@@ -23,6 +23,8 @@ import fpt.capstone.edu360managementsystem.enums.CourseStatus;
 import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
@@ -42,6 +44,10 @@ public class CourseService {
     private CourseChapterRepository chapterRepository;
     @Autowired
     private CourseLessonRepository lessonRepository;
+    @Autowired
+    private SessionLessonRepository sessionLessonRepository;
+    @Autowired
+    private SessionChapterRepository sessionChapterRepository;
 
     @Transactional
     public CourseResponse createCourse(Long currentUserId, boolean isAdmin, CourseCreateRequest req) {
@@ -179,9 +185,14 @@ public class CourseService {
         CourseChapter chapter = chapterRepository.findById(chapterId)
                 .orElseThrow(() -> new RuntimeException("Chapter not found"));
 
+        // Xóa liên kết session_chapters trước
+        sessionChapterRepository.deleteByChapter_Id(chapterId);
+
         List<CourseLesson> lessons = lessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapterId);
         if (lessons != null && !lessons.isEmpty()) {
             for (CourseLesson l : lessons) {
+                // Xóa liên kết session_lessons trước
+                sessionLessonRepository.deleteByLesson_Id(l.getId());
                 lessonRepository.delete(l);
             }
         }
@@ -193,6 +204,8 @@ public class CourseService {
     public void removeLesson(Long lessonId) {
         CourseLesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        // Xóa liên kết session_lessons trước
+        sessionLessonRepository.deleteByLesson_Id(lessonId);
         lessonRepository.delete(lesson);
     }
 

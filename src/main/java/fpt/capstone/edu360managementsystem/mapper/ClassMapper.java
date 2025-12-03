@@ -28,6 +28,8 @@ public interface ClassMapper {
                 .description(entity.getDescription())
                 .status(entity.getStatus())
                 .sessionsGenerated(sessionsGenerated)
+                .pricePerSession(entity.getPricePerSession())
+                .totalSessions(sessionsGenerated)
                 .subjectName(entity.getSubject().getName())
                 .teacherFullName(entity.getTeacher().getUser().getFullName())
                 .teacherAvatarUrl(entity.getTeacher().getAvatarUrl())
@@ -43,15 +45,14 @@ public interface ClassMapper {
             resp.setSchedule(
                     schedules.stream()
                             .map(s -> new ClassResponse.ScheduleItemView(
-                                    s.getDayOfWeek(),
-                                    s.getTimeSlot().getId(),
-                                    s.getTimeSlot().getStartTime().toString(),
-                                    s.getTimeSlot().getEndTime().toString()
-                            ))
+                            s.getDayOfWeek(),
+                            s.getTimeSlot().getId(),
+                            s.getTimeSlot().getStartTime().toString(),
+                            s.getTimeSlot().getEndTime().toString()
+                    ))
                             .toList()
             );
         }
         return resp;
     }
 }
-

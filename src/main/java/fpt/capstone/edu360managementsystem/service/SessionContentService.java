@@ -22,13 +22,14 @@ import fpt.capstone.edu360managementsystem.entity.CourseLesson;
 import fpt.capstone.edu360managementsystem.entity.SessionChapter;
 import fpt.capstone.edu360managementsystem.entity.SessionContentConfig;
 import fpt.capstone.edu360managementsystem.entity.SessionLesson;
+import fpt.capstone.edu360managementsystem.enums.CourseStatus;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
 import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
 import fpt.capstone.edu360managementsystem.repository.SessionContentConfigRepository;
 import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
-import fpt.capstone.edu360managementsystem.repository.TeacherCourseVersionRepository;
 
 @Service
 public class SessionContentService {
@@ -46,18 +47,34 @@ public class SessionContentService {
     @Autowired
     private CourseLessonRepository lessonRepository;
     @Autowired
-    private TeacherCourseVersionRepository teacherCourseVersionRepository;
+    private CourseRepository courseRepository;
+    // BỎ logic phiên bản/mapping
     @Autowired
     private SessionContentConfigRepository sessionContentConfigRepository;
 
     @Transactional
-    public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, SessionContentUpsertRequest req) {
+    public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, Long slotId, SessionContentUpsertRequest req) {
         LocalDate date = LocalDate.parse(dateStr);
-        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "No session found for class " + classId + " on date " + dateStr));
-        log.info("➡️ upsertSessionContentByClassDate userId={}, classId={}, date={}, incomingChapters={}, incomingLessons={}",
-                userId, classId, dateStr,
+        ClassSession session;
+        if (slotId != null) {
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId));
+        } else {
+            // Avoid IncorrectResultSize: fetch list and choose earliest time slot
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (sameDay.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No session found for class " + classId + " on date " + dateStr);
+            }
+            if (sameDay.size() > 1) {
+                log.warn("Multiple sessions found for class {} on {}. Consider passing slotId. Picking earliest.", classId, dateStr);
+            }
+            session = sameDay.get(0);
+        }
+        log.info("➡️ upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, incomingChapters={}, incomingLessons={}",
+                userId, classId, dateStr, slotId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
                 req.getLessonIds() != null ? req.getLessonIds() : "[]");
         upsertSessionContent(userId, session.getId(), req);
@@ -96,28 +113,10 @@ public class SessionContentService {
         log.info("✅ Old links deleted");
 
         if (req.getChapterIds() != null) {
-            Long baseCourseId = course.getId();
-            Long teacherId = session.getClazz().getTeacher().getId();
-            log.info("📚 Processing {} chapters (baseCourseId={}, teacherId={})", req.getChapterIds().size(), baseCourseId, teacherId);
             for (Long chapId : req.getChapterIds()) {
                 CourseChapter chap = chapterRepository.findById(chapId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chapter not found: " + chapId));
-                Long chapterCourseId = chap.getCourse().getId();
-
-                boolean directBase = chapterCourseId.equals(baseCourseId);
-                boolean mappedPersonal = !directBase && teacherCourseVersionRepository.existsByBaseCourse_IdAndTeacherCourse_IdAndTeacher_Id(baseCourseId, chapterCourseId, teacherId);
-
-                if (!directBase && !mappedPersonal) {
-                    log.warn("❌ Chapter {} rejected. chapterCourseId={}, baseCourseId={}, teacherId={}, reason=NO_MAPPING", chapId, chapterCourseId, baseCourseId, teacherId);
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chương học không thuộc khóa học gốc hoặc phiên bản cá nhân được liên kết");
-                }
-
-                if (directBase) {
-                    log.info("✅ Chapter {} accepted from BASE courseId={}", chapId, chapterCourseId);
-                } else {
-                    log.info("✅ Chapter {} accepted from PERSONAL courseId={} mapped to baseCourseId={} (teacherId={})", chapId, chapterCourseId, baseCourseId, teacherId);
-                }
-
+                // Cho phép: chapter thuộc course môn (ADMIN) hoặc course của lớp (CLASS_PERSONAL)
                 SessionChapter sc = sessionChapterRepository.save(SessionChapter.builder()
                         .session(session)
                         .chapter(chap)
@@ -127,28 +126,9 @@ public class SessionContentService {
         }
 
         if (req.getLessonIds() != null) {
-            Long baseCourseId = course.getId();
-            Long teacherId = session.getClazz().getTeacher().getId();
-            log.info("📖 Processing {} lessons (baseCourseId={}, teacherId={})", req.getLessonIds().size(), baseCourseId, teacherId);
             for (Long lessonId : req.getLessonIds()) {
                 CourseLesson lesson = lessonRepository.findById(lessonId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found: " + lessonId));
-                Long lessonCourseId = lesson.getChapter().getCourse().getId();
-
-                boolean directBase = lessonCourseId.equals(baseCourseId);
-                boolean mappedPersonal = !directBase && teacherCourseVersionRepository.existsByBaseCourse_IdAndTeacherCourse_IdAndTeacher_Id(baseCourseId, lessonCourseId, teacherId);
-
-                if (!directBase && !mappedPersonal) {
-                    log.warn("❌ Lesson {} rejected. lessonCourseId={}, baseCourseId={}, teacherId={}, reason=NO_MAPPING", lessonId, lessonCourseId, baseCourseId, teacherId);
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bài học không thuộc khóa học gốc hoặc phiên bản cá nhân được liên kết");
-                }
-
-                if (directBase) {
-                    log.info("✅ Lesson {} accepted from BASE courseId={}", lessonId, lessonCourseId);
-                } else {
-                    log.info("✅ Lesson {} accepted from PERSONAL courseId={} mapped to baseCourseId={} (teacherId={})", lessonId, lessonCourseId, baseCourseId, teacherId);
-                }
-
                 SessionLesson sl = sessionLessonRepository.save(SessionLesson.builder()
                         .session(session)
                         .lesson(lesson)
@@ -164,17 +144,18 @@ public class SessionContentService {
 
         // Persist explicit configuration: sourceType, course ids, chapter/lesson
         String sourceType = req.getSourceType();
-        Long baseCourseId = (sourceType != null && sourceType.equalsIgnoreCase("ADMIN")) ? course.getId() : req.getCourseId();
-        Long teacherCourseId = (sourceType != null && sourceType.equalsIgnoreCase("PERSONAL")) ? req.getTeacherCourseId() : null;
+        Long baseCourseId = course.getId();
+        Long classCourseId = "CLASS_PERSONAL".equalsIgnoreCase(sourceType) ? req.getClassCourseId() : null;
+        if ("CLASS_PERSONAL".equalsIgnoreCase(sourceType) && classCourseId == null) {
+            // Tạo khóa học của lớp nếu chưa có và lấy id
+            classCourseId = ensureClassCourse(session).getId();
+        }
         // Fallback to the first ids from arrays if single fields not provided
         Long selectedChapterId = req.getChapterId() != null ? req.getChapterId() : (req.getChapterIds() != null && !req.getChapterIds().isEmpty() ? req.getChapterIds().get(0) : null);
         Long selectedLessonId = req.getLessonId() != null ? req.getLessonId() : (req.getLessonIds() != null && !req.getLessonIds().isEmpty() ? req.getLessonIds().get(0) : null);
 
         if (sourceType == null) {
-            // Infer sourceType from links if not provided
-            sourceType = (selectedChapterId != null) ? (chapterRepository.findById(selectedChapterId)
-                    .map(ch -> ch.getCourse().getId().equals(course.getId()) ? "ADMIN" : "PERSONAL")
-                    .orElse("ADMIN")) : "ADMIN";
+            sourceType = "ADMIN";
         }
 
         var existingOpt = sessionContentConfigRepository.findBySession_Id(sessionId);
@@ -183,7 +164,7 @@ public class SessionContentService {
                 .build());
         cfg.setSourceType(sourceType);
         cfg.setBaseCourseId(baseCourseId != null ? baseCourseId : course.getId());
-        cfg.setTeacherCourseId(teacherCourseId);
+        cfg.setTeacherCourseId(classCourseId); // Dùng teacherCourseId để lưu khóa học clone của lớp
         cfg.setChapterId(selectedChapterId);
         cfg.setLessonId(selectedLessonId);
         sessionContentConfigRepository.save(cfg);
@@ -237,29 +218,37 @@ public class SessionContentService {
 
         Long baseCourseId = course.getId();
         var linkedCourseIds = chapters.stream().map(ch -> ch.getCourse().getId()).distinct().toList();
-        String inferredSourceType;
-        Long inferredSelectedCourseId;
-        if (linkedCourseIds.isEmpty() || (linkedCourseIds.size() == 1 && linkedCourseIds.get(0).equals(baseCourseId))) {
-            inferredSourceType = "ADMIN";
-            inferredSelectedCourseId = baseCourseId;
-        } else {
-            inferredSourceType = "PERSONAL";
-            inferredSelectedCourseId = linkedCourseIds.stream().filter(id -> !id.equals(baseCourseId)).findFirst().orElse(baseCourseId);
+        String inferredSourceType = "ADMIN";
+        Long inferredClassCourseId = null;
+        if (!linkedCourseIds.isEmpty() && !linkedCourseIds.contains(baseCourseId)) {
+            inferredSourceType = "CLASS_PERSONAL";
+            inferredClassCourseId = linkedCourseIds.get(0);
         }
 
         var cfgOpt = sessionContentConfigRepository.findBySession_Id(session.getId());
         String respSourceType = null;
-        Long respSelectedCourseId = null;
-        Long respTeacherCourseId = null;
+        Long respClassCourseId = null;
         Long respChapterId = null;
         Long respLessonId = null;
         if (cfgOpt.isPresent()) {
             var cfg = cfgOpt.get();
             respSourceType = cfg.getSourceType();
-            respSelectedCourseId = (respSourceType != null && respSourceType.equalsIgnoreCase("PERSONAL")) ? cfg.getTeacherCourseId() : course.getId();
-            respTeacherCourseId = cfg.getTeacherCourseId();
+            respClassCourseId = cfg.getTeacherCourseId(); // teacherCourseId lưu khóa học clone của lớp
             respChapterId = cfg.getChapterId();
             respLessonId = cfg.getLessonId();
+        }
+
+        // If config says CLASS_PERSONAL but classCourseId is missing, resolve from class/teacher
+        if ("CLASS_PERSONAL".equalsIgnoreCase(respSourceType) && respClassCourseId == null) {
+            try {
+                Course cc = ensureClassCourse(session);
+                if (cc != null) {
+                    respClassCourseId = cc.getId();
+                    log.info("🔧 Resolved classCourseId for CLASS_PERSONAL: {}", respClassCourseId);
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ Failed to resolve classCourseId for CLASS_PERSONAL: {}", e.getMessage());
+            }
         }
 
         return SessionContentResponse.builder()
@@ -270,8 +259,7 @@ public class SessionContentService {
                 .courseTitle(course.getTitle())
                 .baseCourseId(baseCourseId)
                 .sourceType(respSourceType != null ? respSourceType : inferredSourceType)
-                .selectedCourseId(respSelectedCourseId != null ? respSelectedCourseId : inferredSelectedCourseId)
-                .teacherCourseId(respTeacherCourseId)
+                .classCourseId(respClassCourseId != null ? respClassCourseId : inferredClassCourseId)
                 .chapterId(respChapterId)
                 .lessonId(respLessonId)
                 .linkedChapterIds(chapterIds)
@@ -281,11 +269,71 @@ public class SessionContentService {
                 .build();
     }
 
+    // Tạo khoá học riêng cho lớp nếu chưa tồn tại bằng cách clone từ course môn
+    private Course ensureClassCourse(ClassSession session) {
+        var clazz = session.getClazz();
+        var teacherId = clazz.getTeacher().getId();
+        var baseCourse = clazz.getCourse();
+        String title = baseCourse.getTitle() + " – " + clazz.getName();
+        var existed = courseRepository.findByOwnerTeacher_IdAndTitle(teacherId, title);
+        if (existed != null && !existed.isEmpty()) {
+            return existed.get(0);
+        }
+        // tạo mới
+        Course newCourse = Course.builder()
+                .subject(baseCourse.getSubject())
+                .title(title)
+                .description(baseCourse.getDescription())
+                .status(CourseStatus.APPROVED)
+                .createdBy(clazz.getTeacher().getUser())
+                .ownerTeacher(clazz.getTeacher())
+                .build();
+        newCourse = courseRepository.save(newCourse);
+
+        // clone chapters + lessons
+        var baseChapters = chapterRepository.findByCourse_IdOrderByOrderIndexAsc(baseCourse.getId());
+        int chOrder = 1;
+        for (CourseChapter bc : baseChapters) {
+            CourseChapter nc = CourseChapter.builder()
+                    .course(newCourse)
+                    .title(bc.getTitle())
+                    .description(bc.getDescription())
+                    .orderIndex(chOrder++)
+                    .build();
+            nc = chapterRepository.save(nc);
+            var baseLessons = lessonRepository.findByChapter_IdOrderByOrderIndexAsc(bc.getId());
+            int lOrder = 1;
+            for (CourseLesson bl : baseLessons) {
+                CourseLesson nl = CourseLesson.builder()
+                        .chapter(nc)
+                        .title(bl.getTitle())
+                        .description(bl.getDescription())
+                        .orderIndex(lOrder++)
+                        .build();
+                lessonRepository.save(nl);
+            }
+        }
+        return newCourse;
+    }
+
     @Transactional(readOnly = true)
-    public SessionContentResponse getSessionContentByClassDate(Long classId, String dateStr) {
+    public SessionContentResponse getSessionContentByClassDate(Long classId, String dateStr, Long slotId) {
         LocalDate date = LocalDate.parse(dateStr);
-        ClassSession session = classSessionRepository.findByClazz_IdAndDate(classId, date)
-                .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr));
+        ClassSession session;
+        if (slotId != null) {
+            session = classSessionRepository.findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
+                    .orElseThrow(() -> new RuntimeException("No session found for class " + classId + " on date " + dateStr + " with slotId=" + slotId));
+        } else {
+            List<ClassSession> sameDay = classSessionRepository
+                    .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+            if (sameDay.isEmpty()) {
+                throw new RuntimeException("No session found for class " + classId + " on date " + dateStr);
+            }
+            if (sameDay.size() > 1) {
+                log.warn("Multiple sessions found for class {} on {}. Consider passing slotId. Picking earliest.", classId, dateStr);
+            }
+            session = sameDay.get(0);
+        }
         return getSessionContent(session.getId());
     }
 }

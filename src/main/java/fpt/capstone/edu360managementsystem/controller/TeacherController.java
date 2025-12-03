@@ -15,11 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import fpt.capstone.edu360managementsystem.dto.request.TeacherProfileUpdateRequest;
 import fpt.capstone.edu360managementsystem.dto.response.BusySlotResponse;
+import fpt.capstone.edu360managementsystem.dto.response.SubjectResponse;
 import fpt.capstone.edu360managementsystem.dto.response.TeacherProfileResponse;
 import fpt.capstone.edu360managementsystem.dto.response.TeacherResponse;
 import fpt.capstone.edu360managementsystem.service.ScheduleService;
 import fpt.capstone.edu360managementsystem.service.TeacherService;
-import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
 /**
@@ -83,8 +83,9 @@ public class TeacherController {
     }
 
     /**
-     * GET /api/teachers/by-user/{userId}/profile
-     * Get public teacher profile by userId
+     * GET /api/teachers/by-user/{userId}/profile Get public teacher profile by
+     * userId
+     *
      * @param userId User ID of the teacher
      * @return Teacher profile response with full details
      */
@@ -95,8 +96,8 @@ public class TeacherController {
     }
 
     /**
-     * GET /api/teachers/profile
-     * Get current teacher's profile information
+     * GET /api/teachers/profile Get current teacher's profile information
+     *
      * @param auth Spring Security authentication object
      * @return Teacher profile response
      */
@@ -105,13 +106,13 @@ public class TeacherController {
         if (auth == null || auth.getPrincipal() == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         // Extract userId from UserDetailsImpl
         Long userId;
         if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
-            org.springframework.security.core.userdetails.UserDetails userDetails = 
-                (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
-            
+            org.springframework.security.core.userdetails.UserDetails userDetails
+                    = (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
+
             // UserDetailsImpl has getId() method
             if (userDetails instanceof fpt.capstone.edu360managementsystem.service.UserDetailsImpl) {
                 userId = ((fpt.capstone.edu360managementsystem.service.UserDetailsImpl) userDetails).getId();
@@ -121,14 +122,14 @@ public class TeacherController {
         } else {
             return ResponseEntity.status(401).build();
         }
-        
+
         TeacherProfileResponse profile = teacherService.getTeacherProfile(userId);
         return ResponseEntity.ok(profile);
     }
 
     /**
-     * PUT /api/teachers/profile
-     * Update current teacher's profile information
+     * PUT /api/teachers/profile Update current teacher's profile information
+     *
      * @param auth Spring Security authentication object
      * @param request Profile update request
      * @return Updated teacher profile response
@@ -141,13 +142,13 @@ public class TeacherController {
         if (auth == null || auth.getPrincipal() == null) {
             return ResponseEntity.status(401).build();
         }
-        
+
         // Extract userId from UserDetailsImpl
         Long userId;
         if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
-            org.springframework.security.core.userdetails.UserDetails userDetails = 
-                (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
-            
+            org.springframework.security.core.userdetails.UserDetails userDetails
+                    = (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
+
             if (userDetails instanceof fpt.capstone.edu360managementsystem.service.UserDetailsImpl) {
                 userId = ((fpt.capstone.edu360managementsystem.service.UserDetailsImpl) userDetails).getId();
             } else {
@@ -156,8 +157,70 @@ public class TeacherController {
         } else {
             return ResponseEntity.status(401).build();
         }
-        
+
         TeacherProfileResponse updated = teacherService.updateTeacherProfile(userId, request);
         return ResponseEntity.ok(updated);
+    }
+
+    /**
+     * GET /api/teachers/{teacherId}/subjects Return all subjects taught by a
+     * teacher (primary + additional).
+     */
+    @GetMapping("/{teacherId}/subjects")
+    public ResponseEntity<List<SubjectResponse>> getSubjectsByTeacherId(@PathVariable Long teacherId) {
+        List<SubjectResponse> subjects = teacherService.getSubjectsByTeacherId(teacherId);
+        return ResponseEntity.ok(subjects);
+    }
+
+    /**
+     * PUT /api/teachers/{teacherId}/subjects Update subjects taught by a
+     * teacher (replace additional subjects set).
+     */
+    @PutMapping("/{teacherId}/subjects")
+    public ResponseEntity<List<SubjectResponse>> updateTeacherSubjects(
+            @PathVariable Long teacherId,
+            @RequestBody java.util.Map<String, java.util.List<Long>> body
+    ) {
+        java.util.List<Long> subjectIds = body != null ? body.getOrDefault("subjectIds", java.util.List.of()) : java.util.List.of();
+        try {
+            List<SubjectResponse> updated = teacherService.updateTeacherSubjects(teacherId, subjectIds);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalStateException ex) {
+            // Vi phạm nghiệp vụ: đang dạy lớp nên không thể chuyển môn
+            return ResponseEntity.badRequest().body(java.util.List.of(
+                    SubjectResponse.builder()
+                            .id(-1L)
+                            .name(ex.getMessage())
+                            .status(null)
+                            .classCount(0)
+                            .build()
+            ));
+        }
+    }
+
+    /**
+     * PUT /api/teachers/{teacherId}/primary-subject Change the primary subject
+     * for a teacher with business rule enforcement.
+     */
+    @PutMapping("/{teacherId}/primary-subject")
+    public ResponseEntity<SubjectResponse> updatePrimarySubject(
+            @PathVariable Long teacherId,
+            @RequestBody java.util.Map<String, Long> body
+    ) {
+        Long subjectId = body != null ? body.get("subjectId") : null;
+        if (subjectId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            SubjectResponse updated = teacherService.updatePrimarySubject(teacherId, subjectId);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.badRequest().body(SubjectResponse.builder()
+                    .id(-1L)
+                    .name(ex.getMessage())
+                    .status(null)
+                    .classCount(0)
+                    .build());
+        }
     }
 }
