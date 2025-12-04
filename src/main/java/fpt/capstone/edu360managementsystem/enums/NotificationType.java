@@ -13,6 +13,11 @@ public enum NotificationType {
     SCHEDULE_CHANGED,        // Lịch học đã thay đổi
     CLASS_REMINDER,          // Nhắc nhở buổi học sắp diễn ra
     
+    // Attendance
+    ATTENDANCE_PRESENT,      // Điểm danh có mặt
+    ATTENDANCE_ABSENT,       // Điểm danh vắng mặt
+    ATTENDANCE_LATE,         // Điểm danh đi muộn
+    
     // Payment
     PAYMENT_SUCCESS,         // Thanh toán thành công
     PAYMENT_FAILED,          // Thanh toán thất bại

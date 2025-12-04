@@ -2,7 +2,10 @@ package fpt.capstone.edu360managementsystem.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,14 +15,22 @@ import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Attendance;
+import fpt.capstone.edu360managementsystem.entity.SessionChapter;
+import fpt.capstone.edu360managementsystem.entity.SessionLesson;
+import fpt.capstone.edu360managementsystem.entity.SessionMaterial;
 import fpt.capstone.edu360managementsystem.enums.AttendanceStatus;
 import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import fpt.capstone.edu360managementsystem.repository.AttendanceRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionMaterialRepository;
 
 @Service
 public class StudentClassService {
+
+    private static final Logger log = LoggerFactory.getLogger(StudentClassService.class);
 
     @Autowired
     private StudentRepository studentRepository;
@@ -29,8 +40,18 @@ public class StudentClassService {
 
     @Autowired
     private ClassSessionRepository classSessionRepository;
+    
     @Autowired
     private AttendanceRepository attendanceRepository;
+    
+    @Autowired
+    private SessionChapterRepository sessionChapterRepository;
+    
+    @Autowired
+    private SessionLessonRepository sessionLessonRepository;
+    
+    @Autowired
+    private SessionMaterialRepository sessionMaterialRepository;
 
         public List<StudentClassResponse> getMyClasses(Long userId) {
         try {
@@ -94,8 +115,7 @@ public class StudentClassService {
                 .orElse(null);
 
             if (student == null) {
-                org.slf4j.LoggerFactory.getLogger(StudentClassService.class)
-                    .warn("[StudentClassService] No student profile found for userId={}", userId);
+                log.warn("[StudentClassService] No student profile found for userId={}", userId);
                 return java.util.Collections.emptyList();
             }
 
@@ -103,8 +123,7 @@ public class StudentClassService {
             List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudent_Id(student.getId());
             
             if (enrollments.isEmpty()) {
-                org.slf4j.LoggerFactory.getLogger(StudentClassService.class)
-                    .info("[StudentClassService] No enrolled classes found for student={}", student.getId());
+                log.info("[StudentClassService] No enrolled classes found for student={}", student.getId());
                 return java.util.Collections.emptyList();
             }
 
@@ -123,8 +142,7 @@ public class StudentClassService {
                     classIds, weekStart, weekEnd
                 );
 
-            org.slf4j.LoggerFactory.getLogger(StudentClassService.class)
-                .info("[StudentClassService] Found {} sessions for student={} in week {}-{}", 
+            log.info("[StudentClassService] Found {} sessions for student={} in week {}-{}", 
                     sessions.size(), student.getId(), weekStart, weekEnd);
 
             // Batch load attendance records for these sessions for the student
@@ -133,10 +151,67 @@ public class StudentClassService {
             var statusBySession = attendanceRecords.stream()
                 .collect(java.util.stream.Collectors.toMap(a -> a.getSession().getId(), Attendance::getStatus));
 
-            // Map sang response (kèm trạng thái điểm danh)
+            // Batch load session chapters and lessons
+            List<SessionChapter> allSessionChapters = sessionChapterRepository.findBySession_IdIn(sessionIds);
+            List<SessionLesson> allSessionLessons = sessionLessonRepository.findBySession_IdIn(sessionIds);
+            List<SessionMaterial> allMaterials = sessionMaterialRepository.findBySession_IdIn(sessionIds);
+            
+            var chaptersBySession = allSessionChapters.stream()
+                .collect(java.util.stream.Collectors.groupingBy(sc -> sc.getSession().getId()));
+            var lessonsBySession = allSessionLessons.stream()
+                .collect(java.util.stream.Collectors.groupingBy(sl -> sl.getSession().getId()));
+            var materialsBySession = allMaterials.stream()
+                .collect(java.util.stream.Collectors.groupingBy(m -> m.getSession().getId()));
+
+            // Map sang response (kèm trạng thái điểm danh và nội dung bài học)
             return sessions.stream()
                 .map(session -> {
                     AttendanceStatus st = statusBySession.getOrDefault(session.getId(), AttendanceStatus.UNMARKED);
+                    
+                    // Lấy thông tin course của lớp
+                    Long courseId = session.getClazz().getCourse() != null 
+                        ? session.getClazz().getCourse().getId() : null;
+                    String courseTitle = session.getClazz().getCourse() != null 
+                        ? session.getClazz().getCourse().getTitle() : null;
+                    
+                    // Lấy chapters, lessons và materials của session này
+                    List<SessionChapter> sessionChapters = chaptersBySession.getOrDefault(session.getId(), List.of());
+                    List<SessionLesson> sessionLessons = lessonsBySession.getOrDefault(session.getId(), List.of());
+                    List<SessionMaterial> sessionMaterials = materialsBySession.getOrDefault(session.getId(), List.of());
+                    
+                    List<StudentScheduleResponse.SessionChapterInfo> linkedChapters = sessionChapters.stream()
+                        .map(sc -> StudentScheduleResponse.SessionChapterInfo.builder()
+                            .id(sc.getChapter().getId())
+                            .title(sc.getChapter().getTitle())
+                            .description(sc.getChapter().getDescription())
+                            .orderIndex(sc.getChapter().getOrderIndex())
+                            .build())
+                        .toList();
+                    
+                    List<StudentScheduleResponse.SessionLessonInfo> linkedLessons = sessionLessons.stream()
+                        .map(sl -> StudentScheduleResponse.SessionLessonInfo.builder()
+                            .id(sl.getLesson().getId())
+                            .chapterId(sl.getLesson().getChapter().getId())
+                            .chapterTitle(sl.getLesson().getChapter().getTitle())
+                            .title(sl.getLesson().getTitle())
+                            .description(sl.getLesson().getDescription())
+                            .orderIndex(sl.getLesson().getOrderIndex())
+                            .build())
+                        .toList();
+                    
+                    List<StudentScheduleResponse.SessionMaterialInfo> materials = sessionMaterials.stream()
+                        .map(m -> StudentScheduleResponse.SessionMaterialInfo.builder()
+                            .id(m.getId())
+                            .fileName(m.getFileName())
+                            .fileUrl(m.getFileUrl())
+                            .fileType(m.getFileType())
+                            .fileSize(m.getFileSize())
+                            .description(m.getDescription())
+                            .uploadedAt(m.getUploadedAt() != null ? m.getUploadedAt().toString() : null)
+                            .uploadedByName(m.getUploadedBy() != null ? m.getUploadedBy().getFullName() : null)
+                            .build())
+                        .toList();
+                    
                     return StudentScheduleResponse.builder()
                         .sessionId(session.getId())
                         .classId(session.getClazz().getId())
@@ -152,14 +227,145 @@ public class StudentClassService {
                         .timeEnd(session.getTimeSlot().getEndTime().toString())
                         .dayOfWeek(session.getDate().getDayOfWeek().getValue())
                         .attendanceStatus(st.name())
+                        .lessonContent(session.getLessonContent())
+                        .linkedChapters(linkedChapters)
+                        .linkedLessons(linkedLessons)
+                        .materials(materials)
+                        .courseId(courseId)
+                        .courseTitle(courseTitle)
                         .build();
                 })
                 .toList();
 
         } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger(StudentClassService.class)
-                .error("[StudentClassService] getMyScheduleByWeek failed for userId={}: {}", 
+            log.error("[StudentClassService] getMyScheduleByWeek failed for userId={}: {}", 
                     userId, e.getMessage(), e);
+            return java.util.Collections.emptyList();
+        }
+    }
+    
+    /**
+     * Lấy tất cả các buổi học của một lớp kèm nội dung bài học
+     * Kiểm tra student đã đăng ký lớp này chưa
+     */
+    public List<StudentScheduleResponse> getClassSessions(Long userId, Long classId) {
+        try {
+            // Tìm student profile
+            Student student = studentRepository.findByUser_Id(userId).orElse(null);
+            if (student == null) {
+                log.warn("[StudentClassService] No student profile found for userId={}", userId);
+                return java.util.Collections.emptyList();
+            }
+
+            // Kiểm tra student có đăng ký lớp này không
+            List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudent_Id(student.getId());
+            boolean isEnrolled = enrollments.stream()
+                .anyMatch(en -> en.getClazz().getId().equals(classId));
+            
+            if (!isEnrolled) {
+                log.warn("[StudentClassService] Student {} not enrolled in class {}", student.getId(), classId);
+                return java.util.Collections.emptyList();
+            }
+
+            // Lấy tất cả sessions của lớp, sắp xếp theo ngày và slot
+            List<ClassSession> sessions = classSessionRepository
+                .findByClazz_IdOrderByDateAscTimeSlot_StartTimeAsc(classId);
+
+            log.info("[StudentClassService] Found {} sessions for class {}", sessions.size(), classId);
+
+            // Batch load attendance records
+            var sessionIds = sessions.stream().map(ClassSession::getId).toList();
+            List<Attendance> attendanceRecords = attendanceRepository.findBySession_IdInAndStudent_Id(sessionIds, student.getId());
+            var statusBySession = attendanceRecords.stream()
+                .collect(java.util.stream.Collectors.toMap(a -> a.getSession().getId(), Attendance::getStatus));
+
+            // Batch load session chapters and lessons
+            List<SessionChapter> allSessionChapters = sessionChapterRepository.findBySession_IdIn(sessionIds);
+            List<SessionLesson> allSessionLessons = sessionLessonRepository.findBySession_IdIn(sessionIds);
+            List<SessionMaterial> allMaterials = sessionMaterialRepository.findBySession_IdIn(sessionIds);
+            
+            var chaptersBySession = allSessionChapters.stream()
+                .collect(java.util.stream.Collectors.groupingBy(sc -> sc.getSession().getId()));
+            var lessonsBySession = allSessionLessons.stream()
+                .collect(java.util.stream.Collectors.groupingBy(sl -> sl.getSession().getId()));
+            var materialsBySession = allMaterials.stream()
+                .collect(java.util.stream.Collectors.groupingBy(m -> m.getSession().getId()));
+
+            // Map sang response
+            return sessions.stream()
+                .map(session -> {
+                    AttendanceStatus st = statusBySession.getOrDefault(session.getId(), AttendanceStatus.UNMARKED);
+                    
+                    Long courseId = session.getClazz().getCourse() != null 
+                        ? session.getClazz().getCourse().getId() : null;
+                    String courseTitle = session.getClazz().getCourse() != null 
+                        ? session.getClazz().getCourse().getTitle() : null;
+                    
+                    List<SessionChapter> sessionChapters = chaptersBySession.getOrDefault(session.getId(), List.of());
+                    List<SessionLesson> sessionLessons = lessonsBySession.getOrDefault(session.getId(), List.of());
+                    List<SessionMaterial> sessionMaterials = materialsBySession.getOrDefault(session.getId(), List.of());
+                    
+                    List<StudentScheduleResponse.SessionChapterInfo> linkedChapters = sessionChapters.stream()
+                        .map(sc -> StudentScheduleResponse.SessionChapterInfo.builder()
+                            .id(sc.getChapter().getId())
+                            .title(sc.getChapter().getTitle())
+                            .description(sc.getChapter().getDescription())
+                            .orderIndex(sc.getChapter().getOrderIndex())
+                            .build())
+                        .toList();
+                    
+                    List<StudentScheduleResponse.SessionLessonInfo> linkedLessons = sessionLessons.stream()
+                        .map(sl -> StudentScheduleResponse.SessionLessonInfo.builder()
+                            .id(sl.getLesson().getId())
+                            .chapterId(sl.getLesson().getChapter().getId())
+                            .chapterTitle(sl.getLesson().getChapter().getTitle())
+                            .title(sl.getLesson().getTitle())
+                            .description(sl.getLesson().getDescription())
+                            .orderIndex(sl.getLesson().getOrderIndex())
+                            .build())
+                        .toList();
+                    
+                    List<StudentScheduleResponse.SessionMaterialInfo> materials = sessionMaterials.stream()
+                        .map(m -> StudentScheduleResponse.SessionMaterialInfo.builder()
+                            .id(m.getId())
+                            .fileName(m.getFileName())
+                            .fileUrl(m.getFileUrl())
+                            .fileType(m.getFileType())
+                            .fileSize(m.getFileSize())
+                            .description(m.getDescription())
+                            .uploadedAt(m.getUploadedAt() != null ? m.getUploadedAt().toString() : null)
+                            .uploadedByName(m.getUploadedBy() != null ? m.getUploadedBy().getFullName() : null)
+                            .build())
+                        .toList();
+                    
+                    return StudentScheduleResponse.builder()
+                        .sessionId(session.getId())
+                        .classId(session.getClazz().getId())
+                        .className(session.getClazz().getName())
+                        .subjectName(session.getClazz().getSubject() != null 
+                            ? session.getClazz().getSubject().getName() : null)
+                        .teacherName(session.getClazz().getTeacher() != null 
+                            && session.getClazz().getTeacher().getUser() != null
+                            ? session.getClazz().getTeacher().getUser().getFullName() : null)
+                        .roomName(session.getRoom() != null ? session.getRoom().getName() : null)
+                        .date(session.getDate())
+                        .timeStart(session.getTimeSlot().getStartTime().toString())
+                        .timeEnd(session.getTimeSlot().getEndTime().toString())
+                        .dayOfWeek(session.getDate().getDayOfWeek().getValue())
+                        .attendanceStatus(st.name())
+                        .lessonContent(session.getLessonContent())
+                        .linkedChapters(linkedChapters)
+                        .linkedLessons(linkedLessons)
+                        .materials(materials)
+                        .courseId(courseId)
+                        .courseTitle(courseTitle)
+                        .build();
+                })
+                .toList();
+
+        } catch (Exception e) {
+            log.error("[StudentClassService] getClassSessions failed for classId={}: {}", 
+                    classId, e.getMessage(), e);
             return java.util.Collections.emptyList();
         }
     }

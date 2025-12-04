@@ -166,6 +166,23 @@ public class CourseService {
     }
 
     @Transactional
+    public ChapterResponse updateChapter(Long chapterId, ChapterCreateRequest req) {
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Chapter not found"));
+        if (req.getTitle() != null) {
+            chapter.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            chapter.setDescription(req.getDescription());
+        }
+        if (req.getOrderIndex() != null) {
+            chapter.setOrderIndex(req.getOrderIndex());
+        }
+        chapter = chapterRepository.save(chapter);
+        return mapChapter(chapter, null);
+    }
+
+    @Transactional
     public LessonResponse createLesson(LessonCreateRequest req) {
         CourseChapter chapter = chapterRepository.findById(req.getChapterId())
                 .orElseThrow(() -> new RuntimeException("Chapter not found"));
@@ -175,6 +192,23 @@ public class CourseService {
                 .description(req.getDescription())
                 .orderIndex(req.getOrderIndex())
                 .build();
+        lesson = lessonRepository.save(lesson);
+        return mapLesson(lesson);
+    }
+
+    @Transactional
+    public LessonResponse updateLesson(Long lessonId, LessonCreateRequest req) {
+        CourseLesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        if (req.getTitle() != null) {
+            lesson.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            lesson.setDescription(req.getDescription());
+        }
+        if (req.getOrderIndex() != null) {
+            lesson.setOrderIndex(req.getOrderIndex());
+        }
         lesson = lessonRepository.save(lesson);
         return mapLesson(lesson);
     }
