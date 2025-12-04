@@ -18,6 +18,7 @@ import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.enums.AttendanceStatus;
+import fpt.capstone.edu360managementsystem.enums.NotificationType;
 import fpt.capstone.edu360managementsystem.repository.AttendanceRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
@@ -43,7 +44,8 @@ public class AttendanceService {
     private ClazzRepository clazzRepository;
     @Autowired
     private ClassScheduleRepository classScheduleRepository;
-    // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Danh sách buổi dạy hôm nay của giáo viên (theo userId)
@@ -140,6 +142,8 @@ public class AttendanceService {
                     .orElseThrow(() -> new RuntimeException("Student not found: " + item.getStudentId()));
 
             var existing = attendanceRepository.findBySessionAndStudent(session, student).orElse(null);
+            AttendanceStatus oldStatus = existing != null ? existing.getStatus() : null;
+
             if (existing == null) {
                 attendanceRepository.save(Attendance.builder()
                         .session(session)
@@ -152,6 +156,9 @@ public class AttendanceService {
                 existing.setNote(item.getNote());
                 attendanceRepository.save(existing);
             }
+
+            // Gửi notification cho học sinh về trạng thái điểm danh
+            sendAttendanceNotification(student, session, item.getStatus(), item.getNote(), oldStatus);
         }
         // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
@@ -196,6 +203,8 @@ public class AttendanceService {
                     .orElseThrow(() -> new RuntimeException("Student not found: " + item.getStudentId()));
 
             var existing = attendanceRepository.findBySessionAndStudent(session, student).orElse(null);
+            AttendanceStatus oldStatus = existing != null ? existing.getStatus() : null;
+
             if (existing == null) {
                 attendanceRepository.save(Attendance.builder()
                         .session(session)
@@ -208,6 +217,66 @@ public class AttendanceService {
                 existing.setNote(item.getNote());
                 attendanceRepository.save(existing);
             }
+
+            // Gửi notification cho học sinh về trạng thái điểm danh
+            sendAttendanceNotification(student, session, item.getStatus(), item.getNote(), oldStatus);
+        }
+    }
+
+    /**
+     * Gửi notification cho học sinh về trạng thái điểm danh
+     */
+    private void sendAttendanceNotification(Student student, ClassSession session,
+            AttendanceStatus status, String note, AttendanceStatus oldStatus) {
+        // Chỉ gửi notification nếu trạng thái thay đổi hoặc là lần đầu điểm danh
+        if (oldStatus != null && oldStatus == status && (note == null || note.isEmpty())) {
+            return; // Không có thay đổi
+        }
+
+        String className = session.getClazz().getName();
+        String slotInfo = "Tiết " + session.getTimeSlot().getId()
+                + " (" + session.getTimeSlot().getStartTime() + " - " + session.getTimeSlot().getEndTime() + ")";
+        String dateInfo = session.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+        String title;
+        String message;
+        // Sử dụng CLASS_REMINDER cho tất cả attendance notification 
+        // vì database column type có thể chưa được mở rộng cho các giá trị mới
+        NotificationType notificationType = NotificationType.CLASS_REMINDER;
+
+        switch (status) {
+            case PRESENT:
+                title = "✅ Điểm danh: Có mặt";
+                message = String.format("Bạn được điểm danh CÓ MẶT tại lớp %s, %s ngày %s.",
+                        className, slotInfo, dateInfo);
+                break;
+            case ABSENT:
+                title = "❌ Điểm danh: Vắng mặt";
+                message = String.format("Bạn được điểm danh VẮNG MẶT tại lớp %s, %s ngày %s.",
+                        className, slotInfo, dateInfo);
+                break;
+            case LATE:
+                title = "⚠️ Điểm danh: Đi muộn";
+                message = String.format("Bạn được điểm danh ĐI MUỘN tại lớp %s, %s ngày %s.",
+                        className, slotInfo, dateInfo);
+                break;
+            default:
+                return; // UNMARKED - không gửi notification
+        }
+
+        // Thêm ghi chú nếu có
+        if (note != null && !note.trim().isEmpty()) {
+            message += "\n📝 Ghi chú từ giáo viên: " + note.trim();
+        }
+
+        // Gửi notification
+        try {
+            Long userId = student.getUser().getId();
+            String link = "/home/student/schedule"; // Link đến trang lịch học của học sinh
+            notificationService.createNotification(userId, title, message, notificationType, link);
+        } catch (Exception e) {
+            // Log error but don't fail the attendance operation
+            System.err.println("Failed to send attendance notification: " + e.getMessage());
         }
         // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
