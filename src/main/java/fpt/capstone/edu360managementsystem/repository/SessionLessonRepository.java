@@ -12,6 +12,8 @@ import fpt.capstone.edu360managementsystem.entity.SessionLesson;
 public interface SessionLessonRepository extends JpaRepository<SessionLesson, Long> {
 
     List<SessionLesson> findBySession_Id(Long sessionId);
+    
+    List<SessionLesson> findBySession_IdIn(List<Long> sessionIds);
 
     @Modifying
     @Query("DELETE FROM SessionLesson sl WHERE sl.session.id = :sessionId")

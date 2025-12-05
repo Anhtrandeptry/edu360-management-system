@@ -42,4 +42,14 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     // Thêm tiện ích lấy toàn bộ session theo class để xoá/regenerate khi chỉnh sửa draft
     List<ClassSession> findByClazz_Id(Long classId);
+    
+    // Lấy toàn bộ sessions của một class, sắp xếp theo ngày và slot
+    List<ClassSession> findByClazz_IdOrderByDateAscTimeSlot_StartTimeAsc(Long classId);
+    
+    // Lấy sessions trong khoảng thời gian cho một lớp (dùng cho teacher attendance)
+    List<ClassSession> findByClazz_IdAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
+            Long classId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }

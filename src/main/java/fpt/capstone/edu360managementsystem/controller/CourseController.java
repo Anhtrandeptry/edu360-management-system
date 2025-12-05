@@ -119,12 +119,30 @@ public class CourseController {
         return ResponseEntity.ok(courseService.createChapter(req));
     }
 
+    @PutMapping("/chapters/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<ChapterResponse> updateChapter(
+            @PathVariable Long id,
+            @RequestBody ChapterCreateRequest req
+    ) {
+        return ResponseEntity.ok(courseService.updateChapter(id, req));
+    }
+
     @PostMapping("/lessons")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<LessonResponse> createLesson(
             @Valid @RequestBody LessonCreateRequest req
     ) {
         return ResponseEntity.ok(courseService.createLesson(req));
+    }
+
+    @PutMapping("/lessons/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<LessonResponse> updateLesson(
+            @PathVariable Long id,
+            @RequestBody LessonCreateRequest req
+    ) {
+        return ResponseEntity.ok(courseService.updateLesson(id, req));
     }
 
     // Remove chapter (and its lessons)

@@ -51,6 +51,7 @@ public class SessionContentService {
     // BỎ logic phiên bản/mapping
     @Autowired
     private SessionContentConfigRepository sessionContentConfigRepository;
+    // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên
 
     @Transactional
     public void upsertSessionContentByClassDate(Long userId, Long classId, String dateStr, Long slotId, SessionContentUpsertRequest req) {
@@ -114,8 +115,12 @@ public class SessionContentService {
 
         if (req.getChapterIds() != null) {
             for (Long chapId : req.getChapterIds()) {
-                CourseChapter chap = chapterRepository.findById(chapId)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chapter not found: " + chapId));
+                var chapOpt = chapterRepository.findById(chapId);
+                if (chapOpt.isEmpty()) {
+                    log.warn("⚠️ Chapter not found: {} - skipping", chapId);
+                    continue; // Skip missing chapters instead of throwing error
+                }
+                CourseChapter chap = chapOpt.get();
                 // Cho phép: chapter thuộc course môn (ADMIN) hoặc course của lớp (CLASS_PERSONAL)
                 SessionChapter sc = sessionChapterRepository.save(SessionChapter.builder()
                         .session(session)
@@ -127,8 +132,12 @@ public class SessionContentService {
 
         if (req.getLessonIds() != null) {
             for (Long lessonId : req.getLessonIds()) {
-                CourseLesson lesson = lessonRepository.findById(lessonId)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found: " + lessonId));
+                var lessonOpt = lessonRepository.findById(lessonId);
+                if (lessonOpt.isEmpty()) {
+                    log.warn("⚠️ Lesson not found: {} - skipping", lessonId);
+                    continue; // Skip missing lessons instead of throwing error
+                }
+                CourseLesson lesson = lessonOpt.get();
                 SessionLesson sl = sessionLessonRepository.save(SessionLesson.builder()
                         .session(session)
                         .lesson(lesson)
@@ -169,6 +178,7 @@ public class SessionContentService {
         cfg.setLessonId(selectedLessonId);
         sessionContentConfigRepository.save(cfg);
         log.info("🟢 COMPLETED upsertSessionContent successfully");
+        // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
 
     @Transactional(readOnly = true)
