@@ -35,4 +35,7 @@ public class Student {
     private LocalDate dob;
     private String grade;
     private String school;
+    
+    @Column(name = "avatar_url")
+    private String avatarUrl;
 }

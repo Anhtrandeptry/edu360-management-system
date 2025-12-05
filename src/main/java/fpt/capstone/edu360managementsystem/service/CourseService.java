@@ -23,6 +23,8 @@ import fpt.capstone.edu360managementsystem.enums.CourseStatus;
 import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
@@ -42,6 +44,10 @@ public class CourseService {
     private CourseChapterRepository chapterRepository;
     @Autowired
     private CourseLessonRepository lessonRepository;
+    @Autowired
+    private SessionLessonRepository sessionLessonRepository;
+    @Autowired
+    private SessionChapterRepository sessionChapterRepository;
 
     @Transactional
     public CourseResponse createCourse(Long currentUserId, boolean isAdmin, CourseCreateRequest req) {
@@ -160,6 +166,23 @@ public class CourseService {
     }
 
     @Transactional
+    public ChapterResponse updateChapter(Long chapterId, ChapterCreateRequest req) {
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Chapter not found"));
+        if (req.getTitle() != null) {
+            chapter.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            chapter.setDescription(req.getDescription());
+        }
+        if (req.getOrderIndex() != null) {
+            chapter.setOrderIndex(req.getOrderIndex());
+        }
+        chapter = chapterRepository.save(chapter);
+        return mapChapter(chapter, null);
+    }
+
+    @Transactional
     public LessonResponse createLesson(LessonCreateRequest req) {
         CourseChapter chapter = chapterRepository.findById(req.getChapterId())
                 .orElseThrow(() -> new RuntimeException("Chapter not found"));
@@ -173,15 +196,37 @@ public class CourseService {
         return mapLesson(lesson);
     }
 
+    @Transactional
+    public LessonResponse updateLesson(Long lessonId, LessonCreateRequest req) {
+        CourseLesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        if (req.getTitle() != null) {
+            lesson.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            lesson.setDescription(req.getDescription());
+        }
+        if (req.getOrderIndex() != null) {
+            lesson.setOrderIndex(req.getOrderIndex());
+        }
+        lesson = lessonRepository.save(lesson);
+        return mapLesson(lesson);
+    }
+
     // Xóa toàn bộ bài học trong chương rồi xóa chương
     @Transactional
     public void removeChapter(Long chapterId) {
         CourseChapter chapter = chapterRepository.findById(chapterId)
                 .orElseThrow(() -> new RuntimeException("Chapter not found"));
 
+        // Xóa liên kết session_chapters trước
+        sessionChapterRepository.deleteByChapter_Id(chapterId);
+
         List<CourseLesson> lessons = lessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapterId);
         if (lessons != null && !lessons.isEmpty()) {
             for (CourseLesson l : lessons) {
+                // Xóa liên kết session_lessons trước
+                sessionLessonRepository.deleteByLesson_Id(l.getId());
                 lessonRepository.delete(l);
             }
         }
@@ -193,6 +238,8 @@ public class CourseService {
     public void removeLesson(Long lessonId) {
         CourseLesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        // Xóa liên kết session_lessons trước
+        sessionLessonRepository.deleteByLesson_Id(lessonId);
         lessonRepository.delete(lesson);
     }
 

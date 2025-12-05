@@ -11,10 +11,13 @@ public class SessionContentUpsertRequest {
     private List<Long> lessonIds;
     private String content;  // Nội dung text buổi học
 
-    // Các trường cấu hình nguồn và khoá học để persist tường minh
-    private String sourceType; // ADMIN | PERSONAL
-    private Long courseId; // nếu ADMIN (base course id)
-    private Long teacherCourseId; // nếu PERSONAL
-    private Long chapterId; // chương được chọn (có thể trùng chapterIds[0])
-    private Long lessonId;  // bài được chọn (có thể trùng lessonIds[0])
+    // Nghiệp vụ mới: lưu nguồn và tham chiếu khóa học lớp
+    private String sourceType; // ADMIN | CLASS_PERSONAL
+    private Long classCourseId; // id course của lớp (nếu CLASS_PERSONAL)
+
+    // Lưu chọn đơn để FE hydrate nhanh
+    private Long chapterId;
+    private Long lessonId;
+
+    // XÓA toàn bộ logic cũ: PERSONAL/mapping
 }

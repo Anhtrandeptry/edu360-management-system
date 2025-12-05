@@ -1,5 +1,6 @@
 package fpt.capstone.edu360managementsystem.controller;
 
+import fpt.capstone.edu360managementsystem.dto.request.ChangePasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.request.TeacherCertificateRequest;
 import fpt.capstone.edu360managementsystem.dto.request.TeacherEducationRequest;
 import fpt.capstone.edu360managementsystem.dto.request.TeacherExperienceRequest;
@@ -11,12 +12,15 @@ import fpt.capstone.edu360managementsystem.repository.TeacherCertificateReposito
 import fpt.capstone.edu360managementsystem.repository.TeacherEducationRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherExperienceRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -45,6 +49,8 @@ public class TeacherProfileController {
     private final TeacherCertificateRepository certificateRepository;
     private final TeacherExperienceRepository experienceRepository;
     private final TeacherEducationRepository educationRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Helper method to get teacher from authenticated user
@@ -111,6 +117,41 @@ public class TeacherProfileController {
         } catch (IOException e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of(ERROR_KEY, "Failed to upload file: " + e.getMessage()));
+        }
+    }
+
+    // ===================== SECURITY (CHANGE PASSWORD) =====================
+
+    /**
+     * Change password for authenticated teacher user.
+     * POST /api/teachers/profile/change-password
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(
+            Authentication auth,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        try {
+            Teacher teacher = getAuthenticatedTeacher(auth);
+            var user = teacher.getUser();
+
+            // Validate current password
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu hiện tại không đúng"));
+            }
+
+            // Validate confirmation
+            if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu xác nhận không khớp"));
+            }
+
+            // Persist new password
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of("message", "Đổi mật khẩu thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("message", "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."));
         }
     }
 

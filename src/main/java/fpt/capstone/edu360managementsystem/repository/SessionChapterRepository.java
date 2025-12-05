@@ -12,8 +12,14 @@ import fpt.capstone.edu360managementsystem.entity.SessionChapter;
 public interface SessionChapterRepository extends JpaRepository<SessionChapter, Long> {
 
     List<SessionChapter> findBySession_Id(Long sessionId);
+    
+    List<SessionChapter> findBySession_IdIn(List<Long> sessionIds);
 
     @Modifying
     @Query("DELETE FROM SessionChapter sc WHERE sc.session.id = :sessionId")
     void deleteBySession_Id(@Param("sessionId") Long sessionId);
+
+    @Modifying
+    @Query("DELETE FROM SessionChapter sc WHERE sc.chapter.id = :chapterId")
+    void deleteByChapter_Id(@Param("chapterId") Long chapterId);
 }

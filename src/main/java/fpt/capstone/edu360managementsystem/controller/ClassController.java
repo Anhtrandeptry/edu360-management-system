@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
+import fpt.capstone.edu360managementsystem.dto.response.ClassPublicDetailResponse;
 import fpt.capstone.edu360managementsystem.service.ClassService;
 import jakarta.validation.Valid;
 
@@ -31,10 +32,10 @@ public class ClassController {
         System.out.println("\uD83D\uDD0D [ClassController] Create request payload=" + this.safeToString(request));
         try {
             ClassResponse resp = classService.createClass(request);
-            System.out.println("✅ [ClassController] Create OK id=" + (resp != null ? resp.getId() : null));
+            System.out.println(" [ClassController] Create OK id=" + (resp != null ? resp.getId() : null));
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException ex) {
-            System.out.println("❌ [ClassController] Create blocked: " + ex.getMessage());
+            System.out.println(" [ClassController] Create blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of(
                     "message", "Dữ liệu không hợp lệ",
                     "detail", ex.getMessage()
@@ -57,19 +58,29 @@ public class ClassController {
         return ResponseEntity.ok(classService.getClassById(id));
     }
 
+    /**
+     * Public API: Get class detail for guest/unauthenticated users.
+     * Returns class info with base course (from Admin).
+     */
+    @GetMapping("/{id}/public")
+    public ResponseEntity<ClassPublicDetailResponse> getPublicDetail(@PathVariable Long id) {
+        System.out.println("\uD83D\uDD0D [ClassController] getPublicDetail id=" + id);
+        return ResponseEntity.ok(classService.getClassPublicDetail(id));
+    }
+
     // Publish class: DRAFT -> PUBLIC
     @PostMapping("/{id}/publish")
     public ResponseEntity<?> publishClass(@PathVariable Long id) {
         System.out.println("\uD83D\uDD14 [ClassController] Publish request for classId=" + id);
         try {
             classService.publishClass(id);
-            System.out.println("✅ [ClassController] Publish completed for classId=" + id);
+            System.out.println(" [ClassController] Publish completed for classId=" + id);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException ex) {
-            System.out.println("❌ [ClassController] Publish failed: " + ex.getMessage());
+            System.out.println(" [ClassController] Publish failed: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println("❌ [ClassController] Publish error: " + ex.getMessage());
+            System.out.println(" [ClassController] Publish error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }
@@ -80,13 +91,13 @@ public class ClassController {
         System.out.println("\uD83D\uDD14 [ClassController] Revert-to-draft request for classId=" + id);
         try {
             classService.revertToDraft(id);
-            System.out.println("✅ [ClassController] Revert-to-draft completed for classId=" + id);
+            System.out.println(" [ClassController] Revert-to-draft completed for classId=" + id);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException ex) {
-            System.out.println("❌ [ClassController] Revert-to-draft blocked: " + ex.getMessage());
+            System.out.println(" [ClassController] Revert-to-draft blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println("❌ [ClassController] Revert-to-draft error: " + ex.getMessage());
+            System.out.println(" [ClassController] Revert-to-draft error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }
@@ -97,13 +108,13 @@ public class ClassController {
         System.out.println("\uD83D\uDD14 [ClassController] Update request for classId=" + id);
         try {
             ClassResponse resp = classService.updateClass(id, req);
-            System.out.println("✅ [ClassController] Update completed for classId=" + id);
+            System.out.println(" [ClassController] Update completed for classId=" + id);
             return ResponseEntity.ok(resp);
         } catch (IllegalStateException ex) {
-            System.out.println("❌ [ClassController] Update blocked: " + ex.getMessage());
+            System.out.println(" [ClassController] Update blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println("❌ [ClassController] Update error: " + ex.getMessage());
+            System.out.println(" [ClassController] Update error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }

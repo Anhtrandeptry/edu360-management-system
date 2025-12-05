@@ -134,4 +134,23 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
           and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByTeacherId(Long teacherId);
+
+    // Liệt kê tên lớp đang active theo giáo viên và môn
+    @Query("""
+      select c from Clazz c
+      where c.teacher.id = :teacherId
+        and c.subject.id = :subjectId
+        and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
+    """)
+    java.util.List<Clazz> findActiveByTeacherAndSubject(Long teacherId, Long subjectId);
+
+    /**
+     * Tìm tất cả các lớp sử dụng course cụ thể
+     */
+    List<Clazz> findByCourse_Id(Long courseId);
+
+    /**
+     * Tìm tất cả các lớp được phân công cho giáo viên
+     */
+    List<Clazz> findByTeacher_Id(Long teacherId);
 }
