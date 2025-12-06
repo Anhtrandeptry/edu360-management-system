@@ -25,6 +25,7 @@ import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParent
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
+import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.User;
@@ -165,6 +166,11 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
         return authService.registerStudentWithParent(request);
+    }
+//Forgot Pass
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return authService.forgotPassword(request);
     }
 
 }
