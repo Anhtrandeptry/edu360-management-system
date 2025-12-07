@@ -4,6 +4,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,6 +79,42 @@ public class TeacherService {
         return teachers.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy danh sách teachers với phân trang và filter
+     *
+     * @param search từ khóa tìm kiếm (fullName, email, phone)
+     * @param subjectId filter theo môn học
+     * @param page số trang (bắt đầu từ 0)
+     * @param size số phần tử mỗi trang
+     * @param sortBy trường để sắp xếp
+     * @param order thứ tự sắp xếp (asc, desc)
+     * @return Page<TeacherResponse>
+     */
+    @Transactional(readOnly = true)
+    public Page<TeacherResponse> getTeachersWithPagination(
+            String search,
+            Long subjectId,
+            int page,
+            int size,
+            String sortBy,
+            String order
+    ) {
+        // Xử lý sort
+        Sort sort = Sort.by(sortBy != null ? sortBy : "id");
+        if ("desc".equalsIgnoreCase(order)) {
+            sort = sort.descending();
+        } else {
+            sort = sort.ascending();
+        }
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Query với pagination
+        Page<Teacher> teacherPage = teacherRepository.findBySearchAndSubject(search, subjectId, pageable);
+
+        // Map to response
+        return teacherPage.map(this::mapToResponse);
     }
 
     /**

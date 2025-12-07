@@ -3,6 +3,7 @@ package fpt.capstone.edu360managementsystem.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +39,29 @@ public class RoomController {
     @PreAuthorize("hasRole('STUDENT') or hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<List<RoomResponse>> getAllRooms() {
         return ResponseEntity.ok(roomService.getAllRooms());
+    }
+
+    /**
+     * GET /api/rooms/paginated - Lấy rooms với phân trang và filter
+     *
+     * @param search Tìm kiếm theo name
+     * @param status Filter theo RoomStatus: ALL, AVAILABLE, UNAVAILABLE
+     * @param page Số trang (default 0)
+     * @param size Số phần tử mỗi trang (default 10)
+     * @param sortBy Trường để sắp xếp (default id)
+     * @param order Thứ tự sắp xếp: asc, desc (default asc)
+     */
+    @GetMapping("/paginated")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<RoomResponse>> getRoomsPaginated(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String order
+    ) {
+        return ResponseEntity.ok(roomService.getRoomsWithPagination(search, status, page, size, sortBy, order));
     }
 
     @PostMapping
