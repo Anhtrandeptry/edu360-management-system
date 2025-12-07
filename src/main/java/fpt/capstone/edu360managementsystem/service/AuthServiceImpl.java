@@ -3,6 +3,7 @@ package fpt.capstone.edu360managementsystem.service;
 import java.security.SecureRandom;
 import java.util.Random;
 
+import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
@@ -230,6 +231,56 @@ public class AuthServiceImpl implements AuthService {
         return ResponseEntity.ok(new MessageResponse(
                 "Teacher account created successfully! Username: " + username));
     }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> forgotPassword(ForgotPasswordRequest request) {
+        // Có thể cho tìm theo email unique
+        User user = userRepository.findAll().stream()
+                .filter(u -> request.getEmail().equalsIgnoreCase(u.getEmail()))
+                .findFirst()
+                .orElse(null);
+
+        // Vì lý do bảo mật, có thể trả message chung kể cả khi không tìm được user
+        if (user == null) {
+            // Lựa chọn 1: message chung
+            return ResponseEntity.ok(new MessageResponse(
+                    "Nếu email tồn tại trong hệ thống, mật khẩu mới đã được gửi."));
+            // Lựa chọn 2: báo lỗi rõ (nếu bạn muốn):
+            // return ResponseEntity.badRequest().body(new MessageResponse("Không tìm thấy tài khoản với email này."));
+        }
+
+        // 1. Sinh mật khẩu mới
+        String newPlainPassword = generateRandomPassword(10);
+        String encoded = encoder.encode(newPlainPassword);
+
+        // 2. Lưu vào DB
+        user.setPassword(encoded);
+        userRepository.save(user);
+
+        // 3. Gửi email mật khẩu mới
+        String subject = "Mật khẩu mới cho tài khoản Edu360";
+        String text = String.format(
+                "Xin chào %s,\n\n" +
+                        "Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản trên hệ thống Edu360.\n\n" +
+                        "Mật khẩu mới của bạn là: %s\n\n" +
+                        "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập để đảm bảo an toàn.\n\n" +
+                        "Trân trọng,\nĐội ngũ Edu360",
+                user.getFullName(), newPlainPassword
+        );
+
+        try {
+            emailService.sendSimpleMessage(user.getEmail(), subject, text);
+        } catch (MailException ex) {
+            // Có thể chọn rollback hoặc không, ở đây giữ mật khẩu mới và báo lỗi gửi mail
+            return ResponseEntity.ok(new MessageResponse(
+                    "Mật khẩu đã được reset nhưng gửi email thất bại: " + ex.getMessage()));
+        }
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Mật khẩu mới đã được gửi tới email của bạn (nếu email tồn tại trong hệ thống)."));
+    }
+
 
     // --- helper methods ---
     private String generateUsernameFromFullName(String fullName) {

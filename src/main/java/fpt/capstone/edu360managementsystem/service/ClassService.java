@@ -9,6 +9,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -417,6 +421,76 @@ public class ClassService {
                     return response;
                 })
                 .toList();
+    }
+
+    /**
+     * Lấy danh sách classes với phân trang và filter
+     *
+     * @param search từ khóa tìm kiếm (name, teacherName, subjectName)
+     * @param status filter theo ClassStatus (DRAFT, PUBLIC, ARCHIVED)
+     * @param online filter theo hình thức học (true=online, false=offline)
+     * @param teacherUserId filter theo giáo viên
+     * @param page số trang (bắt đầu từ 0)
+     * @param size số phần tử mỗi trang
+     * @param sortBy trường để sắp xếp
+     * @param order thứ tự sắp xếp (asc, desc)
+     * @return Page<ClassResponse>
+     */
+    @Transactional(readOnly = true)
+    public Page<ClassResponse> getClassesWithPagination(
+            String search,
+            String status,
+            String online,
+            Long teacherUserId,
+            int page,
+            int size,
+            String sortBy,
+            String order
+    ) {
+        // Xử lý sort
+        Sort sort = Sort.by(sortBy != null ? sortBy : "id");
+        if ("desc".equalsIgnoreCase(order)) {
+            sort = sort.descending();
+        } else {
+            sort = sort.ascending();
+        }
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Xử lý status filter
+        ClassStatus statusEnum = null;
+        if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+            try {
+                statusEnum = ClassStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid status, ignore filter
+            }
+        }
+
+        // Xử lý online filter
+        Boolean onlineBool = null;
+        if (online != null && !online.isEmpty() && !"ALL".equalsIgnoreCase(online)) {
+            onlineBool = Boolean.parseBoolean(online);
+        }
+
+        // Query với pagination
+        Page<Clazz> classPage = clazzRepository.findBySearchAndFilters(
+                search, statusEnum, onlineBool, teacherUserId, pageable
+        );
+
+        // Load ALL schedules for these classes để tránh N+1
+        List<Long> classIds = classPage.getContent().stream().map(Clazz::getId).toList();
+        List<ClassSchedule> allSchedules = classScheduleRepository.findByClazz_IdIn(classIds);
+        Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
+                .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
+
+        // Map to response with schedules and studentCount
+        return classPage.map(c -> {
+            List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
+            int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
+            ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
+            response.setCurrentStudents(currentStudents);
+            return response;
+        });
     }
 
     @Transactional(readOnly = true)

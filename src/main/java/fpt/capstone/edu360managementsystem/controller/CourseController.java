@@ -3,6 +3,7 @@ package fpt.capstone.edu360managementsystem.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -59,6 +60,34 @@ public class CourseController {
             st = CourseStatus.valueOf(status.toUpperCase());
         }
         return ResponseEntity.ok(courseService.listCourses(subjectId, st));
+    }
+
+    /**
+     * GET /api/courses/paginated - Lấy courses với phân trang và filter
+     *
+     * @param search Tìm kiếm theo title, description, teacherName
+     * @param status Filter theo status: ALL, DRAFT, PENDING, APPROVED, ARCHIVED
+     * @param subjectId Filter theo môn học
+     * @param teacherUserId Filter theo giáo viên tạo (user.id)
+     * @param page Số trang (default 0)
+     * @param size Số phần tử mỗi trang (default 10)
+     * @param sortBy Trường để sắp xếp (default id)
+     * @param order Thứ tự sắp xếp: asc, desc (default asc)
+     */
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<CourseResponse>> getCoursesPaginated(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Long teacherUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String order
+    ) {
+        return ResponseEntity.ok(courseService.getCoursesWithPagination(
+                search, status, subjectId, teacherUserId, page, size, sortBy, order
+        ));
     }
 
     // Danh sách khóa học cá nhân của giáo viên hiện tại
