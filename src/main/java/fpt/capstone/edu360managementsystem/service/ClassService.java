@@ -21,6 +21,7 @@ import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
 import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ClassPublicDetailResponse;
 import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
+import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
 import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
@@ -29,6 +30,7 @@ import fpt.capstone.edu360managementsystem.entity.CourseChapter;
 import fpt.capstone.edu360managementsystem.entity.CourseLesson;
 import fpt.capstone.edu360managementsystem.entity.Room;
 import fpt.capstone.edu360managementsystem.entity.Semester;
+import fpt.capstone.edu360managementsystem.entity.SessionContentConfig;
 import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.TimeSlot;
@@ -390,6 +392,18 @@ public class ClassService {
         Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
                 .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
 
+        // Batch load totalSessions for all classes to avoid N+1
+        List<Long> classIds = classes.stream().map(Clazz::getId).toList();
+        Map<Long, Long> sessionCountByClass = new java.util.HashMap<>();
+        if (!classIds.isEmpty()) {
+            List<Object[]> sessionCounts = classSessionRepository.countByClazzIdIn(classIds);
+            for (Object[] row : sessionCounts) {
+                Long classId = (Long) row[0];
+                Long count = (Long) row[1];
+                sessionCountByClass.put(classId, count);
+            }
+        }
+
         // Debug: Log schedule data
         System.out.println(" Total classes: " + classes.size());
         System.out.println(" Total schedules: " + allSchedules.size());
@@ -409,14 +423,16 @@ public class ClassService {
                     List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
                     // Count current enrolled students
                     int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
-                    ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
+                    int totalSessions = sessionCountByClass.getOrDefault(c.getId(), 0L).intValue();
+                    ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions);
                     response.setCurrentStudents(currentStudents);
 
                     // Log each class being returned
                     System.out.println("    Returning class: id=" + c.getId() + ", name=" + c.getName()
                             + ", teacher=" + c.getTeacher().getUser().getFullName()
                             + ", schedules=" + classSchedules.size()
-                            + ", students=" + currentStudents);
+                            + ", students=" + currentStudents
+                            + ", totalSessions=" + totalSessions);
 
                     return response;
                 })
@@ -483,11 +499,23 @@ public class ClassService {
         Map<Long, List<ClassSchedule>> schedulesByClass = allSchedules.stream()
                 .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
 
-        // Map to response with schedules and studentCount
+        // Batch load totalSessions for all classes to avoid N+1
+        Map<Long, Long> sessionCountByClass = new java.util.HashMap<>();
+        if (!classIds.isEmpty()) {
+            List<Object[]> sessionCounts = classSessionRepository.countByClazzIdIn(classIds);
+            for (Object[] row : sessionCounts) {
+                Long classId = (Long) row[0];
+                Long count = (Long) row[1];
+                sessionCountByClass.put(classId, count);
+            }
+        }
+
+        // Map to response with schedules, studentCount and totalSessions
         return classPage.map(c -> {
             List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
             int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
-            ClassResponse response = classMapper.toResponse(c, classSchedules, 0);
+            int totalSessions = sessionCountByClass.getOrDefault(c.getId(), 0L).intValue();
+            ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions);
             response.setCurrentStudents(currentStudents);
             return response;
         });
@@ -555,17 +583,9 @@ public class ClassService {
         System.out.println("\uD83D\uDD0D [ClassService] revertToDraft id=" + id);
         Clazz clazz = clazzRepository.findById(id).orElseThrow(() -> new RuntimeException("Class not found"));
         System.out.println("   -> Current status=" + clazz.getStatus());
-        LocalDate today = LocalDate.now();
-        // Guard: if any session date is before today, cannot revert
-        boolean hasPastSession = classSessionRepository.existsByClazz_IdAndDateBefore(clazz.getId(), today);
-        System.out.println("   -> hasPastSessionBeforeToday=" + hasPastSession + ", today=" + today);
-        if (hasPastSession) {
-            System.out.println("    Revert blocked: sessions have started.");
-            throw new IllegalStateException("Cannot revert to DRAFT after sessions have started");
-        }
-        clazz.setStatus(ClassStatus.DRAFT);
-        clazzRepository.save(clazz);
-        System.out.println("   -> New status=" + clazz.getStatus());
+
+        // Không cho phép chuyển từ PUBLIC về DRAFT nữa
+        throw new IllegalStateException("Không thể chuyển lớp đã xuất bản (PUBLIC) về bản nháp (DRAFT). Thao tác này đã bị vô hiệu hóa.");
     }
 
     @Transactional
@@ -584,6 +604,12 @@ public class ClassService {
             Room room = null;
             if (req.getRoomId() != null) {
                 room = roomRepository.findById(req.getRoomId()).orElseThrow(() -> new RuntimeException("Room not found"));
+
+                // Validate room conflict: check if new room has schedule conflict with this class's schedule
+                if (!room.getId().equals(clazz.getRoom() != null ? clazz.getRoom().getId() : null)) {
+                    // Room is changing - validate for conflicts
+                    validateRoomConflict(clazz, room);
+                }
             }
             clazz.setRoom(room);
 
@@ -901,7 +927,7 @@ public class ClassService {
             if (totalSessionsChanged) {
                 // Xóa tất cả sessions cũ
                 var oldSessions = classSessionRepository.findByClazz_Id(id);
-                
+
                 // Xóa dữ liệu phụ thuộc của từng session (nếu có)
                 for (var s : oldSessions) {
                     Long sid = s.getId();
@@ -929,7 +955,7 @@ public class ClassService {
                 // Generate sessions mới theo totalSessions
                 Room currentRoom = clazz.getRoom();
                 List<ClassSession> regenerated = generateSessionsByDateRange(
-                        clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(), 
+                        clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(),
                         currentSchedules, totalSessions);
                 classSessionRepository.saveAll(regenerated);
             }
@@ -962,6 +988,69 @@ public class ClassService {
             default ->
                 "Ngày không xác định";
         };
+    }
+
+    /**
+     * Validate that the new room doesn't have schedule conflicts with the
+     * class's schedule. Throws IllegalStateException if there's a conflict.
+     */
+    private void validateRoomConflict(Clazz clazz, Room newRoom) {
+        // Get this class's schedules
+        var thisClassSchedules = classScheduleRepository.findByClazz_Id(clazz.getId());
+        if (thisClassSchedules.isEmpty()) {
+            return; // No schedule to conflict
+        }
+
+        // Find all other classes using this room (exclude archived and current class)
+        List<ClassSchedule> otherRoomSchedules = classScheduleRepository.findAll().stream()
+                .filter(cs -> {
+                    Clazz otherClass = cs.getClazz();
+                    return otherClass != null
+                            && otherClass.getRoom() != null
+                            && newRoom.getId().equals(otherClass.getRoom().getId())
+                            && !otherClass.getId().equals(clazz.getId()) // exclude current class
+                            && otherClass.getStatus() != ClassStatus.ARCHIVED;
+                })
+                .toList();
+
+        if (otherRoomSchedules.isEmpty()) {
+            return; // Room is free
+        }
+
+        // Check for overlapping time slots
+        for (ClassSchedule thisSchedule : thisClassSchedules) {
+            int thisDow = thisSchedule.getDayOfWeek();
+            Long thisSlotId = thisSchedule.getTimeSlot().getId();
+
+            // Check date range overlap with other classes
+            LocalDate thisStart = clazz.getStartDate();
+            LocalDate thisEnd = clazz.getEndDate();
+
+            for (ClassSchedule otherSchedule : otherRoomSchedules) {
+                Clazz otherClass = otherSchedule.getClazz();
+                int otherDow = otherSchedule.getDayOfWeek();
+                Long otherSlotId = otherSchedule.getTimeSlot().getId();
+
+                // Same day of week and same time slot?
+                if (thisDow == otherDow && thisSlotId.equals(otherSlotId)) {
+                    // Check if date ranges overlap
+                    LocalDate otherStart = otherClass.getStartDate();
+                    LocalDate otherEnd = otherClass.getEndDate();
+
+                    boolean dateOverlap = !(thisEnd.isBefore(otherStart) || thisStart.isAfter(otherEnd));
+
+                    if (dateOverlap) {
+                        String dayName = getDayName(thisDow);
+                        String slotTime = thisSchedule.getTimeSlot().getStartTime() + " - " + thisSchedule.getTimeSlot().getEndTime();
+                        throw new IllegalStateException(
+                                "Phòng " + newRoom.getName() + " đã có lớp \"" + otherClass.getName()
+                                + "\" dạy vào " + dayName + " (" + slotTime + "). "
+                                + "Vui lòng chọn phòng khác."
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -1088,5 +1177,81 @@ public class ClassService {
                 .pricePerSession(clazz.getPricePerSession())
                 .totalPrice(totalPrice)
                 .build();
+    }
+
+    /**
+     * Delete a DRAFT class permanently. Only classes with status DRAFT can be
+     * deleted. All related data will be cascade deleted.
+     */
+    @Transactional
+    public void deleteClass(Long classId) {
+        Clazz clazz = clazzRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học với id: " + classId));
+
+        // Only allow delete for DRAFT classes
+        if (clazz.getStatus() != ClassStatus.DRAFT) {
+            throw new IllegalStateException("Chỉ có thể xóa lớp đang ở trạng thái DRAFT (bản nháp). Lớp đã PUBLIC không thể xóa.");
+        }
+
+        System.out.println("🗑️ [ClassService] Deleting DRAFT class id=" + classId + ", name=" + clazz.getName());
+
+        // 1. Delete session content configs (if any)
+        List<ClassSession> sessions = classSessionRepository.findByClazz_Id(classId);
+        for (ClassSession session : sessions) {
+            // Delete session chapters
+            sessionChapterRepository.deleteBySession_Id(session.getId());
+            // Delete session lessons  
+            sessionLessonRepository.deleteBySession_Id(session.getId());
+            // Delete session content config
+            Optional<SessionContentConfig> configOpt = sessionContentConfigRepository.findBySession_Id(session.getId());
+            configOpt.ifPresent(sessionContentConfigRepository::delete);
+        }
+        System.out.println("   Deleted content for " + sessions.size() + " sessions");
+
+        // 2. Delete class sessions
+        classSessionRepository.deleteAll(sessions);
+        System.out.println("   Deleted sessions");
+
+        // 3. Delete class schedules
+        List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(classId);
+        classScheduleRepository.deleteAll(schedules);
+        System.out.println("   Deleted schedules");
+
+        // 4. Delete class enrollments
+        List<ClassEnrollment> enrollments = classEnrollmentRepository.findByClazz_Id(classId);
+        classEnrollmentRepository.deleteAll(enrollments);
+        System.out.println("   Deleted enrollments");
+
+        // 5. Delete the cloned course (if exists and is teacher-owned clone)
+        Course courseClone = clazz.getCourse();
+        if (courseClone != null && courseClone.getOwnerTeacher() != null) {
+            // This is a teacher-owned clone course, should be deleted with the class
+            System.out.println("   Found cloned course id=" + courseClone.getId() + ", title=" + courseClone.getTitle());
+
+            // First, unlink the course from the class
+            clazz.setCourse(null);
+            clazzRepository.save(clazz);
+
+            // Delete course lessons
+            var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(courseClone.getId());
+            for (var chapter : chapters) {
+                courseLessonRepository.deleteByChapter_Id(chapter.getId());
+            }
+            System.out.println("   Deleted course lessons");
+
+            // Delete course chapters
+            courseChapterRepository.deleteByCourse_Id(courseClone.getId());
+            System.out.println("   Deleted course chapters");
+
+            // Delete the course itself
+            courseRepository.delete(courseClone);
+            System.out.println("   Deleted cloned course");
+        }
+
+        // 6. Delete the class itself
+        clazzRepository.delete(clazz);
+        System.out.println("   Deleted class entity");
+
+        System.out.println("✅ [ClassService] Successfully deleted class id=" + classId);
     }
 }

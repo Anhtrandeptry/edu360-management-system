@@ -148,6 +148,28 @@ public class ClassController {
         }
     }
 
+    /**
+     * Delete a DRAFT class permanently. Only classes with status DRAFT can be
+     * deleted. All related data (schedules, sessions, enrollments, etc.) will
+     * be deleted.
+     */
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteClass(@PathVariable Long id) {
+        System.out.println("\uD83D\uDDD1 [ClassController] Delete request for classId=" + id);
+        try {
+            classService.deleteClass(id);
+            System.out.println(" [ClassController] Delete completed for classId=" + id);
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException ex) {
+            System.out.println(" [ClassController] Delete blocked: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
+        } catch (Exception ex) {
+            System.out.println(" [ClassController] Delete error: " + ex.getMessage());
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
+        }
+    }
+
     private String safeToString(Object o) {
         try {
             return String.valueOf(o);
