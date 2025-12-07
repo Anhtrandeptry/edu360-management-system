@@ -66,7 +66,7 @@ public class AttendanceService {
                     .classId(s.getClazz().getId())
                     .className(s.getClazz().getName())
                     .subjectName(s.getClazz().getSubject().getName())
-                    .roomName(s.getRoom().getName())
+                    .roomName(s.getRoom() != null ? s.getRoom().getName() : "N/A")
                     .timeStart(s.getTimeSlot().getStartTime().toString())
                     .timeEnd(s.getTimeSlot().getEndTime().toString())
                     .marked(marked)

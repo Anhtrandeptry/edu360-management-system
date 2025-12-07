@@ -65,15 +65,17 @@ public class EnrollmentService {
         }
 
         // Schedule conflicts in same semester
-        var schedules = classScheduleRepository.findByClazz_Id(classId);
-        var dows = schedules.stream().map(ClassSchedule::getDayOfWeek).collect(Collectors.toSet());
-        var slotIds = schedules.stream().map(s -> s.getTimeSlot().getId()).collect(Collectors.toSet());
+        if (clazz.getSemester() != null) {
+            var schedules = classScheduleRepository.findByClazz_Id(classId);
+            var dows = schedules.stream().map(ClassSchedule::getDayOfWeek).collect(Collectors.toSet());
+            var slotIds = schedules.stream().map(s -> s.getTimeSlot().getId()).collect(Collectors.toSet());
 
-        var conflicts = classEnrollmentRepository.findScheduleConflicts(
-                student.getId(), clazz.getSemester().getId(), dows, slotIds
-        );
-        if (!conflicts.isEmpty()) {
-            throw new RuntimeException("Schedule conflict with other enrolled classes");
+            var conflicts = classEnrollmentRepository.findScheduleConflicts(
+                    student.getId(), clazz.getSemester().getId(), dows, slotIds
+            );
+            if (!conflicts.isEmpty()) {
+                throw new RuntimeException("Schedule conflict with other enrolled classes");
+            }
         }
 
         classEnrollmentRepository.save(

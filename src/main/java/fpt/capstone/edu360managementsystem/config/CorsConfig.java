@@ -39,8 +39,13 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        // CHỈ rõ origin FE (không dùng "*")
-        cfg.setAllowedOriginPatterns(List.of("http://localhost:8386")); // CRA: npm start
+        // Allow multiple frontend origins
+        cfg.setAllowedOriginPatterns(List.of(
+            "http://localhost:8386",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:3000"
+        ));
         // Cho phép gửi cookie
         cfg.setAllowCredentials(true);
         // Method & Header cho preflight
