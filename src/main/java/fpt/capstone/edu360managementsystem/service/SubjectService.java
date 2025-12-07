@@ -3,6 +3,10 @@ package fpt.capstone.edu360managementsystem.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import fpt.capstone.edu360managementsystem.dto.request.SubjectRequest;
@@ -30,6 +34,56 @@ public class SubjectService {
                     return resp;
                 })
                 .toList();
+    }
+
+    /**
+     * Lấy danh sách subjects với phân trang và filter
+     *
+     * @param search từ khóa tìm kiếm (name, code)
+     * @param status filter theo status (AVAILABLE, UNAVAILABLE, ALL)
+     * @param page số trang (bắt đầu từ 0)
+     * @param size số phần tử mỗi trang
+     * @param sortBy trường để sắp xếp
+     * @param order thứ tự sắp xếp (asc, desc)
+     * @return Page<SubjectResponse>
+     */
+    public Page<SubjectResponse> getSubjectsWithPagination(
+            String search,
+            String status,
+            int page,
+            int size,
+            String sortBy,
+            String order
+    ) {
+        // Xử lý sort
+        Sort sort = Sort.by(sortBy != null ? sortBy : "id");
+        if ("desc".equalsIgnoreCase(order)) {
+            sort = sort.descending();
+        } else {
+            sort = sort.ascending();
+        }
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Xử lý status filter
+        SubjectStatus statusEnum = null;
+        if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+            try {
+                statusEnum = SubjectStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid status, ignore filter
+            }
+        }
+
+        // Query với pagination
+        Page<Subject> subjectPage = subjectRepository.findBySearchAndStatus(search, statusEnum, pageable);
+
+        // Map to response with classCount
+        return subjectPage.map(s -> {
+            long cnt = clazzRepository.countActiveBySubject(s.getId());
+            SubjectResponse resp = subjectMapper.toResponse(s);
+            resp.setClassCount(cnt);
+            return resp;
+        });
     }
 
     public SubjectResponse getSubjectById(Long id) {

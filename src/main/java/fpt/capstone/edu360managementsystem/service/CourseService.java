@@ -3,6 +3,10 @@ package fpt.capstone.edu360managementsystem.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,6 +96,59 @@ public class CourseService {
         return courses.stream()
                 .map(c -> mapCourse(c, null))
                 .toList();
+    }
+
+    /**
+     * Lấy danh sách courses với phân trang và filter
+     *
+     * @param search từ khóa tìm kiếm (title, description, teacherName)
+     * @param status filter theo CourseStatus (DRAFT, PENDING, APPROVED,
+     * ARCHIVED)
+     * @param subjectId filter theo môn học
+     * @param teacherUserId filter theo giáo viên tạo
+     * @param page số trang (bắt đầu từ 0)
+     * @param size số phần tử mỗi trang
+     * @param sortBy trường để sắp xếp
+     * @param order thứ tự sắp xếp (asc, desc)
+     * @return Page<CourseResponse>
+     */
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesWithPagination(
+            String search,
+            String status,
+            Long subjectId,
+            Long teacherUserId,
+            int page,
+            int size,
+            String sortBy,
+            String order
+    ) {
+        // Xử lý sort
+        Sort sort = Sort.by(sortBy != null ? sortBy : "id");
+        if ("desc".equalsIgnoreCase(order)) {
+            sort = sort.descending();
+        } else {
+            sort = sort.ascending();
+        }
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Xử lý status filter
+        CourseStatus statusEnum = null;
+        if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+            try {
+                statusEnum = CourseStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid status, ignore filter
+            }
+        }
+
+        // Query với pagination
+        Page<Course> coursePage = courseRepository.findBySearchAndFilters(
+                search, statusEnum, subjectId, teacherUserId, pageable
+        );
+
+        // Map to response
+        return coursePage.map(c -> mapCourse(c, null));
     }
 
     public List<CourseResponse> listCoursesOfTeacher(Long userId) {

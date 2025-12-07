@@ -1,6 +1,7 @@
 package fpt.capstone.edu360managementsystem.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,6 +53,34 @@ public class ClassController {
         return ResponseEntity.ok(classService.listClasses(teacherUserId, timeSlotId));
     }
 
+    /**
+     * GET /api/classes/paginated - Lấy classes với phân trang và filter
+     *
+     * @param search Tìm kiếm theo name, teacherName, subjectName
+     * @param status Filter theo status: ALL, DRAFT, PUBLIC, ARCHIVED
+     * @param online Filter theo hình thức: ALL, true (online), false (offline)
+     * @param teacherUserId Filter theo giáo viên (user.id)
+     * @param page Số trang (default 0)
+     * @param size Số phần tử mỗi trang (default 10)
+     * @param sortBy Trường để sắp xếp (default id)
+     * @param order Thứ tự sắp xếp: asc, desc (default asc)
+     */
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<ClassResponse>> getClassesPaginated(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "ALL") String online,
+            @RequestParam(required = false) Long teacherUserId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String order
+    ) {
+        return ResponseEntity.ok(classService.getClassesWithPagination(
+                search, status, online, teacherUserId, page, size, sortBy, order
+        ));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ClassResponse> getById(@PathVariable Long id) {
         System.out.println("\uD83D\uDD0D [ClassController] getById id=" + id);
@@ -59,8 +88,8 @@ public class ClassController {
     }
 
     /**
-     * Public API: Get class detail for guest/unauthenticated users.
-     * Returns class info with base course (from Admin).
+     * Public API: Get class detail for guest/unauthenticated users. Returns
+     * class info with base course (from Admin).
      */
     @GetMapping("/{id}/public")
     public ResponseEntity<ClassPublicDetailResponse> getPublicDetail(@PathVariable Long id) {
