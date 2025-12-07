@@ -896,6 +896,43 @@ public class ClassService {
                 LocalDate newEnd = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay);
                 clazz.setEndDate(newEnd);
             }
+
+            // DRAFT: Luôn regenerate sessions khi totalSessions thay đổi (dù schedule có đổi hay không)
+            if (totalSessionsChanged) {
+                // Xóa tất cả sessions cũ
+                var oldSessions = classSessionRepository.findByClazz_Id(id);
+                
+                // Xóa dữ liệu phụ thuộc của từng session (nếu có)
+                for (var s : oldSessions) {
+                    Long sid = s.getId();
+                    try {
+                        sessionChapterRepository.deleteBySession_Id(sid);
+                        sessionLessonRepository.deleteBySession_Id(sid);
+                        sessionContentConfigRepository.findBySession_Id(sid)
+                                .ifPresent(sessionContentConfigRepository::delete);
+                        s.setLessonContent(null);
+                    } catch (Exception ignore) {
+                        // ignore per-session clean errors
+                    }
+                }
+                classSessionRepository.deleteAll(oldSessions);
+
+                // Tính lại endDate nếu cần
+                var currentSchedules = classScheduleRepository.findByClazz_Id(id);
+                if (clazz.getEndDate() == null || req.getEndDate() == null) {
+                    var slotsPerDay = currentSchedules.stream()
+                            .collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
+                    LocalDate newEnd = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay);
+                    clazz.setEndDate(newEnd);
+                }
+
+                // Generate sessions mới theo totalSessions
+                Room currentRoom = clazz.getRoom();
+                List<ClassSession> regenerated = generateSessionsByDateRange(
+                        clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(), 
+                        currentSchedules, totalSessions);
+                classSessionRepository.saveAll(regenerated);
+            }
         }
 
         clazzRepository.save(clazz);
