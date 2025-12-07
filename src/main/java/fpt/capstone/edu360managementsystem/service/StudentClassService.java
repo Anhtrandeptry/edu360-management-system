@@ -55,18 +55,21 @@ public class StudentClassService {
 
         public List<StudentClassResponse> getMyClasses(Long userId) {
         try {
+            log.info("[StudentClassService] getMyClasses called for userId={}", userId);
+            
             // map user -> student
             Student student = studentRepository.findByUser_Id(userId)
                 .orElse(null);
 
             if (student == null) {
-            // No student profile linked to this user; return empty instead of error
-            org.slf4j.LoggerFactory.getLogger(StudentClassService.class)
-                .warn("[StudentClassService] No student profile found for userId={}", userId);
-            return java.util.Collections.emptyList();
+                log.warn("[StudentClassService] No student profile found for userId={}", userId);
+                return java.util.Collections.emptyList();
             }
 
+            log.info("[StudentClassService] ✓ Found student profile: studentId={}, userId={}", student.getId(), userId);
+            
             List<ClassEnrollment> enrollments = classEnrollmentRepository.findByStudent_Id(student.getId());
+            log.info("[StudentClassService] Found {} enrollments for studentId={}", enrollments.size(), student.getId());
 
             return enrollments.stream()
                 .map(en -> {

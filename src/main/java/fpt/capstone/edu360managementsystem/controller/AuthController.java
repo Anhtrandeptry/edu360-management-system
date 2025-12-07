@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,8 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 import fpt.capstone.edu360managementsystem.dto.request.LoginRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
+import fpt.capstone.edu360managementsystem.dto.request.GoogleAuthRequest;
+import fpt.capstone.edu360managementsystem.dto.request.GoogleRegisterRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
+import fpt.capstone.edu360managementsystem.dto.response.GoogleAuthResponse;
 import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
@@ -66,6 +70,9 @@ public class AuthController {
 
     @Autowired
     AuthService authService;
+
+    @Autowired
+    fpt.capstone.edu360managementsystem.service.GoogleAuthService googleAuthService;
 
 //Login
     @PostMapping("/login")
@@ -171,6 +178,90 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request);
+    }
+
+    // Google OAuth - Authenticate with Google
+    @PostMapping("/google")
+    public ResponseEntity<GoogleAuthResponse> authenticateWithGoogle(@Valid @RequestBody GoogleAuthRequest request) {
+        try {
+            GoogleAuthResponse response = googleAuthService.handleGoogleCallback(request);
+            
+            if (response.getUserId() != null && !response.isNeedsRegistration()) {
+                // User exists, generate JWT cookie from username
+                String jwt = jwtUtils.generateTokenFromUsername(response.getUsername());
+                
+                // Set token in response body as backup (in case cookie doesn't work due to cross-origin)
+                response.setToken(jwt);
+                
+                ResponseCookie jwtCookie = ResponseCookie.from("edu360_jwt", jwt)
+                    .path("/")
+                    .httpOnly(true)
+                    .secure(false)
+                    .sameSite("Lax")
+                    .maxAge(24L * 60 * 60)
+                    .build();
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                    .body(response);
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            GoogleAuthResponse errorResponse = GoogleAuthResponse.builder()
+                .needsRegistration(false)
+                .message("Lỗi xác thực Google: " + e.getMessage())
+                .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    // Google OAuth - Complete Registration
+    @PostMapping("/google/register")
+    public ResponseEntity<GoogleAuthResponse> completeGoogleRegistration(@Valid @RequestBody GoogleRegisterRequest request) {
+        try {
+            GoogleAuthResponse response = googleAuthService.registerWithGoogle(request);
+            
+            if (response.getUserId() != null) {
+                // Registration successful, generate JWT cookie from username
+                String jwt = jwtUtils.generateTokenFromUsername(response.getUsername());
+                
+                // Set token in response body as backup (in case cookie doesn't work due to cross-origin)
+                response.setToken(jwt);
+                
+                ResponseCookie jwtCookie = ResponseCookie.from("edu360_jwt", jwt)
+                    .path("/")
+                    .httpOnly(true)
+                    .secure(false)
+                    .sameSite("Lax")
+                    .maxAge(24L * 60 * 60)
+                    .build();
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                    .body(response);
+            }
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (Exception e) {
+            GoogleAuthResponse errorResponse = GoogleAuthResponse.builder()
+                .needsRegistration(false)
+                .message("Lỗi đăng ký: " + e.getMessage())
+                .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    // Check if parent phone exists
+    @GetMapping("/check-parent-phone")
+    public ResponseEntity<Map<String, Object>> checkParentPhone(@RequestParam String phone) {
+        try {
+            Map<String, Object> response = googleAuthService.checkParentPhone(phone);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("exists", false);
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.ok(errorResponse);
+        }
     }
 
 }

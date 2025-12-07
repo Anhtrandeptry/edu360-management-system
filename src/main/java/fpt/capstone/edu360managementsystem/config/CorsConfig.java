@@ -45,10 +45,16 @@ public class CorsConfig {
         cfg.setAllowCredentials(true);
         // Method & Header cho preflight
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin"
+        ));
 
-        // Expose nếu bạn cần đọc Set-Cookie từ FE (không bắt buộc)
-        cfg.setExposedHeaders(List.of("Set-Cookie"));
+        // Expose Set-Cookie và Authorization cho FE
+        cfg.setExposedHeaders(List.of("Set-Cookie", "Authorization"));
         cfg.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

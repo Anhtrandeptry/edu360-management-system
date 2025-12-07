@@ -1,7 +1,9 @@
 package fpt.capstone.edu360managementsystem.service;
 
 import java.security.SecureRandom;
+import java.text.Normalizer;
 import java.util.Random;
+import java.util.regex.Pattern;
 
 import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -283,16 +285,43 @@ public class AuthServiceImpl implements AuthService {
 
 
     // --- helper methods ---
+    
+    /**
+     * Loại bỏ dấu tiếng Việt và chuyển thành ký tự ASCII
+     * Ví dụ: "Nguyễn Văn Ân" -> "nguyen van an"
+     */
+    private String removeVietnameseAccents(String str) {
+        if (str == null) return null;
+        // Chuẩn hóa Unicode NFD để tách dấu ra khỏi ký tự gốc
+        String normalized = Normalizer.normalize(str, Normalizer.Form.NFD);
+        // Loại bỏ các dấu combining (dấu thanh)
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        String result = pattern.matcher(normalized).replaceAll("");
+        // Xử lý các ký tự đặc biệt tiếng Việt (đ, Đ)
+        result = result.replace('đ', 'd').replace('Đ', 'D');
+        return result;
+    }
+    
+    /**
+     * Tạo username từ họ tên đầy đủ
+     * Format: tên + chữ cái đầu của họ và tên đệm (không dấu)
+     * Ví dụ: "Trần Quốc Anh" -> "anhtq"
+     *        "Nguyễn Thị Hương" -> "huongnth"
+     */
     private String generateUsernameFromFullName(String fullName) {
         if (fullName == null || fullName.isBlank()) {
             // fallback
             return "user" + System.currentTimeMillis();
         }
-        String[] parts = fullName.trim().toLowerCase().split("\\s+");
+        // Loại bỏ dấu tiếng Việt trước khi xử lý
+        String normalizedName = removeVietnameseAccents(fullName);
+        String[] parts = normalizedName.trim().toLowerCase().split("\\s+");
         String last = parts[parts.length - 1];
         StringBuilder initials = new StringBuilder();
         for (int i = 0; i < parts.length - 1; i++) {
-            initials.append(parts[i].charAt(0));
+            if (!parts[i].isEmpty()) {
+                initials.append(parts[i].charAt(0));
+            }
         }
         return last + initials.toString(); // anhtq
     }
