@@ -9,6 +9,9 @@ import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 import fpt.capstone.edu360managementsystem.enums.SessionStatus;
 import fpt.capstone.edu360managementsystem.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -38,7 +41,7 @@ public class TeacherAttendanceService {
 
         return teachers.stream().map(teacher -> {
             User user = teacher.getUser();
-            
+
             // Lấy danh sách môn học
             List<String> subjectNames = new ArrayList<>();
             if (teacher.getSubject() != null) {
@@ -67,9 +70,9 @@ public class TeacherAttendanceService {
                 List<ClassSession> sessions = classSessionRepository
                         .findByClazz_IdAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
                                 clazz.getId(), monthStart, monthEnd);
-                
+
                 totalSlots += sessions.size();
-                
+
                 for (ClassSession session : sessions) {
                     if (isSessionCompleted(session)) {
                         completedSlots++;
@@ -97,14 +100,46 @@ public class TeacherAttendanceService {
     }
 
     /**
+     * Lấy danh sách giáo viên với thống kê chấm công - có phân trang và tìm
+     * kiếm
+     */
+    public Page<TeacherListForAttendanceResponse> getAllTeachersForAttendancePaginated(String search, Pageable pageable) {
+        // Lấy tất cả teachers và xử lý
+        List<TeacherListForAttendanceResponse> allTeachers = getAllTeachersForAttendance();
+
+        // Filter theo search
+        if (search != null && !search.trim().isEmpty()) {
+            String keyword = search.toLowerCase().trim();
+            allTeachers = allTeachers.stream()
+                    .filter(t
+                            -> (t.getFullName() != null && t.getFullName().toLowerCase().contains(keyword))
+                    || (t.getEmail() != null && t.getEmail().toLowerCase().contains(keyword))
+                    || (t.getPhone() != null && t.getPhone().contains(keyword))
+                    || (t.getSubjectNames() != null && t.getSubjectNames().stream()
+                    .anyMatch(s -> s.toLowerCase().contains(keyword)))
+                    )
+                    .collect(Collectors.toList());
+        }
+
+        // Pagination
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), allTeachers.size());
+
+        List<TeacherListForAttendanceResponse> pageContent
+                = start > allTeachers.size() ? new ArrayList<>() : allTeachers.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, allTeachers.size());
+    }
+
+    /**
      * Lấy thống kê chi tiết chấm công của một giáo viên
      */
     public TeacherWorkSummaryResponse getTeacherWorkSummary(Long teacherId, Integer month, Integer year) {
         Teacher teacher = teacherRepository.findById(teacherId)
                 .orElseThrow(() -> new RuntimeException("Teacher not found"));
-        
+
         User user = teacher.getUser();
-        
+
         // Xác định tháng/năm
         LocalDate now = LocalDate.now();
         int targetMonth = month != null ? month : now.getMonthValue();
@@ -131,22 +166,22 @@ public class TeacherAttendanceService {
                 .stream()
                 .filter(c -> c.getStatus() == ClassStatus.PUBLIC)
                 .toList();
-        
+
         int totalScheduledSlots = 0;
         int totalCompletedSlots = 0;
         int totalPendingSlots = 0;
-        
+
         List<TeacherWorkSummaryResponse.ClassWorkDetail> classDetails = new ArrayList<>();
 
         for (Clazz clazz : assignedClasses) {
             List<ClassSession> sessions = classSessionRepository
                     .findByClazz_IdAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
                             clazz.getId(), monthStart, monthEnd);
-            
+
             int classTotal = sessions.size();
             int classCompleted = 0;
             int classPending = 0;
-            
+
             for (ClassSession session : sessions) {
                 if (isSessionCompleted(session)) {
                     classCompleted++;
@@ -171,7 +206,7 @@ public class TeacherAttendanceService {
                     .build());
         }
 
-        double attendanceRate = totalScheduledSlots > 0 
+        double attendanceRate = totalScheduledSlots > 0
                 ? (totalCompletedSlots * 100.0 / totalScheduledSlots) : 0;
 
         return TeacherWorkSummaryResponse.builder()
@@ -197,10 +232,10 @@ public class TeacherAttendanceService {
         if (!teacherRepository.existsById(teacherId)) {
             throw new RuntimeException("Teacher not found");
         }
-        
+
         Clazz clazz = clazzRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
-        
+
         // Verify teacher is assigned to this class
         if (!clazz.getTeacher().getId().equals(teacherId)) {
             throw new RuntimeException("Teacher is not assigned to this class");
@@ -208,7 +243,7 @@ public class TeacherAttendanceService {
 
         List<ClassSession> sessions = classSessionRepository
                 .findByClazz_IdOrderByDateAscTimeSlot_StartTimeAsc(classId);
-        
+
         int totalSlots = sessions.size();
         int completedSlots = 0;
         int pendingSlots = 0;
@@ -229,10 +264,14 @@ public class TeacherAttendanceService {
             int present = 0, absent = 0, late = 0;
             for (Attendance att : attendances) {
                 switch (att.getStatus()) {
-                    case PRESENT -> present++;
-                    case ABSENT -> absent++;
-                    case LATE -> late++;
-                    default -> {}
+                    case PRESENT ->
+                        present++;
+                    case ABSENT ->
+                        absent++;
+                    case LATE ->
+                        late++;
+                    default -> {
+                    }
                 }
             }
 
@@ -274,19 +313,19 @@ public class TeacherAttendanceService {
     }
 
     /**
-     * Kiểm tra session đã được điểm danh hoàn tất chưa
-     * Điều kiện: có ít nhất 1 attendance record không phải UNMARKED
+     * Kiểm tra session đã được điểm danh hoàn tất chưa Điều kiện: có ít nhất 1
+     * attendance record không phải UNMARKED
      */
     private boolean isSessionCompleted(ClassSession session) {
         if (session.getStatus() == SessionStatus.DONE) {
             return true;
         }
-        
+
         List<Attendance> attendances = attendanceRepository.findBySession_Id(session.getId());
         if (attendances.isEmpty()) {
             return false;
         }
-        
+
         // Nếu có ít nhất 1 học sinh được điểm danh (không phải UNMARKED) thì coi như đã điểm danh
         return attendances.stream()
                 .anyMatch(a -> a.getStatus() != AttendanceStatus.UNMARKED);

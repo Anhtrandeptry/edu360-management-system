@@ -3,6 +3,7 @@ package fpt.capstone.edu360managementsystem.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,6 +51,30 @@ public class TeacherController {
     ) {
         List<TeacherResponse> teachers = teacherService.getTeachers(subjectId);
         return ResponseEntity.ok(teachers);
+    }
+
+    /**
+     * GET /api/teachers/paginated - Lấy teachers với phân trang và filter
+     *
+     * @param search Tìm kiếm theo fullName, email, phone
+     * @param subjectId Filter theo môn học
+     * @param page Số trang (default 0)
+     * @param size Số phần tử mỗi trang (default 10)
+     * @param sortBy Trường để sắp xếp (default id)
+     * @param order Thứ tự sắp xếp: asc, desc (default asc)
+     */
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<TeacherResponse>> getTeachersPaginated(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String order
+    ) {
+        return ResponseEntity.ok(teacherService.getTeachersWithPagination(
+                search, subjectId, page, size, sortBy, order
+        ));
     }
 
     /**

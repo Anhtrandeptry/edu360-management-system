@@ -38,14 +38,23 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     // Count all sessions for a class (used for tuition/payment calculation)
     long countByClazz_Id(Long classId);
 
+    // Batch count sessions for multiple classes (avoid N+1)
+    @Query("""
+      SELECT s.clazz.id, COUNT(s)
+      FROM ClassSession s
+      WHERE s.clazz.id IN :classIds
+      GROUP BY s.clazz.id
+    """)
+    List<Object[]> countByClazzIdIn(List<Long> classIds);
+
     boolean existsByClazz_IdAndDateBefore(Long classId, LocalDate date);
 
     // Thêm tiện ích lấy toàn bộ session theo class để xoá/regenerate khi chỉnh sửa draft
     List<ClassSession> findByClazz_Id(Long classId);
-    
+
     // Lấy toàn bộ sessions của một class, sắp xếp theo ngày và slot
     List<ClassSession> findByClazz_IdOrderByDateAscTimeSlot_StartTimeAsc(Long classId);
-    
+
     // Lấy sessions trong khoảng thời gian cho một lớp (dùng cho teacher attendance)
     List<ClassSession> findByClazz_IdAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
             Long classId,

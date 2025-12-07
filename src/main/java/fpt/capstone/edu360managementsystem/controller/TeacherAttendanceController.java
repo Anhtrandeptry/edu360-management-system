@@ -5,11 +5,12 @@ import fpt.capstone.edu360managementsystem.dto.response.TeacherListForAttendance
 import fpt.capstone.edu360managementsystem.dto.response.TeacherWorkSummaryResponse;
 import fpt.capstone.edu360managementsystem.service.TeacherAttendanceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/teacher-attendance")
@@ -19,17 +20,23 @@ public class TeacherAttendanceController {
     private final TeacherAttendanceService teacherAttendanceService;
 
     /**
-     * Lấy danh sách tất cả giáo viên với thống kê chấm công
+     * Lấy danh sách tất cả giáo viên với thống kê chấm công (có phân trang)
      * Dành cho Admin quản lý
      */
     @GetMapping("/teachers")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<TeacherListForAttendanceResponse>> getAllTeachers() {
-        return ResponseEntity.ok(teacherAttendanceService.getAllTeachersForAttendance());
+    public ResponseEntity<Page<TeacherListForAttendanceResponse>> getAllTeachers(
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(teacherAttendanceService.getAllTeachersForAttendancePaginated(search, pageable));
     }
 
     /**
      * Lấy thống kê chi tiết chấm công của một giáo viên
+     *
      * @param teacherId ID của giáo viên
      * @param month Tháng (optional, mặc định tháng hiện tại)
      * @param year Năm (optional, mặc định năm hiện tại)
@@ -46,6 +53,7 @@ public class TeacherAttendanceController {
 
     /**
      * Lấy chi tiết chấm công theo lớp của giáo viên
+     *
      * @param teacherId ID của giáo viên
      * @param classId ID của lớp
      */
