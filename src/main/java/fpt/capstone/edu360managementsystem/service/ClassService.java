@@ -395,12 +395,20 @@ public class ClassService {
         // Batch load totalSessions for all classes to avoid N+1
         List<Long> classIds = classes.stream().map(Clazz::getId).toList();
         Map<Long, Long> sessionCountByClass = new java.util.HashMap<>();
+        Map<Long, Long> completedCountByClass = new java.util.HashMap<>();
         if (!classIds.isEmpty()) {
             List<Object[]> sessionCounts = classSessionRepository.countByClazzIdIn(classIds);
             for (Object[] row : sessionCounts) {
                 Long classId = (Long) row[0];
                 Long count = (Long) row[1];
                 sessionCountByClass.put(classId, count);
+            }
+            // Batch load completed sessions
+            List<Object[]> completedCounts = classSessionRepository.countCompletedByClazzIdIn(classIds);
+            for (Object[] row : completedCounts) {
+                Long classId = (Long) row[0];
+                Long count = (Long) row[1];
+                completedCountByClass.put(classId, count);
             }
         }
 
@@ -424,7 +432,8 @@ public class ClassService {
                     // Count current enrolled students
                     int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
                     int totalSessions = sessionCountByClass.getOrDefault(c.getId(), 0L).intValue();
-                    ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions);
+                    int completedSessions = completedCountByClass.getOrDefault(c.getId(), 0L).intValue();
+                    ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions, completedSessions);
                     response.setCurrentStudents(currentStudents);
 
                     // Log each class being returned
@@ -501,12 +510,20 @@ public class ClassService {
 
         // Batch load totalSessions for all classes to avoid N+1
         Map<Long, Long> sessionCountByClass = new java.util.HashMap<>();
+        Map<Long, Long> completedCountByClass = new java.util.HashMap<>();
         if (!classIds.isEmpty()) {
             List<Object[]> sessionCounts = classSessionRepository.countByClazzIdIn(classIds);
             for (Object[] row : sessionCounts) {
                 Long classId = (Long) row[0];
                 Long count = (Long) row[1];
                 sessionCountByClass.put(classId, count);
+            }
+            // Batch load completed sessions
+            List<Object[]> completedCounts = classSessionRepository.countCompletedByClazzIdIn(classIds);
+            for (Object[] row : completedCounts) {
+                Long classId = (Long) row[0];
+                Long count = (Long) row[1];
+                completedCountByClass.put(classId, count);
             }
         }
 
@@ -515,7 +532,8 @@ public class ClassService {
             List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
             int currentStudents = classEnrollmentRepository.countByClazz_Id(c.getId());
             int totalSessions = sessionCountByClass.getOrDefault(c.getId(), 0L).intValue();
-            ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions);
+            int completedSessions = completedCountByClass.getOrDefault(c.getId(), 0L).intValue();
+            ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions, completedSessions);
             response.setCurrentStudents(currentStudents);
             return response;
         });
@@ -527,7 +545,8 @@ public class ClassService {
         var schedules = classScheduleRepository.findByClazz_Id(id);
         int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
         int totalSessions = (int) classSessionRepository.countByClazz_Id(id);
-        ClassResponse response = classMapper.toResponse(clazz, schedules, totalSessions);
+        int completedSessions = (int) classSessionRepository.countCompletedByClazzId(id);
+        ClassResponse response = classMapper.toResponse(clazz, schedules, totalSessions, completedSessions);
         response.setCurrentStudents(currentStudents);
         return response;
     }

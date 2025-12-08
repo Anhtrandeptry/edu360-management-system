@@ -38,6 +38,28 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     // Count all sessions for a class (used for tuition/payment calculation)
     long countByClazz_Id(Long classId);
 
+    // Count completed sessions for a class
+    // A session is completed if: status = DONE OR has at least one attendance not UNMARKED
+    @Query("""
+      SELECT COUNT(DISTINCT s) FROM ClassSession s 
+      WHERE s.clazz.id = :classId 
+      AND (s.status = 'DONE' 
+           OR EXISTS (SELECT 1 FROM Attendance a WHERE a.session.id = s.id AND a.status <> 'UNMARKED'))
+    """)
+    long countCompletedByClazzId(Long classId);
+
+    // Batch count completed sessions for multiple classes (avoid N+1)
+    // A session is completed if: status = DONE OR has at least one attendance not UNMARKED
+    @Query("""
+      SELECT s.clazz.id, COUNT(DISTINCT s)
+      FROM ClassSession s
+      WHERE s.clazz.id IN :classIds 
+      AND (s.status = 'DONE' 
+           OR EXISTS (SELECT 1 FROM Attendance a WHERE a.session.id = s.id AND a.status <> 'UNMARKED'))
+      GROUP BY s.clazz.id
+    """)
+    List<Object[]> countCompletedByClazzIdIn(List<Long> classIds);
+
     // Batch count sessions for multiple classes (avoid N+1)
     @Query("""
       SELECT s.clazz.id, COUNT(s)
