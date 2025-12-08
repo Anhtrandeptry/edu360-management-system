@@ -36,13 +36,13 @@ public class SessionContentConfig {
     private ClassSession session;
 
     @Column(name = "source_type", length = 16, nullable = false)
-    private String sourceType; // ADMIN | PERSONAL
+    private String sourceType;
 
     @Column(name = "base_course_id")
-    private Long baseCourseId; // nếu ADMIN
+    private Long baseCourseId;
 
     @Column(name = "teacher_course_id")
-    private Long teacherCourseId; // nếu CLASS_PERSONAL (khóa học clone của lớp)
+    private Long teacherCourseId;
 
     @Column(name = "chapter_id")
     private Long chapterId;

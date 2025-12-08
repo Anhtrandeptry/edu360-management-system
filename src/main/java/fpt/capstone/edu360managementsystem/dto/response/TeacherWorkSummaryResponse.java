@@ -18,14 +18,14 @@ public class TeacherWorkSummaryResponse {
     private String phone;
     private List<String> subjectNames;
     
-    // Thống kê tháng hiện tại
-    private Integer totalAssignedClasses;      // Số lớp được phân công
-    private Integer totalScheduledSlots;        // Tổng số slot theo lịch trong tháng
-    private Integer totalCompletedSlots;        // Số slot đã điểm danh (completed)
-    private Integer totalPendingSlots;          // Số slot chưa điểm danh
-    private Double attendanceRate;              // Tỷ lệ hoàn thành (%)
+
+    private Integer totalAssignedClasses;
+    private Integer totalScheduledSlots;
+    private Integer totalCompletedSlots;
+    private Integer totalPendingSlots;
+    private Double attendanceRate;
     
-    // Chi tiết theo lớp
+
     private List<ClassWorkDetail> classDetails;
     
     @Data
@@ -40,6 +40,6 @@ public class TeacherWorkSummaryResponse {
         private Integer totalSlots;
         private Integer completedSlots;
         private Integer pendingSlots;
-        private String status; // ACTIVE, COMPLETED, etc.
+        private String status;
     }
 }

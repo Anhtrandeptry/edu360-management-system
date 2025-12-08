@@ -203,7 +203,7 @@ public class EnrollmentService {
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
 
-        // ✅ 1. Thanh toán: chỉ enforce khi cấu hình bật và học phí > 0
+        //1. Thanh toán: chỉ enforce khi cấu hình bật và học phí > 0
         long sessionsCount = classSessionRepository.countByClazz_Id(classId);
         long unitPrice = clazz.getPricePerSession() == null ? 0L : clazz.getPricePerSession();
         long totalFee = unitPrice * sessionsCount;

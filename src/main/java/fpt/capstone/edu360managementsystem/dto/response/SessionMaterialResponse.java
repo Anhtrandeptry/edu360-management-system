@@ -3,9 +3,7 @@ package fpt.capstone.edu360managementsystem.dto.response;
 import lombok.*;
 import java.time.LocalDateTime;
 
-/**
- * DTO trả về thông tin tài liệu buổi học
- */
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,9 +19,7 @@ public class SessionMaterialResponse {
     private LocalDateTime uploadedAt;
     private String uploadedByName;
     
-    /**
-     * Hiển thị kích thước file dạng đọc được (KB, MB)
-     */
+
     public String getFileSizeDisplay() {
         if (fileSize == null) return "";
         if (fileSize < 1024) return fileSize + " B";
@@ -31,9 +27,7 @@ public class SessionMaterialResponse {
         return String.format("%.1f MB", fileSize / (1024.0 * 1024));
     }
     
-    /**
-     * Lấy icon dựa vào loại file
-     */
+
     public String getFileIcon() {
         if (fileType == null) return "file";
         if (fileType.startsWith("image/")) return "image";

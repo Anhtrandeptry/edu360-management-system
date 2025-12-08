@@ -39,11 +39,11 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        // CHỈ rõ origin FE (không dùng "*")
-        cfg.setAllowedOriginPatterns(List.of("http://localhost:8386")); // CRA: npm start
-        // Cho phép gửi cookie
+
+        cfg.setAllowedOriginPatterns(List.of("http://localhost:8386"));
+
         cfg.setAllowCredentials(true);
-        // Method & Header cho preflight
+
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of(
                 "Authorization",
@@ -53,7 +53,7 @@ public class CorsConfig {
                 "Origin"
         ));
 
-        // Expose Set-Cookie và Authorization cho FE
+        // Expose Set-Cookie và Authorization cho FE (merged)
         cfg.setExposedHeaders(List.of("Set-Cookie", "Authorization"));
         cfg.setMaxAge(3600L);
 

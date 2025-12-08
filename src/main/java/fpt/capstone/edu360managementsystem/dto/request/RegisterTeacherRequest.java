@@ -18,5 +18,5 @@ public class RegisterTeacherRequest {
     private String phoneNumber;
 
     @NotEmpty(message = "At least one subject id is required")
-    private java.util.List<Long> subjectIds; // multiple subjects at creation
+    private java.util.List<Long> subjectIds;
 }

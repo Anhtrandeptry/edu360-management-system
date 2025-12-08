@@ -45,7 +45,7 @@ public class ClassController {
     }
 
     @GetMapping
-    // Cho phép tất cả user xem danh sách lớp (bao gồm guest)
+
     public ResponseEntity<java.util.List<ClassResponse>> list(
             @RequestParam(name = "teacherUserId", required = false) Long teacherUserId,
             @RequestParam(name = "timeSlotId", required = false) Long timeSlotId
@@ -53,18 +53,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.listClasses(teacherUserId, timeSlotId));
     }
 
-    /**
-     * GET /api/classes/paginated - Lấy classes với phân trang và filter
-     *
-     * @param search Tìm kiếm theo name, teacherName, subjectName
-     * @param status Filter theo status: ALL, DRAFT, PUBLIC, ARCHIVED
-     * @param online Filter theo hình thức: ALL, true (online), false (offline)
-     * @param teacherUserId Filter theo giáo viên (user.id)
-     * @param page Số trang (default 0)
-     * @param size Số phần tử mỗi trang (default 10)
-     * @param sortBy Trường để sắp xếp (default id)
-     * @param order Thứ tự sắp xếp: asc, desc (default asc)
-     */
+
     @GetMapping("/paginated")
     public ResponseEntity<Page<ClassResponse>> getClassesPaginated(
             @RequestParam(required = false) String search,
@@ -87,17 +76,14 @@ public class ClassController {
         return ResponseEntity.ok(classService.getClassById(id));
     }
 
-    /**
-     * Public API: Get class detail for guest/unauthenticated users. Returns
-     * class info with base course (from Admin).
-     */
+
     @GetMapping("/{id}/public")
     public ResponseEntity<ClassPublicDetailResponse> getPublicDetail(@PathVariable Long id) {
         System.out.println("\uD83D\uDD0D [ClassController] getPublicDetail id=" + id);
         return ResponseEntity.ok(classService.getClassPublicDetail(id));
     }
 
-    // Publish class: DRAFT -> PUBLIC
+
     @PostMapping("/{id}/publish")
     public ResponseEntity<?> publishClass(@PathVariable Long id) {
         System.out.println("\uD83D\uDD14 [ClassController] Publish request for classId=" + id);
@@ -114,7 +100,7 @@ public class ClassController {
         }
     }
 
-    // Revert PUBLIC -> DRAFT if no past sessions occurred
+
     @PostMapping("/{id}/revert-draft")
     public ResponseEntity<?> revertToDraft(@PathVariable Long id) {
         System.out.println("\uD83D\uDD14 [ClassController] Revert-to-draft request for classId=" + id);

@@ -40,9 +40,7 @@ public class StudentProfileController {
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
     private static final String ERROR_KEY = "error";
 
-    /**
-     * Helper method to get user ID from authentication.
-     */
+
     private Long getAuthenticatedUserId(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) {
             throw new SecurityException("User not authenticated");
@@ -50,9 +48,7 @@ public class StudentProfileController {
         return ((UserDetailsImpl) auth.getPrincipal()).getId();
     }
 
-    /**
-     * Get current student profile.
-     */
+
     @GetMapping
     public ResponseEntity<StudentProfileResponse> getProfile(Authentication auth) {
         Long userId = getAuthenticatedUserId(auth);
@@ -60,9 +56,7 @@ public class StudentProfileController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Update current student profile.
-     */
+
     @PutMapping
     public ResponseEntity<StudentProfileResponse> updateProfile(
             Authentication auth,
@@ -72,10 +66,7 @@ public class StudentProfileController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Upload avatar for current student.
-     * Saves file to server and returns URL.
-     */
+
     @PostMapping("/upload-avatar")
     public ResponseEntity<Map<String, String>> uploadAvatar(
             @RequestParam("file") MultipartFile file,
@@ -133,9 +124,7 @@ public class StudentProfileController {
         }
     }
 
-    /**
-     * Change password for current student.
-     */
+
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             Authentication auth,

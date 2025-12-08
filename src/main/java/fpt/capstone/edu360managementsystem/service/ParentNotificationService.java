@@ -58,7 +58,7 @@ public class ParentNotificationService {
      */
     @Transactional
     public int sendParentNotificationManual(Long sessionId, Long userId) {
-        log.info("📧 [ParentNotification] Teacher {} manually sending notification for session {}", userId, sessionId);
+        log.info("[ParentNotification] Teacher {} manually sending notification for session {}", userId, sessionId);
 
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy buổi học"));
@@ -107,7 +107,7 @@ public class ParentNotificationService {
         // Lấy danh sách học sinh enrolled trong lớp
         var enrollments = classEnrollmentRepository.findByClazz_Id(session.getClazz().getId());
         if (enrollments.isEmpty()) {
-            log.info("📭 No students enrolled in class {}", session.getClazz().getId());
+            log.info("No students enrolled in class {}", session.getClazz().getId());
             return 0;
         }
 
@@ -127,7 +127,7 @@ public class ParentNotificationService {
 
             String parentEmail = getParentEmail(student);
             if (parentEmail == null || parentEmail.isBlank()) {
-                log.warn("⚠️ Student {} has no parent email", student.getUser().getFullName());
+                log.warn("Student {} has no parent email", student.getUser().getFullName());
                 continue;
             }
 
@@ -136,14 +136,14 @@ public class ParentNotificationService {
             try {
                 sendNotificationEmail(student, session, attendance, sessionDate);
                 sentCount++;
-                log.info("✅ Email sent to {} for student {}", parentEmail, student.getUser().getFullName());
+                log.info("Email sent to {} for student {}", parentEmail, student.getUser().getFullName());
             } catch (Exception e) {
                 failCount++;
-                log.error("❌ Failed to send email to {}: {}", parentEmail, e.getMessage());
+                log.error("Failed to send email to {}: {}", parentEmail, e.getMessage());
             }
         }
 
-        log.info("📧 [ParentNotification] Completed: {} sent, {} failed for session {}", sentCount, failCount, session.getId());
+        log.info("[ParentNotification] Completed: {} sent, {} failed for session {}", sentCount, failCount, session.getId());
         return sentCount;
     }
 
@@ -229,7 +229,7 @@ public class ParentNotificationService {
                 attendanceNote, lessonContentHtml.toString(), detailContent
         );
 
-        String subject = "🎓 [360EDU] Báo cáo buổi học - " + studentName + " - " + dateFormatted;
+        String subject = "[360EDU] Báo cáo buổi học - " + studentName + " - " + dateFormatted;
 
         emailService.sendHtmlMessage(parentEmail, subject, htmlContent);
     }
@@ -301,36 +301,36 @@ public class ParentNotificationService {
 
         // Session Info
         html.append("<div style=\"background-color: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 24px;\">");
-        html.append("<h3 style=\"margin: 0 0 20px 0; color: #111827; font-size: 16px; font-weight: 600;\">📋 Thông tin buổi học</h3>");
+        html.append("<h3 style=\"margin: 0 0 20px 0; color: #111827; font-size: 16px; font-weight: 600;\">Thông tin buổi học</h3>");
         html.append("<table style=\"width: 100%; border-collapse: collapse;\">");
 
         // Date
         html.append("<tr>");
-        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">📅 Ngày học</span></td>");
+        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">Ngày học</span></td>");
         html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;\"><strong style=\"color: #111827; font-size: 14px;\">").append(escapeHtml(date)).append("</strong></td>");
         html.append("</tr>");
 
         // Class
         html.append("<tr>");
-        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">🏫 Lớp học</span></td>");
+        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">Lớp học</span></td>");
         html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;\"><strong style=\"color: #111827; font-size: 14px;\">").append(escapeHtml(className)).append("</strong></td>");
         html.append("</tr>");
 
         // Subject
         html.append("<tr>");
-        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">📚 Môn học</span></td>");
+        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">Môn học</span></td>");
         html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;\"><strong style=\"color: #4f46e5; font-size: 14px;\">").append(escapeHtml(subjectName)).append("</strong></td>");
         html.append("</tr>");
 
         // Teacher
         html.append("<tr>");
-        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">👨‍🏫 Giáo viên</span></td>");
+        html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb;\"><span style=\"color: #6b7280; font-size: 14px;\">Giáo viên</span></td>");
         html.append("<td style=\"padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;\"><strong style=\"color: #111827; font-size: 14px;\">").append(escapeHtml(teacherName)).append("</strong></td>");
         html.append("</tr>");
 
         // Time
         html.append("<tr>");
-        html.append("<td style=\"padding: 12px 0;\"><span style=\"color: #6b7280; font-size: 14px;\">⏰ Thời gian</span></td>");
+        html.append("<td style=\"padding: 12px 0;\"><span style=\"color: #6b7280; font-size: 14px;\">Thời gian</span></td>");
         html.append("<td style=\"padding: 12px 0; text-align: right;\"><strong style=\"color: #111827; font-size: 14px;\">").append(escapeHtml(timeSlot)).append("</strong></td>");
         html.append("</tr>");
 
@@ -339,7 +339,7 @@ public class ParentNotificationService {
 
         // Attendance Status
         html.append("<div style=\"background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #fde047;\">");
-        html.append("<h3 style=\"margin: 0 0 16px 0; color: #854d0e; font-size: 16px; font-weight: 600;\">📊 Điểm danh</h3>");
+        html.append("<h3 style=\"margin: 0 0 16px 0; color: #854d0e; font-size: 16px; font-weight: 600;\">Điểm danh</h3>");
         html.append("<div style=\"text-align: center;\">");
         html.append("<div style=\"display: inline-block; background-color: #ffffff; border-radius: 12px; padding: 20px 40px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);\">");
         html.append("<span style=\"font-size: 36px; display: block; margin-bottom: 8px;\">").append(attendanceIcon).append("</span>");
@@ -351,7 +351,7 @@ public class ParentNotificationService {
 
         // Lesson Content
         html.append("<div style=\"background-color: #f0fdf4; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #bbf7d0;\">");
-        html.append("<h3 style=\"margin: 0 0 20px 0; color: #166534; font-size: 16px; font-weight: 600;\">📝 Nội dung buổi học</h3>");
+        html.append("<h3 style=\"margin: 0 0 20px 0; color: #166534; font-size: 16px; font-weight: 600;\">Nội dung buổi học</h3>");
         html.append(lessonHtml);
         html.append(detailHtml);
         html.append("</div>");

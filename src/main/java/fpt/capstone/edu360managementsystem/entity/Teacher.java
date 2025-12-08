@@ -29,12 +29,12 @@ public class Teacher {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    // Giữ lại subject chính (primary) để không phá vỡ schema cũ (cột subject_id NOT NULL)
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 
-    // Bổ sung danh sách môn phụ (ManyToMany). Hibernate sẽ tự tạo bảng teacher_subjects.
+
     @ManyToMany(fetch = FetchType.LAZY, cascade = {jakarta.persistence.CascadeType.PERSIST, jakarta.persistence.CascadeType.MERGE})
     @JoinTable(
             name = "teacher_subjects",
@@ -52,7 +52,7 @@ public class Teacher {
     @Column(length = 1000)
     private String note;
     
-    // Profile fields for teacher profile page
+
     @Column(name = "workplace", length = 255)
     private String workplace;
     
@@ -68,7 +68,7 @@ public class Teacher {
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
     
-    // Profile statistics
+
     @Column(name = "years_of_experience")
     @Builder.Default
     private Integer yearsOfExperience = 0;
@@ -80,7 +80,7 @@ public class Teacher {
     @Column(name = "achievements", columnDefinition = "TEXT")
     private String achievements;
     
-    // Relationships with profile tables
+
     @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TeacherCertificate> certificates = new ArrayList<>();

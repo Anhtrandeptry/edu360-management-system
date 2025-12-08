@@ -37,25 +37,25 @@ public class Course {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "subject_id")
-    private Subject subject;   // 1 course thuộc 1 môn
+    private Subject subject;
 
     @Column(nullable = false)
-    private String title;      // tiêu đề course (tên khóa/giáo trình)
+    private String title;
 
     @Column(columnDefinition = "TEXT")
-    private String description;  // phần giới thiệu tổng quan
+    private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private CourseStatus status = CourseStatus.PENDING;
 
-    // Ai tạo (để phân biệt admin / teacher)
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "created_by_user_id")
     private User createdBy;
 
-    // optional: nếu muốn lưu luôn giáo viên "owner" course
+
     @ManyToOne(optional = true)
     @JoinColumn(name = "teacher_id")
     private Teacher ownerTeacher;

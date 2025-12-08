@@ -15,8 +15,8 @@ public class PaymentCreateResponse {
     private Long classId;
     private Long studentId;
 
-    private Long amount;      // Số tiền cần thanh toán (VND)
-    private String content;   // Nội dung chuyển khoản
+    private Long amount;
+    private String content;
 
-    private String qrImageUrl; // URL ảnh QR VietQR
+    private String qrImageUrl;
 }

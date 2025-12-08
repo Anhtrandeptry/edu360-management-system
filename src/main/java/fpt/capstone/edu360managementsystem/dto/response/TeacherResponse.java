@@ -15,26 +15,26 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TeacherResponse {
 
-    private Long id;              // teacher.id
-    private Long userId;          // user.id (for compatibility with existing FE code)
-    private String username;      // user.username
-    private String fullName;      // user.fullName
-    private String email;         // user.email
-    private String phoneNumber;   // user.phoneNumber
-    private String avatarUrl;     // teacher.avatarUrl
-    // Backward compatibility: still expose first subject as subjectId/subjectName
-    private Long subjectId;       // first subject id (for legacy FE)
-    private String subjectName;   // first subject name
-    // New multi-subject fields
-    private java.util.List<Long> subjectIds;      // all subject ids
-    private java.util.List<String> subjectNames;  // all subject names
-    private String specialization; // teacher.specialization
-    private String degree;        // teacher.degree
-    private Integer yearsOfExperience; // teacher.yearsOfExperience
-    private Double rating;        // teacher.rating
-    private String bio;           // teacher.bio
-    private String workplace;     // teacher.workplace
-    private Boolean active;       // user.active
-    private long classCount;      // số lớp chưa COMPLETE mà giáo viên đang dạy
+    private Long id;
+    private Long userId;
+    private String username;
+    private String fullName;
+    private String email;
+    private String phoneNumber;
+    private String avatarUrl;
+
+    private Long subjectId;
+    private String subjectName;
+
+    private java.util.List<Long> subjectIds;
+    private java.util.List<String> subjectNames;
+    private String specialization;
+    private String degree;
+    private Integer yearsOfExperience;
+    private Double rating;
+    private String bio;
+    private String workplace;
+    private Boolean active;
+    private long classCount;
 
 }

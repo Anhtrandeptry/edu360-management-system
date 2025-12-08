@@ -34,17 +34,17 @@ public class TeacherCourseVersion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Khóa học gốc được Admin gán cho lớp
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "base_course_id")
     private Course baseCourse;
 
-    // Phiên bản tùy chỉnh do giáo viên tạo
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "teacher_course_id")
     private Course teacherCourse;
 
-    // Giáo viên sở hữu phiên bản này
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;

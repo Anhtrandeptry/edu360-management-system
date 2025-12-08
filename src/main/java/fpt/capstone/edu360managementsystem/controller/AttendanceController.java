@@ -28,9 +28,7 @@ public class AttendanceController {
     @Autowired
     private AttendanceService attendanceService;
 
-    /**
-     * Buổi dạy hôm nay của giáo viên
-     */
+
     @GetMapping("/today")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> today(@AuthenticationPrincipal UserDetailsImpl user) {
@@ -42,9 +40,7 @@ public class AttendanceController {
         return ResponseEntity.ok(sessions);
     }
 
-    /**
-     * Chi tiết 1 buổi (danh sách HS, trạng thái)
-     */
+
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<AttendanceSessionDetailResponse> sessionDetail(
@@ -55,9 +51,7 @@ public class AttendanceController {
         );
     }
 
-    /**
-     * Chấm/ cập nhật điểm danh — chỉ trong đúng ngày
-     */
+
     @PostMapping("/session/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsert(
@@ -68,9 +62,7 @@ public class AttendanceController {
         return ResponseEntity.ok("Đã lưu điểm danh.");
     }
 
-    /**
-     * Chấm điểm danh theo classId và date
-     */
+
     @PostMapping("/class/{classId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsertByClass(
@@ -83,9 +75,7 @@ public class AttendanceController {
         return ResponseEntity.ok("Đã lưu điểm danh.");
     }
 
-    /**
-     * Lấy chi tiết điểm danh theo classId & date (để FE load trạng thái)
-     */
+
     @GetMapping("/class/{classId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<AttendanceSessionDetailResponse> detailByClass(
@@ -98,9 +88,7 @@ public class AttendanceController {
         );
     }
 
-    /**
-     * Admin xem điểm danh theo classId & date (không check ownership)
-     */
+
     @GetMapping("/admin/class/{classId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AttendanceSessionDetailResponse> adminViewByClass(

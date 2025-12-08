@@ -19,10 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Tracking email đã gửi cho phụ huynh về điểm danh + nội dung buổi học Mỗi
- * student + ngày chỉ gửi 1 email duy nhất (gộp tất cả slot trong ngày)
- */
+
 @Entity
 @Table(name = "parent_email_notifications",
         uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "notification_date"}),
@@ -46,17 +43,17 @@ public class ParentEmailNotification {
     private Student student;
 
     @Column(name = "notification_date", nullable = false)
-    private LocalDate notificationDate; // Ngày học
+    private LocalDate notificationDate;
 
     @Column(name = "parent_email", nullable = false)
-    private String parentEmail; // Email phụ huynh tại thời điểm gửi
+    private String parentEmail;
 
     @Column(name = "sent_at", nullable = false)
-    private LocalDateTime sentAt; // Thời điểm gửi email
+    private LocalDateTime sentAt;
 
     @Column(columnDefinition = "TEXT")
-    private String emailContent; // Nội dung email đã gửi (để debug/reference)
+    private String emailContent;
 
     @Column(name = "session_count")
-    private Integer sessionCount; // Số slot trong ngày
+    private Integer sessionCount;
 }

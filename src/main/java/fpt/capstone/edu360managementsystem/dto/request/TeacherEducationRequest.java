@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeacherEducationRequest {
-    private Long id;  // null for create, non-null for update
+    private Long id;
     private String degree;
     private String school;
     private Integer year;

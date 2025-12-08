@@ -1,6 +1,7 @@
 package fpt.capstone.edu360managementsystem.controller;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import fpt.capstone.edu360managementsystem.dto.request.LoginRequest;
@@ -75,6 +77,7 @@ public class AuthController {
     fpt.capstone.edu360managementsystem.service.GoogleAuthService googleAuthService;
 
 //Login
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -121,7 +124,7 @@ public class AuthController {
                         roles));
     }
 
-//logout
+
     @PostMapping("/logout")
     public ResponseEntity<?> logoutUser() {
         ResponseCookie cookie = jwtUtils.getCleanJwtCookie();
@@ -162,19 +165,19 @@ public class AuthController {
         ));
     }
 
-// Create Teacher
+
     @PostMapping("/register-teacher")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerTeacher(@Valid @RequestBody RegisterTeacherRequest request) {
         return authService.registerTeacher(request);
     }
 
-// Register Student and Parent account
+
     @PostMapping("/signup")
     public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
         return authService.registerStudentWithParent(request);
     }
-//Forgot Pass
+
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request);

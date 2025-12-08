@@ -20,27 +20,16 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
 
     List<Course> findByStatus(CourseStatus status);
 
-    // Các khóa học cá nhân thuộc một giáo viên (teacher ownership)
+
     List<Course> findByOwnerTeacher_Id(Long teacherId);
 
-    // Các khóa học cá nhân thuộc giáo viên theo cùng môn học và trạng thái
+
     List<Course> findByOwnerTeacher_IdAndSubject_IdAndStatus(Long teacherId, Long subjectId, CourseStatus status);
 
-    // Tìm theo tiêu đề để nhận diện course của lớp đã clone (deterministic naming)
+
     List<Course> findByOwnerTeacher_IdAndTitle(Long teacherId, String title);
 
-    /**
-     * Phân trang và tìm kiếm courses với filter theo status, subjectId,
-     * teacherId
-     *
-     * @param search tìm theo title, description, teacherName
-     * @param status filter theo CourseStatus (DRAFT, PENDING, APPROVED,
-     * ARCHIVED) - null để lấy tất cả
-     * @param subjectId filter theo môn học - null để lấy tất cả
-     * @param teacherUserId filter theo giáo viên tạo (user.id) - null để lấy
-     * tất cả
-     * @param pageable thông tin phân trang
-     */
+
     @Query("""
         SELECT DISTINCT c FROM Course c
         LEFT JOIN c.createdBy cb

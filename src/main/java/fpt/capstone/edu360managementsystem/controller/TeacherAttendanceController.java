@@ -19,10 +19,7 @@ public class TeacherAttendanceController {
 
     private final TeacherAttendanceService teacherAttendanceService;
 
-    /**
-     * Lấy danh sách tất cả giáo viên với thống kê chấm công (có phân trang)
-     * Dành cho Admin quản lý
-     */
+
     @GetMapping("/teachers")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<TeacherListForAttendanceResponse>> getAllTeachers(
@@ -34,13 +31,7 @@ public class TeacherAttendanceController {
         return ResponseEntity.ok(teacherAttendanceService.getAllTeachersForAttendancePaginated(search, pageable));
     }
 
-    /**
-     * Lấy thống kê chi tiết chấm công của một giáo viên
-     *
-     * @param teacherId ID của giáo viên
-     * @param month Tháng (optional, mặc định tháng hiện tại)
-     * @param year Năm (optional, mặc định năm hiện tại)
-     */
+
     @GetMapping("/teachers/{teacherId}/summary")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TeacherWorkSummaryResponse> getTeacherSummary(
@@ -51,12 +42,7 @@ public class TeacherAttendanceController {
         return ResponseEntity.ok(teacherAttendanceService.getTeacherWorkSummary(teacherId, month, year));
     }
 
-    /**
-     * Lấy chi tiết chấm công theo lớp của giáo viên
-     *
-     * @param teacherId ID của giáo viên
-     * @param classId ID của lớp
-     */
+
     @GetMapping("/teachers/{teacherId}/classes/{classId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TeacherClassAttendanceResponse> getTeacherClassAttendance(

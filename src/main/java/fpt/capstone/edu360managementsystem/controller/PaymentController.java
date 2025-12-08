@@ -37,10 +37,7 @@ public class PaymentController {
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * Callback từ VietQR / bank:
-     * Khi test bằng Postman bạn chỉ cần gửi JSON giống VietQrCallbackRequest.
-     */
+
     @PostMapping("/vietqr/callback")
     public ResponseEntity<?> vietQrCallback(@RequestBody VietQrCallbackRequest body) {
         try {
@@ -52,15 +49,7 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Webhook từ Casso.vn - Tự động nhận biến động số dư ngân hàng.
-     * 
-     * Cách setup:
-     * 1. Đăng ký tài khoản tại https://my.casso.vn
-     * 2. Liên kết tài khoản ngân hàng (qua QR hoặc API)
-     * 3. Vào Settings > Webhook > Thêm webhook URL: https://your-domain.com/api/payments/casso/webhook
-     * 4. Casso sẽ tự động gửi POST khi có tiền vào tài khoản
-     */
+
     @PostMapping("/casso/webhook")
     public ResponseEntity<?> cassoWebhook(@RequestBody CassoWebhookRequest body) {
         try {
@@ -75,10 +64,7 @@ public class PaymentController {
 
     // ===================== ADMIN ENDPOINTS =====================
 
-    /**
-     * Admin: Lấy danh sách payment với filter và phân trang.
-     * GET /api/payments?status=PENDING&studentName=...&classId=1&from=...&to=...&page=0&size=20
-     */
+
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<PaymentResponse>> listPayments(
@@ -94,10 +80,7 @@ public class PaymentController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Admin: Lấy chi tiết 1 payment.
-     * GET /api/payments/{id}
-     */
+
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaymentResponse> getPayment(@PathVariable Long id) {
@@ -105,10 +88,7 @@ public class PaymentController {
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * Admin: Thống kê tổng quan payments.
-     * GET /api/payments/stats
-     */
+
     @GetMapping("/stats")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getStats() {
@@ -116,10 +96,7 @@ public class PaymentController {
         return ResponseEntity.ok(stats);
     }
 
-    /**
-     * Admin: Xác nhận thanh toán thủ công (sau khi đối soát).
-     * POST /api/payments/{id}/confirm
-     */
+
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> confirmPayment(@PathVariable Long id) {

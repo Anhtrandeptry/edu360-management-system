@@ -24,9 +24,7 @@ public class NotificationController {
     @Autowired
     private UserRepository userRepository;
 
-    /**
-     * Lấy danh sách thông báo của user hiện tại (có phân trang)
-     */
+
     @GetMapping
     public ResponseEntity<Page<NotificationResponse>> getNotifications(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -38,9 +36,7 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-    /**
-     * Lấy thông báo chưa đọc
-     */
+
     @GetMapping("/unread")
     public ResponseEntity<List<NotificationResponse>> getUnreadNotifications(
             @AuthenticationPrincipal UserDetails userDetails
@@ -50,9 +46,7 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-    /**
-     * Đếm số thông báo chưa đọc (dùng cho badge trên chuông)
-     */
+
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Long>> getUnreadCount(
             @AuthenticationPrincipal UserDetails userDetails
@@ -62,9 +56,7 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("count", count));
     }
 
-    /**
-     * Đánh dấu 1 thông báo là đã đọc
-     */
+
     @PostMapping("/{id}/read")
     public ResponseEntity<Map<String, String>> markAsRead(
             @PathVariable Long id,
@@ -75,9 +67,7 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("message", "Marked as read"));
     }
 
-    /**
-     * Đánh dấu tất cả thông báo là đã đọc
-     */
+
     @PostMapping("/read-all")
     public ResponseEntity<Map<String, Object>> markAllAsRead(
             @AuthenticationPrincipal UserDetails userDetails
@@ -90,9 +80,7 @@ public class NotificationController {
         ));
     }
 
-    /**
-     * Xóa 1 thông báo
-     */
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteNotification(
             @PathVariable Long id,
@@ -103,9 +91,7 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("message", "Notification deleted"));
     }
 
-    /**
-     * Lấy thống kê thông báo
-     */
+
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats(
             @AuthenticationPrincipal UserDetails userDetails

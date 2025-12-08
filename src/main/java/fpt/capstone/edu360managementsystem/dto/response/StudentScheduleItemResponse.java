@@ -21,6 +21,6 @@ public class StudentScheduleItemResponse {
     private String roomName;
 
     private LocalDate date;
-    private String timeStart;   // "HH:mm:ss"
-    private String timeEnd;     // "HH:mm:ss"
+    private String timeStart;
+    private String timeEnd;
 }

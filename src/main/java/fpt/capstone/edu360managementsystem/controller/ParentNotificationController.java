@@ -15,9 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import fpt.capstone.edu360managementsystem.service.ParentNotificationService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 
-/**
- * Controller cho giáo viên gửi thông báo cho phụ huynh
- */
+
 @RestController
 @RequestMapping("/api/teacher/parent-notification")
 public class ParentNotificationController {
@@ -25,10 +23,7 @@ public class ParentNotificationController {
     @Autowired
     private ParentNotificationService parentNotificationService;
 
-    /**
-     * Gửi thông báo cho phụ huynh theo sessionId POST
-     * /api/teacher/parent-notification/send/{sessionId}
-     */
+
     @PostMapping("/send/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> sendNotificationBySession(
@@ -49,10 +44,7 @@ public class ParentNotificationController {
         }
     }
 
-    /**
-     * Gửi thông báo cho phụ huynh theo classId và date POST
-     * /api/teacher/parent-notification/send-by-class?classId=1&date=2025-12-03&slotId=1
-     */
+
     @PostMapping("/send-by-class")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> sendNotificationByClass(

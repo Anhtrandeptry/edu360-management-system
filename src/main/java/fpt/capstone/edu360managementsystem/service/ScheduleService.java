@@ -69,13 +69,13 @@ public class ScheduleService {
                 })
                 .toList();
 
-        System.out.println("🔍 Teacher ID: " + teacher.getId() + " | Found " + schedules.size() + " active schedules");
+        System.out.println("Teacher ID: " + teacher.getId() + " | Found " + schedules.size() + " active schedules");
 
         List<BusySlotResponse> busySlots = expandSchedulesToSlots(schedules, from, to);
 
-        System.out.println("📅 Expanded to " + busySlots.size() + " busy slots");
+        System.out.println("Expanded to " + busySlots.size() + " busy slots");
         if (!busySlots.isEmpty()) {
-            System.out.println("📍 First slot: " + busySlots.get(0).getStart() + " -> " + busySlots.get(0).getEnd());
+            System.out.println("First slot: " + busySlots.get(0).getStart() + " -> " + busySlots.get(0).getEnd());
         }
 
         return busySlots;
@@ -144,7 +144,7 @@ public class ScheduleService {
 
             // Validate range before creating DayOfWeek
             if (isoDay < 1 || isoDay > 7) {
-                System.err.println("⚠️ Invalid dayOfWeek: " + dbDay + " for class: " + clazz.getName());
+                System.err.println("Invalid dayOfWeek: " + dbDay + " for class: " + clazz.getName());
                 continue;
             }
 

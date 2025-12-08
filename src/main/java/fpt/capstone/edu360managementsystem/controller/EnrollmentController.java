@@ -25,7 +25,7 @@ public class EnrollmentController {
         return user.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 
-    /** Danh sách học sinh trong lớp */
+
     @GetMapping
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<List<EnrolledStudentResponse>> list(
@@ -36,7 +36,7 @@ public class EnrollmentController {
         );
     }
 
-    /** Thêm 1 học sinh vào lớp */
+
     @PostMapping
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<?> enrollOne(
@@ -47,7 +47,7 @@ public class EnrollmentController {
         return ResponseEntity.ok("Enrolled");
     }
 
-    /** Thêm nhiều học sinh vào lớp */
+
     @PostMapping("/bulk")
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<Map<Long, String>> enrollBulk(
@@ -59,7 +59,7 @@ public class EnrollmentController {
         );
     }
 
-    /** Gỡ 1 học sinh khỏi lớp */
+
     @DeleteMapping("/{studentId}")
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<?> remove(
@@ -70,7 +70,7 @@ public class EnrollmentController {
         return ResponseEntity.ok("Removed");
     }
 
-    /** Học sinh tự đăng ký vào lớp (self-enroll) */
+
     @PostMapping("/self")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<?> selfEnroll(

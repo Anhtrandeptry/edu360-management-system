@@ -49,7 +49,7 @@ public class CourseController {
         return ResponseEntity.ok(resp);
     }
 
-    // list course (lọc theo subject & status)
+
     @GetMapping
     public ResponseEntity<List<CourseResponse>> listCourses(
             @RequestParam(name = "subjectId", required = false) Long subjectId,
@@ -62,18 +62,7 @@ public class CourseController {
         return ResponseEntity.ok(courseService.listCourses(subjectId, st));
     }
 
-    /**
-     * GET /api/courses/paginated - Lấy courses với phân trang và filter
-     *
-     * @param search Tìm kiếm theo title, description, teacherName
-     * @param status Filter theo status: ALL, DRAFT, PENDING, APPROVED, ARCHIVED
-     * @param subjectId Filter theo môn học
-     * @param teacherUserId Filter theo giáo viên tạo (user.id)
-     * @param page Số trang (default 0)
-     * @param size Số phần tử mỗi trang (default 10)
-     * @param sortBy Trường để sắp xếp (default id)
-     * @param order Thứ tự sắp xếp: asc, desc (default asc)
-     */
+
     @GetMapping("/paginated")
     public ResponseEntity<Page<CourseResponse>> getCoursesPaginated(
             @RequestParam(required = false) String search,
@@ -90,7 +79,7 @@ public class CourseController {
         ));
     }
 
-    // Danh sách khóa học cá nhân của giáo viên hiện tại
+
     @GetMapping("/mine")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<List<CourseResponse>> listMyCourses(Authentication auth) {
@@ -120,7 +109,7 @@ public class CourseController {
         return ResponseEntity.ok("Course approved");
     }
 
-    // Admin từ chối course
+
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> rejectCourse(@PathVariable Long id) {
@@ -128,7 +117,7 @@ public class CourseController {
         return ResponseEntity.ok("Course rejected");
     }
 
-    // Update course (teacher/admin edit)
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<?> updateCourse(
@@ -139,7 +128,7 @@ public class CourseController {
         return ResponseEntity.ok("Course updated and reset to PENDING");
     }
 
-    // --- Chapter & Lesson ---
+
     @PostMapping("/chapters")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<ChapterResponse> createChapter(
@@ -174,7 +163,7 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateLesson(id, req));
     }
 
-    // Remove chapter (and its lessons)
+
     @DeleteMapping("/chapters/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<?> removeChapter(@PathVariable Long id) {
@@ -182,7 +171,7 @@ public class CourseController {
         return ResponseEntity.noContent().build();
     }
 
-    // Remove single lesson
+
     @DeleteMapping("/lessons/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<?> removeLesson(@PathVariable Long id) {

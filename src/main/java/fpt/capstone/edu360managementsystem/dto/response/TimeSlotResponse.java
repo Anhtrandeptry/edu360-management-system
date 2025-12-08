@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 public class TimeSlotResponse {
 
     private Long id;
-    private String startTime; // format "HH:mm"
-    private String endTime;   // format "HH:mm"
+    private String startTime;
+    private String endTime;
 }

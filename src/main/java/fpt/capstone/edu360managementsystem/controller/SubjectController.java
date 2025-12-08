@@ -32,16 +32,7 @@ public class SubjectController {
         return ResponseEntity.ok(subjectService.getAllSubjects());
     }
 
-    /**
-     * GET /api/subjects/paginated - Lấy subjects với phân trang và filter
-     *
-     * @param search Tìm kiếm theo name, code
-     * @param status Filter theo status: ALL, AVAILABLE, UNAVAILABLE
-     * @param page Số trang (default 0)
-     * @param size Số phần tử mỗi trang (default 10)
-     * @param sortBy Trường để sắp xếp (default id)
-     * @param order Thứ tự sắp xếp: asc, desc (default asc)
-     */
+
     @GetMapping("/paginated")
     public ResponseEntity<Page<SubjectResponse>> getSubjectsPaginated(
             @RequestParam(required = false) String search,
@@ -54,7 +45,7 @@ public class SubjectController {
         return ResponseEntity.ok(subjectService.getSubjectsWithPagination(search, status, page, size, sortBy, order));
     }
 
-    // New endpoint: only AVAILABLE subjects (for teacher creation selections)
+
     @GetMapping("/available")
     public ResponseEntity<List<SubjectResponse>> getAvailableSubjects() {
         return ResponseEntity.ok(subjectService.getAvailableSubjectResponses());

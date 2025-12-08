@@ -27,22 +27,22 @@ public class News {
     private String excerpt; // Mô tả ngắn
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String content; // Nội dung chi tiết
+    private String content;
 
     @Column(columnDefinition = "LONGTEXT")
-    private String imageUrl; // URL ảnh đại diện (base64 hoặc URL)
+    private String imageUrl;
 
     @Column(length = 100)
-    private String author; // Tác giả
+    private String author;
 
     @Column(nullable = false, length = 20)
-    private String status = "DRAFT"; // DRAFT, PUBLISHED, HIDDEN
+    private String status = "DRAFT";
 
     @Column(nullable = false)
-    private Integer views = 0; // Số lượt xem
+    private Integer views = 0;
 
     @Column(length = 500)
-    private String tags; // Danh sách tags (phân cách bằng dấu phẩy)
+    private String tags;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -53,5 +53,5 @@ public class News {
     private LocalDateTime updatedAt;
 
     @Column
-    private LocalDateTime publishedAt; // Thời điểm xuất bản
+    private LocalDateTime publishedAt;
 }
