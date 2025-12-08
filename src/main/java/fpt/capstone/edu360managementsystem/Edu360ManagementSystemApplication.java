@@ -14,7 +14,7 @@ public class Edu360ManagementSystemApplication {
 
     public static void main(String[] args) {
 
-//        EnvLoader.load();
+ EnvLoader.load();
 
         SpringApplication.run(Edu360ManagementSystemApplication.class, args);
     }
