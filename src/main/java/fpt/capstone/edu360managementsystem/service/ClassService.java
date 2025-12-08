@@ -1273,4 +1273,40 @@ public class ClassService {
 
         System.out.println("✅ [ClassService] Successfully deleted class id=" + classId);
     }
+
+    /**
+     * Lấy danh sách lớp DRAFT có startDate trong vòng 3 ngày tới. Dùng để hiển
+     * thị cảnh báo trên trang quản lý lớp học.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassResponse> getDraftClassesApproachingStartDate() {
+        LocalDate today = LocalDate.now();
+        LocalDate threeDaysLater = today.plusDays(3);
+
+        // Lấy lớp DRAFT có startDate từ hôm nay đến 3 ngày sau
+        List<Clazz> draftClasses = clazzRepository.findDraftClassesWithStartDateBetween(today, threeDaysLater);
+
+        System.out.println("⚠️ [ClassService] Found " + draftClasses.size() + " DRAFT classes approaching start date");
+
+        // Convert to response
+        List<Long> classIds = draftClasses.stream().map(Clazz::getId).toList();
+
+        // Batch load schedules
+        Map<Long, List<ClassSchedule>> schedulesByClass = new java.util.HashMap<>();
+        if (!classIds.isEmpty()) {
+            List<ClassSchedule> allSchedules = classScheduleRepository.findByClazz_IdIn(classIds);
+            schedulesByClass = allSchedules.stream()
+                    .collect(Collectors.groupingBy(cs -> cs.getClazz().getId()));
+        }
+
+        List<ClassResponse> responses = new java.util.ArrayList<>();
+        for (Clazz c : draftClasses) {
+            List<ClassSchedule> classSchedules = schedulesByClass.getOrDefault(c.getId(), List.of());
+            int totalSessions = (int) classSessionRepository.countByClazz_Id(c.getId());
+            ClassResponse response = classMapper.toResponse(c, classSchedules, totalSessions);
+            responses.add(response);
+        }
+
+        return responses;
+    }
 }

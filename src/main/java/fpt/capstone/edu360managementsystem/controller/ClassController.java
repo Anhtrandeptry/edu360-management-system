@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
-import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.dto.response.ClassPublicDetailResponse;
+import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.service.ClassService;
 import jakarta.validation.Valid;
 
@@ -176,5 +176,16 @@ public class ClassController {
         } catch (Exception e) {
             return "<unprintable>";
         }
+    }
+
+    /**
+     * Get DRAFT classes that are approaching their start date (within 3 days).
+     * Used for admin warning/reminder on the class management page.
+     */
+    @GetMapping("/draft-approaching")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<java.util.List<ClassResponse>> getDraftClassesApproachingStartDate() {
+        System.out.println("⚠️ [ClassController] Getting DRAFT classes approaching start date");
+        return ResponseEntity.ok(classService.getDraftClassesApproachingStartDate());
     }
 }

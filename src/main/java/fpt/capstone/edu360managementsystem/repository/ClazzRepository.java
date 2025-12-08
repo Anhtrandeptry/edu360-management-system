@@ -193,4 +193,18 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             @Param("teacherUserId") Long teacherUserId,
             Pageable pageable
     );
+
+    /**
+     * Lấy danh sách lớp DRAFT có startDate trong khoảng từ ngày A đến ngày B
+     * Dùng để nhắc nhở admin về các lớp DRAFT sắp đến ngày bắt đầu
+     */
+    @Query("""
+      SELECT c FROM Clazz c
+      WHERE c.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.DRAFT
+      AND c.startDate BETWEEN :fromDate AND :toDate
+      """)
+    java.util.List<Clazz> findDraftClassesWithStartDateBetween(
+            @Param("fromDate") java.time.LocalDate fromDate,
+            @Param("toDate") java.time.LocalDate toDate
+    );
 }
