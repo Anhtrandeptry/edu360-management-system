@@ -22,14 +22,7 @@ public interface SubjectRepository extends JpaRepository<Subject, Long>, JpaSpec
 
     List<Subject> findByStatus(SubjectStatus status);
 
-    /**
-     * Phân trang và tìm kiếm subjects với filter theo status
-     *
-     * @param search tìm theo name
-     * @param status filter theo status (AVAILABLE, UNAVAILABLE) - null để lấy
-     * tất cả
-     * @param pageable thông tin phân trang
-     */
+
     @Query("""
         SELECT s FROM Subject s
         WHERE (:search IS NULL OR :search = '' OR 

@@ -35,10 +35,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Teacher Profile Controller - allows teachers to manage their own profile data
- * Teachers can manage certificates, experiences, and education for themselves only
- */
+
 @RestController
 @RequestMapping("/api/teachers/profile")
 @RequiredArgsConstructor
@@ -52,9 +49,7 @@ public class TeacherProfileController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    /**
-     * Helper method to get teacher from authenticated user
-     */
+
     private Teacher getAuthenticatedTeacher(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) {
             throw new SecurityException("User not authenticated");
@@ -122,10 +117,7 @@ public class TeacherProfileController {
 
     // ===================== SECURITY (CHANGE PASSWORD) =====================
 
-    /**
-     * Change password for authenticated teacher user.
-     * POST /api/teachers/profile/change-password
-     */
+
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             Authentication auth,

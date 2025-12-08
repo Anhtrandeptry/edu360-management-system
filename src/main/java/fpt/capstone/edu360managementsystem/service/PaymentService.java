@@ -151,7 +151,7 @@ public class PaymentService {
         payment.setPaidAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // ✅ Gửi thông báo thanh toán thành công
+        //Gửi thông báo thanh toán thành công
         try {
             notificationService.notifyPaymentSuccess(
                     payment.getStudent().getUser().getId(),
@@ -162,7 +162,7 @@ public class PaymentService {
             System.err.println("Failed to send payment notification: " + e.getMessage());
         }
 
-        // ✅ Tự động enroll học sinh vào lớp sau khi thanh toán được xác nhận
+        //Tự động enroll học sinh vào lớp sau khi thanh toán được xác nhận
         try {
             enrollmentService.enrollAfterPayment(
                     payment.getClazz().getId(),
@@ -312,21 +312,21 @@ public class PaymentService {
                 continue;
             }
 
-            // ✅ Đúng tiền => Mark PAID
+            //Đúng tiền => Mark PAID
             payment.setStatus(PaymentStatus.PAID);
             payment.setPaidAt(LocalDateTime.now());
             payment.setBankTransactionId(tx.getTid());
             paymentRepository.save(payment);
 
-            System.out.println("✅ Casso: Payment confirmed for orderCode: " + orderCode);
+            System.out.println("Casso: Payment confirmed for orderCode: " + orderCode);
 
-            // ✅ Tự động enroll student
+            // Tự động enroll student
             try {
                 enrollmentService.enrollAfterPayment(
                         payment.getClazz().getId(),
                         payment.getStudent().getId()
                 );
-                System.out.println("✅ Casso: Student auto-enrolled for class: " + payment.getClazz().getId());
+                System.out.println("Casso: Student auto-enrolled for class: " + payment.getClazz().getId());
             } catch (Exception e) {
                 System.err.println("Casso: Auto-enroll failed: " + e.getMessage());
             }

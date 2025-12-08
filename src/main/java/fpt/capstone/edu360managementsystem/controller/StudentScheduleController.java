@@ -20,9 +20,7 @@ public class StudentScheduleController {
     @Autowired
     private StudentScheduleService studentScheduleService;
 
-    /**
-     * Test endpoint to check if controller is accessible
-     */
+
     @GetMapping("/test")
     public ResponseEntity<String> test(@AuthenticationPrincipal UserDetailsImpl user) {
         if (user == null) {
@@ -34,13 +32,7 @@ public class StudentScheduleController {
         return ResponseEntity.ok("Test endpoint works - User: " + user.getUsername() + ", Roles: " + user.getAuthorities());
     }
 
-    /**
-     * Lịch theo NGÀY.
-     * Nếu không truyền ?date= thì mặc định là hôm nay.
-     * Ví dụ:
-     * GET /api/my-schedule/day
-     * GET /api/my-schedule/day?date=2025-11-20
-     */
+
     @GetMapping("/day")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<StudentScheduleItemResponse>> getDaySchedule(
@@ -59,13 +51,7 @@ public class StudentScheduleController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Lịch theo TUẦN.
-     * Nếu không truyền ?weekStart= thì mặc định lấy tuần hiện tại (bắt đầu từ Monday).
-     * Ví dụ:
-     * GET /api/my-schedule/week
-     * GET /api/my-schedule/week?weekStart=2025-11-17
-     */
+
     @GetMapping("/week")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<StudentScheduleItemResponse>> getWeekSchedule(

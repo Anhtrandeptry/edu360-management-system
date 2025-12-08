@@ -17,9 +17,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     Optional<Attendance> findBySessionAndStudent(ClassSession session, Student student);
 
-    // Batch load all attendance records for given session ids & a student
+
     List<Attendance> findBySession_IdInAndStudent_Id(List<Long> sessionIds, Long studentId);
 
-    // Quick guard: check whether any attendance exists for sessions of a class
+
     boolean existsBySession_Clazz_Id(Long clazzId);
 }

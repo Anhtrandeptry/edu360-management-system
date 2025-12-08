@@ -25,7 +25,7 @@ public class StudentClassResponse {
     private LocalDate endDate;
     private ClassStatus status;
 
-    // Course của lớp (mỗi lớp có 1 course riêng)
+
     private Long courseId;
     private String courseTitle;
 }

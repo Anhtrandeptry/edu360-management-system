@@ -32,22 +32,22 @@ public class ClassResponse {
 
     private List<ScheduleItemView> schedule;
     private Integer sessionsGenerated;
-    // Thêm trường phục vụ hiển thị học phí
-    private Long pricePerSession;   // Giá mỗi buổi (VND)
-    private Integer totalSessions;  // Tổng số buổi của lớp
+
+    private Long pricePerSession;
+    private Integer totalSessions;
 
     private Long courseId;
     private String courseTitle;
 
-    // Derived display fields for class list cards
+
     private String subjectName;
     private String teacherFullName;
-    private String teacherAvatarUrl; // Avatar URL of the teacher
-    private Long teacherUserId; // User ID of the teacher (for filtering in schedule)
+    private String teacherAvatarUrl;
+    private Long teacherUserId;
     private String roomName;
-    private Boolean online; // true nếu meetingLink != null
-    private String meetingLink; // Link meeting cho lớp online
-    private Integer currentStudents; // sẽ mở rộng sau (tạm null)
+    private Boolean online;
+    private String meetingLink;
+    private Integer currentStudents;
 
     @Data
     @AllArgsConstructor
@@ -56,7 +56,7 @@ public class ClassResponse {
 
         private Integer dayOfWeek;
         private Long timeSlotId;
-        private String startTime;  // "HH:mm:ss"
-        private String endTime;    // "HH:mm:ss"
+        private String startTime;
+        private String endTime;
     }
 }

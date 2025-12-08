@@ -67,7 +67,7 @@ public class AuthController {
     @Autowired
     AuthService authService;
 
-//Login
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -114,7 +114,7 @@ public class AuthController {
                         roles));
     }
 
-//logout
+
     @PostMapping("/logout")
     public ResponseEntity<?> logoutUser() {
         ResponseCookie cookie = jwtUtils.getCleanJwtCookie();
@@ -155,19 +155,19 @@ public class AuthController {
         ));
     }
 
-// Create Teacher
+
     @PostMapping("/register-teacher")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerTeacher(@Valid @RequestBody RegisterTeacherRequest request) {
         return authService.registerTeacher(request);
     }
 
-// Register Student and Parent account
+
     @PostMapping("/signup")
     public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
         return authService.registerStudentWithParent(request);
     }
-//Forgot Pass
+
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request);

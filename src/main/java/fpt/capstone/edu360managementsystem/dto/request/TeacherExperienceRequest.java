@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeacherExperienceRequest {
-    private Long id;  // null for create, non-null for update
+    private Long id;
     private String position;
     private String company;
     private Integer startYear;

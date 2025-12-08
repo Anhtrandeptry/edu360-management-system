@@ -38,7 +38,7 @@ public class SessionContentController {
             @RequestParam(required = false) Long slotId,
             @Valid @RequestBody SessionContentUpsertRequest req
     ) {
-        log.info("➡️ API upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, chapters={}, lessons={}, contentLength={}",
+        log.info("API upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, chapters={}, lessons={}, contentLength={}",
                 user.getId(), classId, date, slotId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
                 req.getLessonIds() != null ? req.getLessonIds() : "[]",

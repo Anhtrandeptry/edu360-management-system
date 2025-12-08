@@ -29,9 +29,7 @@ public class StudentClassController {
     @Autowired
     private StudentClassService studentClassService;
 
-    /**
-     * Danh sách lớp học mà học sinh (đang đăng nhập) đã đăng ký
-     */
+
     @GetMapping("/classes")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<List<StudentClassResponse>> myClasses(
@@ -48,9 +46,7 @@ public class StudentClassController {
         }
     }
 
-    /**
-     * Lịch học của học sinh theo tuần
-     */
+
     @GetMapping("/schedule/week")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<List<StudentScheduleResponse>> myWeeklySchedule(
@@ -70,10 +66,7 @@ public class StudentClassController {
         }
     }
     
-    /**
-     * Lấy tất cả các buổi học của một lớp kèm nội dung bài học
-     * Dùng cho student xem lịch học chi tiết theo buổi với lesson content
-     */
+
     @GetMapping("/classes/{classId}/sessions")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<List<StudentScheduleResponse>> getClassSessions(

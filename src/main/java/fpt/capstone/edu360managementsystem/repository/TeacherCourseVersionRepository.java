@@ -15,6 +15,6 @@ public interface TeacherCourseVersionRepository extends JpaRepository<TeacherCou
 
     List<TeacherCourseVersion> findByBaseCourse_IdAndTeacher_Id(Long baseCourseId, Long teacherId);
 
-    // Find TeacherCourseVersion by base course and teacher (for student enrolled class)
+
     Optional<TeacherCourseVersion> findFirstByBaseCourse_IdAndTeacher_Id(Long baseCourseId, Long teacherId);
 }

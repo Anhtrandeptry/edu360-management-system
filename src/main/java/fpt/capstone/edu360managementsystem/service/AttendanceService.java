@@ -47,9 +47,7 @@ public class AttendanceService {
     @Autowired
     private NotificationService notificationService;
 
-    /**
-     * Danh sách buổi dạy hôm nay của giáo viên (theo userId)
-     */
+
     public List<AttendanceSessionSummaryResponse> getTodaySessionsForTeacher(Long userId) {
         // Map user -> teacher
         Teacher teacher = teacherRepository.findAll()
@@ -75,10 +73,7 @@ public class AttendanceService {
         }).toList();
     }
 
-    /**
-     * Chi tiết 1 buổi: danh sách HS & trạng thái hiện tại — chỉ buổi thuộc giáo
-     * viên
-     */
+
     public AttendanceSessionDetailResponse getSessionDetailForTeacher(Long userId, Long sessionId) {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
@@ -113,9 +108,7 @@ public class AttendanceService {
                 .build();
     }
 
-    /**
-     * Chấm/ cập nhật điểm danh — CHỈ trong đúng ngày
-     */
+
     @Transactional
     public void upsertAttendanceForToday(Long userId, Long sessionId, AttendanceUpsertRequest req) {
         ClassSession session = classSessionRepository.findById(sessionId)
@@ -163,9 +156,7 @@ public class AttendanceService {
         // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
 
-    /**
-     * Chấm điểm danh theo classId và date
-     */
+
     @Transactional
     public void upsertAttendanceByClassAndDate(Long userId, Long classId, String dateStr, Long slotId, AttendanceUpsertRequest req) {
         LocalDate date = LocalDate.parse(dateStr);
@@ -223,9 +214,6 @@ public class AttendanceService {
         }
     }
 
-    /**
-     * Gửi notification cho học sinh về trạng thái điểm danh
-     */
     private void sendAttendanceNotification(Student student, ClassSession session,
             AttendanceStatus status, String note, AttendanceStatus oldStatus) {
         // Chỉ gửi notification nếu trạng thái thay đổi hoặc là lần đầu điểm danh
@@ -246,17 +234,17 @@ public class AttendanceService {
 
         switch (status) {
             case PRESENT:
-                title = "✅ Điểm danh: Có mặt";
+                title = "Điểm danh: Có mặt";
                 message = String.format("Bạn được điểm danh CÓ MẶT tại lớp %s, %s ngày %s.",
                         className, slotInfo, dateInfo);
                 break;
             case ABSENT:
-                title = "❌ Điểm danh: Vắng mặt";
+                title = "Điểm danh: Vắng mặt";
                 message = String.format("Bạn được điểm danh VẮNG MẶT tại lớp %s, %s ngày %s.",
                         className, slotInfo, dateInfo);
                 break;
             case LATE:
-                title = "⚠️ Điểm danh: Đi muộn";
+                title = "Điểm danh: Đi muộn";
                 message = String.format("Bạn được điểm danh ĐI MUỘN tại lớp %s, %s ngày %s.",
                         className, slotInfo, dateInfo);
                 break;
@@ -266,7 +254,7 @@ public class AttendanceService {
 
         // Thêm ghi chú nếu có
         if (note != null && !note.trim().isEmpty()) {
-            message += "\n📝 Ghi chú từ giáo viên: " + note.trim();
+            message += "\n Ghi chú từ giáo viên: " + note.trim();
         }
 
         // Gửi notification
@@ -285,41 +273,41 @@ public class AttendanceService {
      * Lấy chi tiết điểm danh theo classId và date (cho FE load lại)
      */
     public AttendanceSessionDetailResponse getSessionDetailByClassAndDate(Long userId, Long classId, String dateStr, Long slotId) {
-        System.out.println("🔍 getSessionDetailByClassAndDate called: userId=" + userId + ", classId=" + classId + ", date=" + dateStr + ", slotId=" + slotId);
+        System.out.println("getSessionDetailByClassAndDate called: userId=" + userId + ", classId=" + classId + ", date=" + dateStr + ", slotId=" + slotId);
 
         LocalDate date;
         try {
             date = LocalDate.parse(dateStr);
         } catch (Exception e) {
-            System.err.println("❌ Error parsing date: " + dateStr);
+            System.err.println("Error parsing date: " + dateStr);
             throw new RuntimeException("Invalid date format: " + dateStr);
         }
 
         // Try to find an existing session for the class on the date with slotId if provided
         ClassSession session = null;
         if (slotId != null) {
-            System.out.println("🔎 Looking for session with slotId: " + slotId);
+            System.out.println("Looking for session with slotId: " + slotId);
             session = classSessionRepository
                     .findByClazz_IdAndDateAndTimeSlot_Id(classId, date, slotId)
                     .orElse(null);
-            System.out.println("📍 Found session by slotId: " + (session != null ? session.getId() : "null"));
+            System.out.println("Found session by slotId: " + (session != null ? session.getId() : "null"));
         }
 
         // If multiple sessions in a day and no slotId, pick the first one (time slot order)
         if (session == null) {
-            System.out.println("🔎 Looking for sessions on date without slotId");
+            System.out.println("Looking for sessions on date without slotId");
             List<ClassSession> sameDay = classSessionRepository
                     .findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
-            System.out.println("📍 Found " + sameDay.size() + " sessions on this date");
+            System.out.println("Found " + sameDay.size() + " sessions on this date");
             if (!sameDay.isEmpty()) {
                 session = sameDay.get(0);
-                System.out.println("📍 Using first session: " + session.getId());
+                System.out.println("Using first session: " + session.getId());
             }
         }
 
         // If still not found, throw error (DO NOT auto-create sessions to avoid unexpected session count increase)
         if (session == null) {
-            System.out.println("⚠️ No existing session found for classId=" + classId + ", date=" + date + ", slotId=" + slotId);
+            System.out.println("No existing session found for classId=" + classId + ", date=" + date + ", slotId=" + slotId);
             throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
                     "Không tìm thấy buổi học cho ngày " + date + ". Buổi học này chưa được tạo trong hệ thống.");
         }
@@ -355,15 +343,10 @@ public class AttendanceService {
                 .build();
     }
 
-    /**
-     * Lấy chi tiết điểm danh theo classId và date cho Admin (không check
-     * ownership) Nếu không tìm thấy session, sẽ tự động tạo dựa trên
-     * ClassSchedule
-     */
     @Transactional
     public AttendanceSessionDetailResponse getSessionDetailByClassAndDateForAdmin(Long classId, String dateStr, Long slotId) {
         LocalDate date = LocalDate.parse(dateStr);
-        System.out.println("🔍 [ADMIN] getSessionDetailByClassAndDateForAdmin called: classId=" + classId + ", date=" + dateStr + ", slotId=" + slotId);
+        System.out.println("[ADMIN] getSessionDetailByClassAndDateForAdmin called: classId=" + classId + ", date=" + dateStr + ", slotId=" + slotId);
 
         // 1) Tìm session theo slot nếu có truyền slotId (tránh lỗi nhiều bản ghi)
         ClassSession session = null;
@@ -388,15 +371,15 @@ public class AttendanceService {
 
         // 3) Nếu vẫn chưa có, throw error (KHÔNG tự động tạo session để tránh tăng số buổi không mong muốn)
         if (session == null) {
-            System.out.println("⚠️ Session not found for classId=" + classId + ", date=" + date + ", slotId=" + slotId);
+            System.out.println("Session not found for classId=" + classId + ", date=" + date + ", slotId=" + slotId);
             throw new fpt.capstone.edu360managementsystem.exception.SessionNotFoundException(
                     "Không tìm thấy buổi học cho ngày " + date + ". Buổi học này chưa được tạo trong hệ thống.");
         }
 
-        System.out.println("✅ Session found/created: ID = " + session.getId());
+        System.out.println("Session found/created: ID = " + session.getId());
 
         var enrollments = classEnrollmentRepository.findByClazz_Id(classId);
-        System.out.println("👥 Found " + enrollments.size() + " enrolled students");
+        System.out.println("Found " + enrollments.size() + " enrolled students");
 
         var attendanceMap = attendanceRepository.findBySession_Id(session.getId())
                 .stream().collect(Collectors.toMap(a -> a.getStudent().getId(), a -> a));
@@ -411,10 +394,10 @@ public class AttendanceService {
                     .build();
         }).toList();
 
-        System.out.println("📦 Returning " + students.size() + " students in response");
+        System.out.println("Returning " + students.size() + " students in response");
 
         if (students.isEmpty()) {
-            System.out.println("⚠️ WARNING: No students enrolled in this class!");
+            System.out.println("WARNING: No students enrolled in this class!");
         }
 
         return AttendanceSessionDetailResponse.builder()

@@ -18,14 +18,14 @@ public class CourseLesson {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "chapter_id")
-    private CourseChapter chapter; // 1 chapter nhiều lesson
+    private CourseChapter chapter;
 
     @Column(nullable = false)
-    private String title;          // tiêu đề bài học
+    private String title;
 
     @Column(columnDefinition = "TEXT")
-    private String description;    // phần giới thiệu tóm tắt (khung nội dung)
+    private String description;
 
     @Column(nullable = false)
-    private Integer orderIndex;    // thứ tự trong chapter
+    private Integer orderIndex;
 }

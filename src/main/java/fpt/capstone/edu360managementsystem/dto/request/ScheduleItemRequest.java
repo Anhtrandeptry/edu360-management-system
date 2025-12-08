@@ -13,5 +13,5 @@ public class ScheduleItemRequest {
     @Max(7)
     private Integer dayOfWeek;
     @NotNull
-    private Long timeSlotId;      // tham chiếu TimeSlot
+    private Long timeSlotId;
 }

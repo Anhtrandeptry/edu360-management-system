@@ -41,16 +41,7 @@ public class RoomController {
         return ResponseEntity.ok(roomService.getAllRooms());
     }
 
-    /**
-     * GET /api/rooms/paginated - Lấy rooms với phân trang và filter
-     *
-     * @param search Tìm kiếm theo name
-     * @param status Filter theo RoomStatus: ALL, AVAILABLE, UNAVAILABLE
-     * @param page Số trang (default 0)
-     * @param size Số phần tử mỗi trang (default 10)
-     * @param sortBy Trường để sắp xếp (default id)
-     * @param order Thứ tự sắp xếp: asc, desc (default asc)
-     */
+
     @GetMapping("/paginated")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<RoomResponse>> getRoomsPaginated(
@@ -100,11 +91,7 @@ public class RoomController {
         return ResponseEntity.ok("Room enabled successfully");
     }
 
-    /**
-     * GET /api/rooms/{id}/free-busy?from=...&to=... Returns all busy time slots
-     * for a room in the given date range. Used by FE to check room availability
-     * when scheduling classes.
-     */
+
     @GetMapping("/{id}/free-busy")
     public ResponseEntity<List<fpt.capstone.edu360managementsystem.dto.response.BusySlotResponse>> getRoomFreeBusy(
             @PathVariable Long id,

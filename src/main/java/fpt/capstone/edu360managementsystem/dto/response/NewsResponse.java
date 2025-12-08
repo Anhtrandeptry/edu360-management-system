@@ -22,7 +22,7 @@ public class NewsResponse {
     private String author;
     private String status;
     private Integer views;
-    private List<String> tags; // Parsed từ string tags
+    private List<String> tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime publishedAt;

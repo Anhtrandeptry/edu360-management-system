@@ -217,9 +217,9 @@ public class LessonMaterialService {
             String lessonTitle = lesson.getTitle();
             String chapterTitle = lesson.getChapter().getTitle();
             
-            String title = isLink ? "📎 Link tài liệu mới" : "📄 Tài liệu bài học mới";
+            String title = isLink ? "📎 Link tài liệu mới" : "Tài liệu bài học mới";
             String message = String.format(
-                "Giáo viên %s đã thêm %s cho bài học \"%s\" (Chương: %s) trong khóa học %s.\n📁 %s",
+                "Giáo viên %s đã thêm %s cho bài học \"%s\" (Chương: %s) trong khóa học %s.\n %s",
                 teacherName,
                 isLink ? "link" : "tài liệu",
                 lessonTitle,

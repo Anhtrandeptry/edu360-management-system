@@ -18,21 +18,21 @@ public class StudentScheduleResponse {
     private LocalDate date;
     private String timeStart;
     private String timeEnd;
-    private Integer dayOfWeek; // 1=Mon, 7=Sun
-    private String attendanceStatus; // PRESENT, ABSENT, LATE, UNMARKED
+    private Integer dayOfWeek;
+    private String attendanceStatus;
     
-    // Nội dung bài học của buổi này
+
     private String lessonContent;
     
-    // Các chapter/lesson được gán cho buổi học này
+
     private List<SessionChapterInfo> linkedChapters;
     private List<SessionLessonInfo> linkedLessons;
     
-    // Thông tin course của lớp
+
     private Long courseId;
     private String courseTitle;
     
-    // Tài liệu đính kèm của buổi học
+
     private List<SessionMaterialInfo> materials;
     
     @Data

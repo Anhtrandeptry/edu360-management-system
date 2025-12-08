@@ -161,9 +161,9 @@ public class SessionMaterialService {
                               session.getTimeSlot().getEndTime() + ")";
             String dateInfo = session.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
             
-            String title = isLink ? "📎 Link tài liệu mới" : "📄 Tài liệu mới";
+            String title = isLink ? "📎 Link tài liệu mới" : "Tài liệu mới";
             String message = String.format(
-                "Giáo viên %s đã đăng %s cho lớp %s, %s ngày %s.\n📁 %s",
+                "Giáo viên %s đã đăng %s cho lớp %s, %s ngày %s.\n %s",
                 teacherName,
                 isLink ? "link tài liệu" : "tài liệu",
                 className,
