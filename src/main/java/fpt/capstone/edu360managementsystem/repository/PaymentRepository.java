@@ -53,4 +53,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // Payments của 1 student
     List<Payment> findByStudent_IdOrderByCreatedAtDesc(Long studentId);
+
+    // Payments của 1 student với phân trang
+    Page<Payment> findByStudent_IdOrderByCreatedAtDesc(Long studentId, Pageable pageable);
 }

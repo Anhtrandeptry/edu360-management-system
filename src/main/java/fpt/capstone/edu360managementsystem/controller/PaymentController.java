@@ -126,4 +126,21 @@ public class PaymentController {
         paymentService.confirmPayment(id);
         return ResponseEntity.ok(new MessageResponse("Đã xác nhận thanh toán thành công"));
     }
+
+    // ===================== STUDENT ENDPOINTS =====================
+
+    /**
+     * Student: Lấy lịch sử thanh toán của chính mình.
+     * GET /api/payments/my-history?page=0&size=10
+     */
+    @GetMapping("/my-history")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<Page<PaymentResponse>> getMyPaymentHistory(
+            @AuthenticationPrincipal UserDetailsImpl user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<PaymentResponse> result = paymentService.getStudentPaymentHistory(user.getId(), page, size);
+        return ResponseEntity.ok(result);
+    }
 }
