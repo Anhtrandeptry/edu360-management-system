@@ -54,6 +54,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
 
     List<Payment> findByStudent_IdOrderByCreatedAtDesc(Long studentId);
+    
+    Page<Payment> findByStudent_Id(Long studentId, Pageable pageable);
 
     // ==================== REPORT QUERIES ====================
     // Tổng doanh thu chờ thanh toán

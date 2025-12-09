@@ -91,8 +91,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
           throws ServletException, IOException {
     try {
-      String jwt = jwtUtils.getJwtFromCookies(request);
-      logger.info("JWT from request: {}", jwt);
+      // Try to get JWT from Authorization header first, then from cookie
+      String jwt = getJwtFromRequest(request);
+    logger.info("JWT from request: {} | method={} path={} authHeader={}", 
+        jwt != null ? "present" : "null",
+        request.getMethod(),
+        request.getRequestURI(),
+        request.getHeader("Authorization") != null ? "present" : "absent");
 
       if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
         String username = jwtUtils.getUserNameFromJwtToken(jwt);
@@ -104,8 +109,22 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authentication);
       }
     } catch (Exception e) {
-      logger.error("Cannot set user authentication: {}", e);
+      logger.error("Cannot set user authentication", e);
     }
     filterChain.doFilter(request, response);
+  }
+  
+  /**
+   * Get JWT from Authorization header first, then fallback to cookie
+   */
+  private String getJwtFromRequest(HttpServletRequest request) {
+    // 1. Try Authorization header (Bearer token)
+    String authHeader = request.getHeader("Authorization");
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      return authHeader.substring(7);
+    }
+    
+    // 2. Fallback to cookie
+    return jwtUtils.getJwtFromCookies(request);
   }
 }

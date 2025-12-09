@@ -21,6 +21,8 @@ public class Parent {
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
     private List<Student> children = new ArrayList<>();
 
+    @Column(unique = true)
+    private String phone;
 
     private String occupation;
     private String address;
@@ -67,5 +69,21 @@ public class Parent {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getFullName() {
+        return user != null ? user.getFullName() : null;
+    }
+
+    public String getEmail() {
+        return user != null ? user.getEmail() : null;
     }
 }

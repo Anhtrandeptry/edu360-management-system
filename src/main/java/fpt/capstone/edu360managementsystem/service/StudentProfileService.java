@@ -30,11 +30,24 @@ public class StudentProfileService {
 
     /**
      * Get student profile by user ID.
+     * If student profile doesn't exist but user has STUDENT role, create one automatically.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public StudentProfileResponse getProfile(Long userId) {
-        Student student = studentRepository.findByUser_Id(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Student not found for user: " + userId));
+        // First check if student exists
+        Student student = studentRepository.findByUser_Id(userId).orElse(null);
+        
+        if (student == null) {
+            // Student doesn't exist, try to create one for this user
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+            
+            // Create new student profile
+            student = new Student();
+            student.setUser(user);
+            student = studentRepository.save(student);
+            log.info("Auto-created student profile for userId={}", userId);
+        }
         
         return mapToResponse(student);
     }
@@ -44,10 +57,20 @@ public class StudentProfileService {
      */
     @Transactional
     public StudentProfileResponse updateProfile(Long userId, StudentProfileUpdateRequest request) {
-        Student student = studentRepository.findByUser_Id(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Student not found for user: " + userId));
+        Student student = studentRepository.findByUser_Id(userId).orElse(null);
         
-        User user = student.getUser();
+        User user;
+        if (student == null) {
+            // Auto-create student profile
+            user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+            student = new Student();
+            student.setUser(user);
+            student = studentRepository.save(student);
+            log.info("Auto-created student profile for userId={}", userId);
+        } else {
+            user = student.getUser();
+        }
         
         // Update user fields
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
@@ -90,8 +113,16 @@ public class StudentProfileService {
      */
     @Transactional
     public void updateAvatar(Long userId, String avatarUrl) {
-        Student student = studentRepository.findByUser_Id(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Student not found for user: " + userId));
+        Student student = studentRepository.findByUser_Id(userId).orElse(null);
+        
+        if (student == null) {
+            // Auto-create student profile
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+            student = new Student();
+            student.setUser(user);
+            log.info("Auto-created student profile for userId={}", userId);
+        }
         
         student.setAvatarUrl(avatarUrl);
         studentRepository.save(student);

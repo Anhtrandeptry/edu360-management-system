@@ -375,6 +375,18 @@ public class PaymentService {
     }
 
     /**
+     * Student: Lấy lịch sử thanh toán của chính mình.
+     */
+    public Page<PaymentResponse> getStudentPaymentHistory(Long userId, int page, int size) {
+        Student student = studentRepository.findByUser_Id(userId)
+                .orElseThrow(() -> new RuntimeException("Student profile not found"));
+        
+        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
+        Page<Payment> payments = paymentRepository.findByStudent_Id(student.getId(), pageable);
+        return payments.map(this::mapToResponse);
+    }
+
+    /**
      * Map Payment entity -> PaymentResponse DTO
      */
     private PaymentResponse mapToResponse(Payment p) {

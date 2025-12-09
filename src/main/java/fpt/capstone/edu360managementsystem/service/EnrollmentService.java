@@ -27,10 +27,6 @@ public class EnrollmentService {
     @Autowired private PaymentRepository paymentRepository;
     @Autowired private NotificationService notificationService;
 
-    // Feature flag: yêu cầu thanh toán trước khi tự đăng ký
-    @Value("${enrollment.requirePaid:true}")
-    private boolean requirePaid;
-
     /** Chỉ ADMIN hoặc giáo viên chủ lớp được thao tác */
     private void ensureOwnerOrAdmin(Long userId, Clazz clazz, boolean isAdmin) {
         if (isAdmin) return;
@@ -203,17 +199,23 @@ public class EnrollmentService {
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
 
-        //1. Thanh toán: chỉ enforce khi cấu hình bật và học phí > 0
+        //1. Thanh toán: chỉ enforce khi học phí > 0
         long sessionsCount = classSessionRepository.countByClazz_Id(classId);
         long unitPrice = clazz.getPricePerSession() == null ? 0L : clazz.getPricePerSession();
         long totalFee = unitPrice * sessionsCount;
-        if (requirePaid && totalFee > 0) {
+        
+        System.out.println("🔍 [selfEnroll] classId=" + classId + ", sessionsCount=" + sessionsCount + ", pricePerSession=" + unitPrice + ", totalFee=" + totalFee);
+        
+        if (totalFee > 0) {
             boolean paid = paymentRepository.existsByClazz_IdAndStudent_IdAndStatus(
                     classId, student.getId(), PaymentStatus.PAID
             );
+            System.out.println("🔍 [selfEnroll] totalFee > 0, checking payment... paid=" + paid);
             if (!paid) {
                 throw new RuntimeException("Bạn chưa thanh toán học phí cho lớp này.");
             }
+        } else {
+            System.out.println("🔍 [selfEnroll] totalFee = 0, skipping payment check (free class or no sessions)");
         }
 
         // 2. Capacity
