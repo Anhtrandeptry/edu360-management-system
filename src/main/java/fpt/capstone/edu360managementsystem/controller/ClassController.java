@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
 import fpt.capstone.edu360managementsystem.dto.request.UpdateClassRequest;
-import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.dto.response.ClassPublicDetailResponse;
+import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.service.ClassService;
 import jakarta.validation.Valid;
 
@@ -134,11 +134,44 @@ public class ClassController {
         }
     }
 
+    /**
+     * Delete a DRAFT class permanently. Only classes with status DRAFT can be
+     * deleted. All related data (schedules, sessions, enrollments, etc.) will
+     * be deleted.
+     */
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteClass(@PathVariable Long id) {
+        System.out.println("\uD83D\uDDD1 [ClassController] Delete request for classId=" + id);
+        try {
+            classService.deleteClass(id);
+            System.out.println(" [ClassController] Delete completed for classId=" + id);
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException ex) {
+            System.out.println(" [ClassController] Delete blocked: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
+        } catch (Exception ex) {
+            System.out.println(" [ClassController] Delete error: " + ex.getMessage());
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
+        }
+    }
+
     private String safeToString(Object o) {
         try {
             return String.valueOf(o);
         } catch (Exception e) {
             return "<unprintable>";
         }
+    }
+
+    /**
+     * Get DRAFT classes that are approaching their start date (within 3 days).
+     * Used for admin warning/reminder on the class management page.
+     */
+    @GetMapping("/draft-approaching")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<java.util.List<ClassResponse>> getDraftClassesApproachingStartDate() {
+        System.out.println("⚠️ [ClassController] Getting DRAFT classes approaching start date");
+        return ResponseEntity.ok(classService.getDraftClassesApproachingStartDate());
     }
 }

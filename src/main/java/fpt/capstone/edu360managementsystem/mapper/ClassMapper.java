@@ -15,6 +15,10 @@ public interface ClassMapper {
     ClassMapper INSTANCE = Mappers.getMapper(ClassMapper.class);
 
     default ClassResponse toResponse(Clazz entity, List<ClassSchedule> schedules, int sessionsGenerated) {
+        return toResponse(entity, schedules, sessionsGenerated, 0);
+    }
+
+    default ClassResponse toResponse(Clazz entity, List<ClassSchedule> schedules, int sessionsGenerated, int completedSessions) {
         ClassResponse resp = ClassResponse.builder()
                 .id(entity.getId())
                 .name(entity.getName())
@@ -30,6 +34,7 @@ public interface ClassMapper {
                 .sessionsGenerated(sessionsGenerated)
                 .pricePerSession(entity.getPricePerSession())
                 .totalSessions(sessionsGenerated)
+                .completedSessions(completedSessions)
                 .subjectName(entity.getSubject().getName())
                 .teacherFullName(entity.getTeacher().getUser().getFullName())
                 .teacherAvatarUrl(entity.getTeacher().getAvatarUrl())

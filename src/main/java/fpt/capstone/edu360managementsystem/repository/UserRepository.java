@@ -40,4 +40,14 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
             Pageable pageable
     );
 
+    /**
+     * Lấy danh sách users theo role
+     */
+    @Query("""
+      SELECT u FROM User u 
+      JOIN u.roles r
+      WHERE r.name = :roleName
+      """)
+    java.util.List<User> findAllByRole(@Param("roleName") fpt.capstone.edu360managementsystem.enums.ERole roleName);
+
 }

@@ -29,23 +29,51 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     Optional<ClassSession> findByClazz_IdAndDate(Long classId, LocalDate date);
 
-
     Optional<ClassSession> findByClazz_IdAndDateAndTimeSlot_Id(Long classId, LocalDate date, Long timeSlotId);
 
     List<ClassSession> findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
 
-
     long countByClazz_Id(Long classId);
+
+    // Count completed sessions for a class
+    // A session is completed if: status = DONE OR has at least one attendance not UNMARKED
+    @Query("""
+      SELECT COUNT(DISTINCT s) FROM ClassSession s 
+      WHERE s.clazz.id = :classId 
+      AND (s.status = 'DONE' 
+           OR EXISTS (SELECT 1 FROM Attendance a WHERE a.session.id = s.id AND a.status <> 'UNMARKED'))
+    """)
+    long countCompletedByClazzId(Long classId);
+
+    // Batch count completed sessions for multiple classes (avoid N+1)
+    // A session is completed if: status = DONE OR has at least one attendance not UNMARKED
+    @Query("""
+      SELECT s.clazz.id, COUNT(DISTINCT s)
+      FROM ClassSession s
+      WHERE s.clazz.id IN :classIds 
+      AND (s.status = 'DONE' 
+           OR EXISTS (SELECT 1 FROM Attendance a WHERE a.session.id = s.id AND a.status <> 'UNMARKED'))
+      GROUP BY s.clazz.id
+    """)
+    List<Object[]> countCompletedByClazzIdIn(List<Long> classIds);
+
+    // Batch count sessions for multiple classes (avoid N+1)
+    @Query("""
+      SELECT s.clazz.id, COUNT(s)
+      FROM ClassSession s
+      WHERE s.clazz.id IN :classIds
+      GROUP BY s.clazz.id
+    """)
+    List<Object[]> countByClazzIdIn(List<Long> classIds);
 
     boolean existsByClazz_IdAndDateBefore(Long classId, LocalDate date);
 
-
     List<ClassSession> findByClazz_Id(Long classId);
-    
 
+    // Lấy toàn bộ sessions của một class, sắp xếp theo ngày và slot
     List<ClassSession> findByClazz_IdOrderByDateAscTimeSlot_StartTimeAsc(Long classId);
-    
 
+    // Lấy sessions trong khoảng thời gian cho một lớp (dùng cho teacher attendance)
     List<ClassSession> findByClazz_IdAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
             Long classId,
             LocalDate startDate,
