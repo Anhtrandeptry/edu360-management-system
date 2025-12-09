@@ -1,27 +1,29 @@
 package fpt.capstone.edu360managementsystem.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
 import fpt.capstone.edu360managementsystem.dto.request.ChangePasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.request.StudentProfileUpdateRequest;
 import fpt.capstone.edu360managementsystem.dto.response.StudentProfileResponse;
+import fpt.capstone.edu360managementsystem.service.CloudinaryService;
 import fpt.capstone.edu360managementsystem.service.StudentProfileService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * Student Profile Controller - allows students to manage their own profile.
@@ -35,11 +37,10 @@ import java.util.UUID;
 public class StudentProfileController {
 
     private final StudentProfileService studentProfileService;
-    
-    private static final String UPLOAD_DIR = "uploads/avatars/";
+    private final CloudinaryService cloudinaryService;
+
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
     private static final String ERROR_KEY = "error";
-
 
     private Long getAuthenticatedUserId(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) {
@@ -48,14 +49,12 @@ public class StudentProfileController {
         return ((UserDetailsImpl) auth.getPrincipal()).getId();
     }
 
-
     @GetMapping
     public ResponseEntity<StudentProfileResponse> getProfile(Authentication auth) {
         Long userId = getAuthenticatedUserId(auth);
         StudentProfileResponse response = studentProfileService.getProfile(userId);
         return ResponseEntity.ok(response);
     }
-
 
     @PutMapping
     public ResponseEntity<StudentProfileResponse> updateProfile(
@@ -66,64 +65,45 @@ public class StudentProfileController {
         return ResponseEntity.ok(response);
     }
 
-
     @PostMapping("/upload-avatar")
     public ResponseEntity<Map<String, String>> uploadAvatar(
             @RequestParam("file") MultipartFile file,
             Authentication auth) {
         try {
             Long userId = getAuthenticatedUserId(auth);
-            
+
             // Validate file
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
             }
-            
+
             if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File size exceeds 5MB"));
             }
-            
+
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image"));
             }
-            
-            // Generate unique filename
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename != null && originalFilename.contains(".") 
-                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                : ".jpg";
-            String filename = "student_" + userId + "_" + UUID.randomUUID().toString() + extension;
-            
-            // Create upload directory if not exists
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-            
-            // Save file
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            
-            // Return URL (relative path that will be served by static resources)
-            String fileUrl = "/uploads/avatars/" + filename;
-            
+
+            // Upload to Cloudinary
+            String fileUrl = cloudinaryService.uploadImage(file, "avatars");
+
             // Update avatar URL in database
             studentProfileService.updateAvatar(userId, fileUrl);
-            
+
             Map<String, String> response = new HashMap<>();
             response.put("url", fileUrl);
-            
+
             log.info("Avatar uploaded for student userId={}: {}", userId, fileUrl);
             return ResponseEntity.ok(response);
-            
-        } catch (IOException e) {
+
+        } catch (Exception e) {
             log.error("Failed to upload avatar", e);
             return ResponseEntity.internalServerError()
                     .body(Map.of(ERROR_KEY, "Failed to upload file: " + e.getMessage()));
         }
     }
-
 
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
@@ -132,10 +112,10 @@ public class StudentProfileController {
         try {
             Long userId = getAuthenticatedUserId(auth);
             studentProfileService.changePassword(userId, request);
-            
+
             log.info("Password changed for student userId={}", userId);
             return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
-            
+
         } catch (RuntimeException e) {
             log.warn("Password change failed: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, e.getMessage()));
