@@ -54,11 +54,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
 
     List<Payment> findByStudent_IdOrderByCreatedAtDesc(Long studentId);
+    
+    Page<Payment> findByStudent_Id(Long studentId, Pageable pageable);
 
-<<<<<<< HEAD
-    // Payments của 1 student với phân trang
-    Page<Payment> findByStudent_IdOrderByCreatedAtDesc(Long studentId, Pageable pageable);
-=======
     // ==================== REPORT QUERIES ====================
     // Tổng doanh thu chờ thanh toán
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'PENDING'")
@@ -132,5 +130,4 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     // Đếm số học sinh distinct có payment tạo sau thời điểm (đại diện cho học sinh mới đăng ký)
     @Query("SELECT COUNT(DISTINCT p.student.id) FROM Payment p WHERE p.createdAt >= :after")
     Long countDistinctStudentsCreatedAfter(@Param("after") LocalDateTime after);
->>>>>>> origin/main
 }
