@@ -10,8 +10,8 @@ import lombok.Data;
 @Data
 public class VietQrCallbackRequest {
 
-    private String accountNumber;  // tài khoản nhận tiền (của trung tâm)
-    private Long amount;           // số tiền chuyển (VND)
-    private String content;        // nội dung chuyển khoản
-    private String transactionId;  // mã giao dịch của ngân hàng (optional)
+    private String accountNumber;
+    private Long amount;
+    private String content;
+    private String transactionId;
 }

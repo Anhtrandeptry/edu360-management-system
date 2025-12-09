@@ -23,11 +23,7 @@ import fpt.capstone.edu360managementsystem.service.ScheduleService;
 import fpt.capstone.edu360managementsystem.service.TeacherService;
 import jakarta.validation.Valid;
 
-/**
- * Controller for teacher-related operations. Provides free-busy schedule
- * endpoint to check teacher availability. FE passes USER ID (not teacher.id),
- * service resolves teacher internally.
- */
+
 @RestController
 @RequestMapping("/api/teachers")
 public class TeacherController {
@@ -38,13 +34,7 @@ public class TeacherController {
     @Autowired
     private TeacherService teacherService;
 
-    /**
-     * GET /api/teachers?subjectId=... Returns list of teachers, optionally
-     * filtered by subject.
-     *
-     * @param subjectId Optional subject ID to filter teachers
-     * @return List of teachers with user information
-     */
+
     @GetMapping
     public ResponseEntity<List<TeacherResponse>> getTeachers(
             @RequestParam(name = "subjectId", required = false) Long subjectId
@@ -53,16 +43,7 @@ public class TeacherController {
         return ResponseEntity.ok(teachers);
     }
 
-    /**
-     * GET /api/teachers/paginated - Lấy teachers với phân trang và filter
-     *
-     * @param search Tìm kiếm theo fullName, email, phone
-     * @param subjectId Filter theo môn học
-     * @param page Số trang (default 0)
-     * @param size Số phần tử mỗi trang (default 10)
-     * @param sortBy Trường để sắp xếp (default id)
-     * @param order Thứ tự sắp xếp: asc, desc (default asc)
-     */
+
     @GetMapping("/paginated")
     public ResponseEntity<Page<TeacherResponse>> getTeachersPaginated(
             @RequestParam(required = false) String search,
@@ -77,15 +58,7 @@ public class TeacherController {
         ));
     }
 
-    /**
-     * GET /api/teachers/{id}/free-busy?from=...&to=... Returns all busy time
-     * slots for a teacher in the given date range.
-     *
-     * @param userId User ID associated with the teacher (FE passes this)
-     * @param from Start date-time in ISO format
-     * @param to End date-time in ISO format
-     * @return List of busy slots with start/end times
-     */
+
     @GetMapping("/{id}/free-busy")
     public ResponseEntity<List<BusySlotResponse>> getTeacherFreeBusy(
             @PathVariable("id") Long userId,
@@ -96,36 +69,21 @@ public class TeacherController {
         return ResponseEntity.ok(busySlots);
     }
 
-    /**
-     * GET /api/teachers/by-user/{userId} Trả về thông tin teacher (kèm
-     * classCount) theo userId để FE có thể kiểm tra trước khi vô hiệu hóa user
-     * có role TEACHER.
-     */
+
     @GetMapping("/by-user/{userId}")
     public ResponseEntity<TeacherResponse> getTeacherByUserId(@PathVariable Long userId) {
         TeacherResponse resp = teacherService.getByUserId(userId);
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * GET /api/teachers/by-user/{userId}/profile Get public teacher profile by
-     * userId
-     *
-     * @param userId User ID of the teacher
-     * @return Teacher profile response with full details
-     */
+
     @GetMapping("/by-user/{userId}/profile")
     public ResponseEntity<TeacherProfileResponse> getTeacherProfileByUserId(@PathVariable Long userId) {
         TeacherProfileResponse profile = teacherService.getTeacherProfile(userId);
         return ResponseEntity.ok(profile);
     }
 
-    /**
-     * GET /api/teachers/profile Get current teacher's profile information
-     *
-     * @param auth Spring Security authentication object
-     * @return Teacher profile response
-     */
+
     @GetMapping("/profile")
     public ResponseEntity<TeacherProfileResponse> getMyProfile(Authentication auth) {
         if (auth == null || auth.getPrincipal() == null) {
@@ -152,13 +110,7 @@ public class TeacherController {
         return ResponseEntity.ok(profile);
     }
 
-    /**
-     * PUT /api/teachers/profile Update current teacher's profile information
-     *
-     * @param auth Spring Security authentication object
-     * @param request Profile update request
-     * @return Updated teacher profile response
-     */
+
     @PutMapping("/profile")
     public ResponseEntity<TeacherProfileResponse> updateMyProfile(
             Authentication auth,
@@ -187,20 +139,14 @@ public class TeacherController {
         return ResponseEntity.ok(updated);
     }
 
-    /**
-     * GET /api/teachers/{teacherId}/subjects Return all subjects taught by a
-     * teacher (primary + additional).
-     */
+
     @GetMapping("/{teacherId}/subjects")
     public ResponseEntity<List<SubjectResponse>> getSubjectsByTeacherId(@PathVariable Long teacherId) {
         List<SubjectResponse> subjects = teacherService.getSubjectsByTeacherId(teacherId);
         return ResponseEntity.ok(subjects);
     }
 
-    /**
-     * PUT /api/teachers/{teacherId}/subjects Update subjects taught by a
-     * teacher (replace additional subjects set).
-     */
+
     @PutMapping("/{teacherId}/subjects")
     public ResponseEntity<List<SubjectResponse>> updateTeacherSubjects(
             @PathVariable Long teacherId,
@@ -223,10 +169,7 @@ public class TeacherController {
         }
     }
 
-    /**
-     * PUT /api/teachers/{teacherId}/primary-subject Change the primary subject
-     * for a teacher with business rule enforcement.
-     */
+
     @PutMapping("/{teacherId}/primary-subject")
     public ResponseEntity<SubjectResponse> updatePrimarySubject(
             @PathVariable Long teacherId,

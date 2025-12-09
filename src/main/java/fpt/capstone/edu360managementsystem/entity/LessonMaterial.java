@@ -27,26 +27,26 @@ public class LessonMaterial {
     private CourseLesson lesson;
 
     @Column(nullable = false, length = 255)
-    private String fileName;  // Tên file gốc hoặc title cho link
+    private String fileName;
 
     @Column(nullable = false, length = 1000)
-    private String fileUrl;   // URL hoặc đường dẫn lưu file
+    private String fileUrl;
 
     @Column(length = 100)
-    private String fileType;  // MIME type: application/pdf, image/png, LINK, etc.
+    private String fileType;
 
     @Column
-    private Long fileSize;    // Kích thước file (bytes), null cho link
+    private Long fileSize;
 
     @Column(length = 500)
-    private String description;  // Mô tả tài liệu (optional)
+    private String description;
 
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
     @ManyToOne
     @JoinColumn(name = "uploaded_by")
-    private User uploadedBy;  // Giáo viên upload
+    private User uploadedBy;
 
     @PrePersist
     protected void onCreate() {

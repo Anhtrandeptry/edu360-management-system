@@ -9,10 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Public class detail response for guest/unauthenticated users.
- * Contains class info + base course info (from Admin).
- */
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -31,37 +28,37 @@ public class ClassPublicDetailResponse {
     private Boolean online;
     private String meetingLink;
 
-    // Subject info
+
     private Long subjectId;
     private String subjectName;
 
-    // Room info
+
     private Long roomId;
     private String roomName;
 
-    // Semester info
+
     private Long semesterId;
     private String semesterName;
 
-    // Teacher info
+
     private Long teacherId;
     private String teacherFullName;
     private String teacherAvatarUrl;
     private String teacherBio;
     private String teacherDepartment;
 
-    // Base Course info (from Admin)
+
     private Long courseId;
     private String courseTitle;
     private String courseDescription;
     private String courseThumbnail;
     private List<CourseLessonView> courseLessons;
 
-    // Schedule
+
     private List<ScheduleItemView> schedule;
     private Integer sessionsGenerated;
 
-    // Price
+
     private Long pricePerSession;
     private Long totalPrice;
 

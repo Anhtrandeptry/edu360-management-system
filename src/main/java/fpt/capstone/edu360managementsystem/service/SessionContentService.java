@@ -74,7 +74,7 @@ public class SessionContentService {
             }
             session = sameDay.get(0);
         }
-        log.info("➡️ upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, incomingChapters={}, incomingLessons={}",
+        log.info("upsertSessionContentByClassDate userId={}, classId={}, date={}, slotId={}, incomingChapters={}, incomingLessons={}",
                 userId, classId, dateStr, slotId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
                 req.getLessonIds() != null ? req.getLessonIds() : "[]");
@@ -83,7 +83,7 @@ public class SessionContentService {
 
     @Transactional
     public void upsertSessionContent(Long userId, Long sessionId, SessionContentUpsertRequest req) {
-        log.info("🔵 START upsertSessionContent: userId={}, sessionId={}, chapters={}, lessons={}, contentLength={}",
+        log.info("START upsertSessionContent: userId={}, sessionId={}, chapters={}, lessons={}, contentLength={}",
                 userId,
                 sessionId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
@@ -92,7 +92,7 @@ public class SessionContentService {
 
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
-        log.info("✅ Session found: id={}, classId={}", session.getId(), session.getClazz().getId());
+        log.info("Session found: id={}, classId={}", session.getId(), session.getClazz().getId());
 
         // Check giáo viên sở hữu
         if (!session.getClazz().getTeacher().getUser().getId().equals(userId)) {
@@ -103,21 +103,21 @@ public class SessionContentService {
         if (course == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Class has no course linked");
         }
-        log.info("✅ Course found: id={}, title={}", course.getId(), course.getTitle());
+        log.info("Course found: id={}, title={}", course.getId(), course.getTitle());
 
         // Xóa link cũ
-        log.info("🗑️ Deleting old links for sessionId={}", sessionId);
+        log.info("Deleting old links for sessionId={}", sessionId);
         sessionChapterRepository.deleteBySession_Id(sessionId);
         sessionChapterRepository.flush();
         sessionLessonRepository.deleteBySession_Id(sessionId);
         sessionLessonRepository.flush();
-        log.info("✅ Old links deleted");
+        log.info("Old links deleted");
 
         if (req.getChapterIds() != null) {
             for (Long chapId : req.getChapterIds()) {
                 var chapOpt = chapterRepository.findById(chapId);
                 if (chapOpt.isEmpty()) {
-                    log.warn("⚠️ Chapter not found: {} - skipping", chapId);
+                    log.warn("Chapter not found: {} - skipping", chapId);
                     continue; // Skip missing chapters instead of throwing error
                 }
                 CourseChapter chap = chapOpt.get();
@@ -126,7 +126,7 @@ public class SessionContentService {
                         .session(session)
                         .chapter(chap)
                         .build());
-                log.info("💾 Saved SessionChapter id={} (chapId={})", sc.getId(), chapId);
+                log.info("Saved SessionChapter id={} (chapId={})", sc.getId(), chapId);
             }
         }
 
@@ -134,7 +134,7 @@ public class SessionContentService {
             for (Long lessonId : req.getLessonIds()) {
                 var lessonOpt = lessonRepository.findById(lessonId);
                 if (lessonOpt.isEmpty()) {
-                    log.warn("⚠️ Lesson not found: {} - skipping", lessonId);
+                    log.warn("Lesson not found: {} - skipping", lessonId);
                     continue; // Skip missing lessons instead of throwing error
                 }
                 CourseLesson lesson = lessonOpt.get();
@@ -142,12 +142,12 @@ public class SessionContentService {
                         .session(session)
                         .lesson(lesson)
                         .build());
-                log.info("💾 Saved SessionLesson id={} (lessonId={})", sl.getId(), lessonId);
+                log.info("Saved SessionLesson id={} (lessonId={})", sl.getId(), lessonId);
             }
         }
 
         // Lưu nội dung text
-        log.info("💾 Saving lesson content: length={}", req.getContent() != null ? req.getContent().length() : 0);
+        log.info("Saving lesson content: length={}", req.getContent() != null ? req.getContent().length() : 0);
         session.setLessonContent(req.getContent());
         classSessionRepository.save(session);
 
@@ -183,17 +183,17 @@ public class SessionContentService {
 
     @Transactional(readOnly = true)
     public SessionContentResponse getSessionContent(Long sessionId) {
-        log.info("🔵 START getSessionContent: sessionId={}", sessionId);
+        log.info("START getSessionContent: sessionId={}", sessionId);
 
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
-        log.info("✅ Session found: id={}, classId={}", session.getId(), session.getClazz().getId());
+        log.info("Session found: id={}, classId={}", session.getId(), session.getClazz().getId());
 
         Course course = session.getClazz().getCourse();
         if (course == null) {
             throw new RuntimeException("Class has no course linked");
         }
-        log.info("✅ Course found: id={}, title={}", course.getId(), course.getTitle());
+        log.info("Course found: id={}, title={}", course.getId(), course.getTitle());
 
         // Load existing links
         List<SessionChapter> scs = sessionChapterRepository.findBySession_Id(sessionId);
@@ -254,10 +254,10 @@ public class SessionContentService {
                 Course cc = ensureClassCourse(session);
                 if (cc != null) {
                     respClassCourseId = cc.getId();
-                    log.info("🔧 Resolved classCourseId for CLASS_PERSONAL: {}", respClassCourseId);
+                    log.info("Resolved classCourseId for CLASS_PERSONAL: {}", respClassCourseId);
                 }
             } catch (Exception e) {
-                log.warn("⚠️ Failed to resolve classCourseId for CLASS_PERSONAL: {}", e.getMessage());
+                log.warn("Failed to resolve classCourseId for CLASS_PERSONAL: {}", e.getMessage());
             }
         }
 

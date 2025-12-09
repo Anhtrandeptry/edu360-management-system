@@ -4,10 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-/**
- * Entity lưu tài liệu đính kèm cho từng buổi học (ClassSession)
- * Giáo viên upload sau khi điểm danh, học sinh có thể xem/download
- */
+
 @Entity
 @Table(name = "session_materials",
         indexes = @Index(name = "idx_session_material_session", columnList = "session_id"))
@@ -27,26 +24,26 @@ public class SessionMaterial {
     private ClassSession session;
 
     @Column(nullable = false, length = 255)
-    private String fileName;  // Tên file gốc
+    private String fileName;
 
     @Column(nullable = false, length = 500)
-    private String fileUrl;   // URL hoặc đường dẫn lưu file
+    private String fileUrl;
 
     @Column(length = 100)
-    private String fileType;  // MIME type: application/pdf, image/png, etc.
+    private String fileType;
 
     @Column
-    private Long fileSize;    // Kích thước file (bytes)
+    private Long fileSize;
 
     @Column(length = 500)
-    private String description;  // Mô tả tài liệu (optional)
+    private String description;
 
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
     @ManyToOne
     @JoinColumn(name = "uploaded_by")
-    private User uploadedBy;  // Giáo viên upload
+    private User uploadedBy;
 
     @PrePersist
     protected void onCreate() {

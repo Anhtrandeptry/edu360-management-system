@@ -32,9 +32,7 @@ public class NewsController {
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
     private static final String ERROR_KEY = "error";
     
-    /**
-     * POST /api/news/upload-image - Upload ảnh cho tin tức (Admin only)
-     */
+
     @PostMapping("/upload-image")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> uploadImage(

@@ -23,14 +23,7 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     Boolean existsByEmailAndIdNot(String email, Long id);
 
-    /**
-     * Phân trang và tìm kiếm users với filter theo role
-     *
-     * @param search tìm theo username, fullName, email, phone
-     * @param roleName filter theo role (ADMIN, TEACHER, STUDENT, PARENT) - null
-     * để lấy tất cả
-     * @param pageable thông tin phân trang
-     */
+
     @Query("""
       SELECT DISTINCT u FROM User u 
       LEFT JOIN u.roles r

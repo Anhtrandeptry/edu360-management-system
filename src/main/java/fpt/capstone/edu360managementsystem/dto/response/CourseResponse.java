@@ -21,6 +21,6 @@ public class CourseResponse {
     private Long ownerTeacherId;
     private String ownerTeacherName;
 
-    // Cây nội dung
+
     private List<ChapterResponse> chapters;
 }

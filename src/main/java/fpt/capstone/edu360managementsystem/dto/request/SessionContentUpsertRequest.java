@@ -9,15 +9,14 @@ public class SessionContentUpsertRequest {
 
     private List<Long> chapterIds;
     private List<Long> lessonIds;
-    private String content;  // Nội dung text buổi học
+    private String content;
 
-    // Nghiệp vụ mới: lưu nguồn và tham chiếu khóa học lớp
-    private String sourceType; // ADMIN | CLASS_PERSONAL
-    private Long classCourseId; // id course của lớp (nếu CLASS_PERSONAL)
 
-    // Lưu chọn đơn để FE hydrate nhanh
+    private String sourceType;
+    private Long classCourseId;
+
+
     private Long chapterId;
     private Long lessonId;
 
-    // XÓA toàn bộ logic cũ: PERSONAL/mapping
 }

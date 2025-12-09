@@ -21,11 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Controller quản lý tài liệu bài học (CourseLesson)
- * - Giáo viên: upload, xóa tài liệu
- * - Học sinh: xem, download tài liệu
- */
+
 @RestController
 @RequestMapping("/api/lesson-materials")
 @RequiredArgsConstructor
@@ -34,10 +30,7 @@ public class LessonMaterialController {
 
     private final LessonMaterialService materialService;
 
-    /**
-     * Upload tài liệu cho bài học
-     * Chỉ giáo viên hoặc admin mới có quyền
-     */
+
     @PostMapping("/upload/{lessonId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<LessonMaterialResponse> uploadMaterial(
@@ -70,10 +63,7 @@ public class LessonMaterialController {
         }
     }
 
-    /**
-     * Thêm link tài liệu cho bài học
-     * Chỉ giáo viên hoặc admin mới có quyền
-     */
+
     @PostMapping("/link/{lessonId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<LessonMaterialResponse> addLink(
@@ -96,10 +86,7 @@ public class LessonMaterialController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Lấy danh sách tài liệu của lesson
-     * Cả giáo viên và học sinh đều có thể xem
-     */
+
     @GetMapping("/lesson/{lessonId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LessonMaterialResponse>> getMaterialsByLesson(
@@ -109,9 +96,7 @@ public class LessonMaterialController {
         return ResponseEntity.ok(materials);
     }
 
-    /**
-     * Lấy danh sách tài liệu của chapter (tất cả lessons trong chapter)
-     */
+
     @GetMapping("/chapter/{chapterId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LessonMaterialResponse>> getMaterialsByChapter(
@@ -121,10 +106,7 @@ public class LessonMaterialController {
         return ResponseEntity.ok(materials);
     }
 
-    /**
-     * Download tài liệu
-     * Không cần authentication để đơn giản hóa việc download
-     */
+
     @GetMapping("/download/{lessonId}/{fileName}")
     public ResponseEntity<Resource> downloadMaterial(
             @PathVariable Long lessonId,
@@ -159,10 +141,7 @@ public class LessonMaterialController {
         }
     }
 
-    /**
-     * Xóa tài liệu
-     * Chỉ giáo viên upload hoặc admin mới có quyền xóa
-     */
+
     @DeleteMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<Void> deleteMaterial(
@@ -178,9 +157,7 @@ public class LessonMaterialController {
         }
     }
 
-    /**
-     * Lấy thông tin chi tiết một tài liệu
-     */
+
     @GetMapping("/{materialId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<LessonMaterialResponse> getMaterial(@PathVariable Long materialId) {

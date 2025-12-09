@@ -48,15 +48,15 @@ public class TeacherProfileUpdateRequest {
     @Size(max = 1000, message = "Note must not exceed 1000 characters")
     private String note;
 
-    // Avatar as base64 or URL
+
     private String avatarUrl;
     
-    // Profile statistics
+
     private Integer yearsOfExperience;
     private Double rating;
     private String achievements;
     
-    // Complex data - separate tables
+
     private List<TeacherCertificateRequest> certificates;
     private List<TeacherExperienceRequest> experiences;
     private List<TeacherEducationRequest> educations;

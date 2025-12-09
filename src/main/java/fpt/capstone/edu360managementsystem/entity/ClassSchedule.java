@@ -15,7 +15,7 @@ public class ClassSchedule {
     private Clazz clazz;
 
     @Column(nullable=false)
-    private Integer dayOfWeek; // 1=Mon ... 7=Sun
+    private Integer dayOfWeek;
 
     @ManyToOne(optional=false) @JoinColumn(name="timeslot_id")
     private TimeSlot timeSlot;

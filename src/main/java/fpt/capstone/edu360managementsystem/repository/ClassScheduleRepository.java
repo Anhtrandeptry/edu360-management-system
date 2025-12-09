@@ -11,10 +11,6 @@ public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, Lo
 
     List<ClassSchedule> findByClazz_Id(Long classId);
 
-    /**
-     * Tìm tất cả schedules cho danh sách class IDs Dùng để tối ưu query khi
-     * load nhiều classes cùng lúc
-     */
     List<ClassSchedule> findByClazz_IdIn(List<Long> classIds);
 
 }

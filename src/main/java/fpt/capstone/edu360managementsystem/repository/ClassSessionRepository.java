@@ -29,13 +29,10 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     Optional<ClassSession> findByClazz_IdAndDate(Long classId, LocalDate date);
 
-    // When a class has multiple sessions in the same day (different time slots),
-    // use slot-aware lookups to avoid IncorrectResultSizeDataAccessException
     Optional<ClassSession> findByClazz_IdAndDateAndTimeSlot_Id(Long classId, LocalDate date, Long timeSlotId);
 
     List<ClassSession> findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(Long classId, LocalDate date);
 
-    // Count all sessions for a class (used for tuition/payment calculation)
     long countByClazz_Id(Long classId);
 
     // Count completed sessions for a class
@@ -71,7 +68,6 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     boolean existsByClazz_IdAndDateBefore(Long classId, LocalDate date);
 
-    // Thêm tiện ích lấy toàn bộ session theo class để xoá/regenerate khi chỉnh sửa draft
     List<ClassSession> findByClazz_Id(Long classId);
 
     // Lấy toàn bộ sessions của một class, sắp xếp theo ngày và slot

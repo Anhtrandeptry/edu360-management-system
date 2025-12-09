@@ -34,7 +34,7 @@ public class Payment {
     @Column(nullable = false)
     private Long amount;
 
-    // Nội dung chuyển khoản: "Tên học sinh - thanh toán học phí"
+
     @Column(nullable = false, length = 255)
     private String content;
 
@@ -42,11 +42,11 @@ public class Payment {
     @Column(nullable = false, length = 20)
     private PaymentStatus status;
 
-    // Mã giao dịch nội bộ (dùng đối soát, nếu sau này cần)
+
     @Column(nullable = false, unique = true, length = 100)
     private String orderCode;
 
-    // Mã giao dịch phía ngân hàng (optional)
+
     private String bankTransactionId;
 
     @Column(nullable = false)

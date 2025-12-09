@@ -29,26 +29,14 @@ public class UserController {
     @Autowired
     private UserRepository userRepository;
 
-    /**
-     * GET /api/users - Lấy tất cả users (không phân trang - backward
-     * compatible)
-     */
+
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    /**
-     * GET /api/users/paginated - Lấy users với phân trang và filter
-     *
-     * @param search Tìm kiếm theo username, fullName, email, phone
-     * @param role Filter theo role: ALL, STUDENT, TEACHER, PARENT, ADMIN
-     * @param page Số trang (default 0)
-     * @param size Số phần tử mỗi trang (default 10)
-     * @param sortBy Trường để sắp xếp (default id)
-     * @param order Thứ tự sắp xếp: asc, desc (default asc)
-     */
+
     @GetMapping("/paginated")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<UserResponse>> getUsersPaginated(

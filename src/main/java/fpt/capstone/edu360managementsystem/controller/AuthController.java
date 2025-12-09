@@ -25,6 +25,7 @@ import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParent
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
+import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.User;
@@ -66,7 +67,7 @@ public class AuthController {
     @Autowired
     AuthService authService;
 
-//Login
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -113,7 +114,7 @@ public class AuthController {
                         roles));
     }
 
-//logout
+
     @PostMapping("/logout")
     public ResponseEntity<?> logoutUser() {
         ResponseCookie cookie = jwtUtils.getCleanJwtCookie();
@@ -154,17 +155,22 @@ public class AuthController {
         ));
     }
 
-// Create Teacher
+
     @PostMapping("/register-teacher")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerTeacher(@Valid @RequestBody RegisterTeacherRequest request) {
         return authService.registerTeacher(request);
     }
 
-// Register Student and Parent account
+
     @PostMapping("/signup")
     public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
         return authService.registerStudentWithParent(request);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return authService.forgotPassword(request);
     }
 
 }

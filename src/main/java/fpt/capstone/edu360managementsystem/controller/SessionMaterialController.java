@@ -21,11 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Controller quản lý tài liệu buổi học
- * - Giáo viên: upload, xóa tài liệu
- * - Học sinh: xem, download tài liệu
- */
+
 @RestController
 @RequestMapping("/api/materials")
 @RequiredArgsConstructor
@@ -34,10 +30,7 @@ public class SessionMaterialController {
 
     private final SessionMaterialService materialService;
 
-    /**
-     * Upload tài liệu cho buổi học
-     * Chỉ giáo viên hoặc admin mới có quyền
-     */
+
     @PostMapping("/upload/{sessionId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<SessionMaterialResponse> uploadMaterial(
@@ -70,10 +63,7 @@ public class SessionMaterialController {
         }
     }
 
-    /**
-     * Thêm link tài liệu cho buổi học
-     * Chỉ giáo viên hoặc admin mới có quyền
-     */
+
     @PostMapping("/link/{sessionId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<SessionMaterialResponse> addLink(
@@ -98,10 +88,7 @@ public class SessionMaterialController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Lấy danh sách tài liệu của session
-     * Cả giáo viên và học sinh đều có thể xem
-     */
+
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<SessionMaterialResponse>> getMaterialsBySession(
@@ -111,10 +98,7 @@ public class SessionMaterialController {
         return ResponseEntity.ok(materials);
     }
 
-    /**
-     * Download tài liệu
-     * Không cần authentication để đơn giản hóa việc download
-     */
+
     @GetMapping("/download/{sessionId}/{fileName}")
     public ResponseEntity<Resource> downloadMaterial(
             @PathVariable Long sessionId,
@@ -149,10 +133,7 @@ public class SessionMaterialController {
         }
     }
 
-    /**
-     * Xóa tài liệu
-     * Chỉ giáo viên upload hoặc admin mới có quyền xóa
-     */
+
     @DeleteMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<Void> deleteMaterial(
@@ -168,9 +149,7 @@ public class SessionMaterialController {
         }
     }
 
-    /**
-     * Lấy thông tin chi tiết một tài liệu
-     */
+
     @GetMapping("/{materialId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SessionMaterialResponse> getMaterial(@PathVariable Long materialId) {

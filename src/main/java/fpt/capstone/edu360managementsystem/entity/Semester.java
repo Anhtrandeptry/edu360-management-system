@@ -31,7 +31,7 @@ public class Semester {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String name;            // ví dụ: "HK1-2025"
+    private String name;
 
     @Column(nullable = false)
     private LocalDate startDate;

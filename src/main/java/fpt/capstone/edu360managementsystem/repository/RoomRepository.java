@@ -22,14 +22,7 @@ public interface RoomRepository extends JpaRepository<Room, Long>, JpaSpecificat
 
     List<Room> findByStatus(RoomStatus status);
 
-    /**
-     * Phân trang và tìm kiếm rooms với filter theo status
-     *
-     * @param search tìm theo name
-     * @param status filter theo RoomStatus (AVAILABLE, UNAVAILABLE) - null để
-     * lấy tất cả
-     * @param pageable thông tin phân trang
-     */
+
     @Query("""
         SELECT r FROM Room r
         WHERE (:search IS NULL OR :search = '' OR 

@@ -17,20 +17,13 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long>, JpaSpec
 
     boolean existsByUserId(Long userId);
 
-    // Lọc theo subject: chấp nhận cả subject chính và các môn trong danh sách many-to-many
+
     @Query("select distinct t from Teacher t left join t.subjects s where t.subject.id = :subjectId or s.id = :subjectId")
     List<Teacher> findByAnySubject(@Param("subjectId") Long subjectId);
 
     java.util.Optional<Teacher> findByUserId(Long userId);
 
-    /**
-     * Phân trang và tìm kiếm teachers với filter theo subjectId
-     *
-     * @param search tìm theo user.fullName, user.email, user.phone
-     * @param subjectId filter theo môn học chính hoặc môn phụ - null để lấy tất
-     * cả
-     * @param pageable thông tin phân trang
-     */
+
     @Query("""
         SELECT DISTINCT t FROM Teacher t
         LEFT JOIN t.user u

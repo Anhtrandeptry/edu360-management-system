@@ -34,7 +34,7 @@ public class ClassSession {
     private TimeSlot timeSlot;
 
     @ManyToOne(optional = true)
-    @JoinColumn(name = "room_id", nullable = true)  // nullable for online classes
+    @JoinColumn(name = "room_id", nullable = true)
     private Room room;
 
     @Enumerated(EnumType.STRING)
@@ -42,5 +42,5 @@ public class ClassSession {
     private SessionStatus status = SessionStatus.PLANNED;
 
     @Column(columnDefinition = "TEXT")
-    private String lessonContent;  // Nội dung text buổi học do giáo viên ghi
+    private String lessonContent;
 }

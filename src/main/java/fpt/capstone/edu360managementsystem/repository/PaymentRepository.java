@@ -45,14 +45,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             Pageable pageable
     );
 
-    // Thống kê tổng tiền đã thanh toán
+
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'PAID'")
     Long sumPaidAmount();
 
-    // Đếm payment theo status
+
     long countByStatus(PaymentStatus status);
 
-    // Payments của 1 student
+
     List<Payment> findByStudent_IdOrderByCreatedAtDesc(Long studentId);
 
     // ==================== REPORT QUERIES ====================

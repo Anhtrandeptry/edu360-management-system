@@ -21,8 +21,8 @@ public class AttendanceUpsertRequest {
         @NotNull
         private Long studentId;
         @NotNull
-        private AttendanceStatus status; // UNMARKED/PRESENT/ABSENT/LATE
-        private String note; // ghi chú
+        private AttendanceStatus status;
+        private String note;
     }
 
     @NotNull

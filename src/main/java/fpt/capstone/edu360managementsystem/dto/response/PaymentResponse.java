@@ -19,20 +19,20 @@ public class PaymentResponse {
 
     private Long id;
 
-    // Student info
+
     private Long studentId;
     private Long studentUserId;
     private String studentName;
     private String studentEmail;
     private String studentPhone;
 
-    // Class info
+
     private Long classId;
     private String className;
     private String teacherName;
     private String subjectName;
 
-    // Payment info
+
     private Long amount;
     private String content;
     private String orderCode;

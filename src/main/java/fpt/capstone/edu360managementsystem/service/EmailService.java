@@ -16,7 +16,7 @@ public class EmailService {
     @Autowired
     private JavaMailSender emailSender;
 
-    // Gửi mail đơn giản
+    // Send simple email
     public void sendSimpleMessage(String to, String subject, String text) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -25,15 +25,15 @@ public class EmailService {
             message.setSubject(subject);
             message.setText(text);
             emailSender.send(message);
-            System.out.println("✅ Email sent successfully to: " + to);
+            System.out.println("Email sent successfully to: " + to);
         } catch (MailException e) {
-            System.err.println("❌ Failed to send email to: " + to);
+            System.err.println("Failed to send email to: " + to);
             e.printStackTrace();
             throw e;
         }
     }
 
-    // Gửi mail HTML
+    // Send HTML mail
     public void sendHtmlMessage(String to, String subject, String htmlContent) {
         try {
             MimeMessage message = emailSender.createMimeMessage();

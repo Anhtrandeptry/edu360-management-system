@@ -18,7 +18,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
 
     boolean existsByNameAndSubject_IdAndSemester_Id(String name, Long subjectId, Long semesterId);
 
-    // Trùng lịch giáo viên (cùng học kỳ, trùng (dayOfWeek, timeSlot))
+
     @Query("""
         select distinct c from Clazz c
         where c.teacher.id = :teacherId
@@ -34,7 +34,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Trùng lịch phòng
+
     @Query("""
         select distinct c from Clazz c
         where c.room.id = :roomId
@@ -50,7 +50,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Trùng lịch giáo viên (theo khoảng thời gian startDate-endDate)
+
     @Query("""
         select distinct c from Clazz c
         where c.teacher.id = :teacherId
@@ -67,7 +67,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Trùng lịch phòng (theo khoảng thời gian startDate-endDate)
+
     @Query("""
         select distinct c from Clazz c
         where c.room.id = :roomId
@@ -84,7 +84,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Lấy danh sách lớp kèm schedules để filter theo giáo viên (userId) và timeslot
+
     @Query("""
     select distinct c from Clazz c
     left join fetch c.teacher t
@@ -96,7 +96,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
   """)
     List<Clazz> findAllWithFilters(Long teacherUserId);
 
-    // Get all classes with schedules eagerly loaded for schedule management
+
     @Query("""
     select distinct c from Clazz c
     left join fetch c.teacher t
@@ -107,7 +107,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
   """)
     List<Clazz> findAllWithSchedules();
 
-    // Đếm số lớp (chưa ARCHIVED) đang dùng subject
+
     @Query("""
         select count(c) from Clazz c
         where c.subject.id = :subjectId
@@ -115,7 +115,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     long countActiveBySubject(Long subjectId);
 
-    // Đếm số lớp (chưa ARCHIVED) đang dùng room
+
     @Query("""
         select count(c) from Clazz c
         where c.room.id = :roomId
@@ -123,7 +123,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     long countActiveByRoom(Long roomId);
 
-    // Đếm số lớp (chưa ARCHIVED) đang dạy bởi teacher (userId)
+
     @Query("""
         select count(c) from Clazz c
         join c.teacher t
@@ -132,7 +132,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     long countActiveByTeacherUser(Long teacherUserId);
 
-    // ✅ THÊM: Query theo teacher.id để so sánh
+
     @Query("""
         select count(c) from Clazz c
         where c.teacher.id = :teacherId
@@ -140,7 +140,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     long countActiveByTeacherId(Long teacherId);
 
-    // Liệt kê tên lớp đang active theo giáo viên và môn
+
     @Query("""
       select c from Clazz c
       where c.teacher.id = :teacherId
@@ -149,28 +149,13 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     java.util.List<Clazz> findActiveByTeacherAndSubject(Long teacherId, Long subjectId);
 
-    /**
-     * Tìm tất cả các lớp sử dụng course cụ thể
-     */
+
     List<Clazz> findByCourse_Id(Long courseId);
 
-    /**
-     * Tìm tất cả các lớp được phân công cho giáo viên
-     */
+
     List<Clazz> findByTeacher_Id(Long teacherId);
 
-    /**
-     * Phân trang và tìm kiếm classes với filter theo status, isOnline,
-     * teacherId
-     *
-     * @param search tìm theo name, teacherName, subjectName
-     * @param status filter theo ClassStatus (DRAFT, PUBLIC, ARCHIVED) - null để
-     * lấy tất cả
-     * @param isOnline filter theo hình thức (true=online có meetingLink,
-     * false=offline có room) - null để lấy tất cả
-     * @param teacherUserId filter theo giáo viên (user.id) - null để lấy tất cả
-     * @param pageable thông tin phân trang
-     */
+
     @Query("""
         SELECT DISTINCT c FROM Clazz c
         LEFT JOIN c.teacher t
