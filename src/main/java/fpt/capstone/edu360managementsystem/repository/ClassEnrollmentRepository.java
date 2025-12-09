@@ -5,6 +5,7 @@ import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
 import fpt.capstone.edu360managementsystem.entity.Clazz;
@@ -37,5 +38,18 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
             Set<Integer> dow, Set<Long> slotIds);
 
     List<ClassEnrollment> findByStudent_Id(Long studentId);
+
+    // ==================== REPORT QUERIES ====================
+    // Đếm số enrollment đang active (lớp PUBLIC)
+    @Query("SELECT COUNT(ce) FROM ClassEnrollment ce WHERE ce.clazz.status = 'PUBLIC'")
+    Long countActiveEnrollments();
+
+    // Đếm số học sinh theo giáo viên
+    @Query("SELECT COUNT(DISTINCT ce.student.id) FROM ClassEnrollment ce WHERE ce.clazz.teacher.id = :teacherId AND ce.clazz.status = 'PUBLIC'")
+    Integer countStudentsByTeacherId(@Param("teacherId") Long teacherId);
+
+    // Đếm số học sinh theo môn học
+    @Query("SELECT COUNT(DISTINCT ce.student.id) FROM ClassEnrollment ce WHERE ce.clazz.subject.id = :subjectId AND ce.clazz.status = 'PUBLIC'")
+    Integer countStudentsBySubjectId(@Param("subjectId") Long subjectId);
 
 }

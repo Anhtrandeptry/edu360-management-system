@@ -13,10 +13,12 @@ import fpt.capstone.edu360managementsystem.repository.TeacherEducationRepository
 import fpt.capstone.edu360managementsystem.repository.TeacherExperienceRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import fpt.capstone.edu360managementsystem.service.CloudinaryService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -24,22 +26,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
-
 
 @RestController
 @RequestMapping("/api/teachers/profile")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('TEACHER')")
+@Slf4j
 public class TeacherProfileController {
 
     private final TeacherRepository teacherRepository;
@@ -48,76 +44,64 @@ public class TeacherProfileController {
     private final TeacherEducationRepository educationRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-
+    private final CloudinaryService cloudinaryService;
 
     private Teacher getAuthenticatedTeacher(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) {
             throw new SecurityException("User not authenticated");
         }
-        
+
         Long userId = ((UserDetailsImpl) auth.getPrincipal()).getId();
         return teacherRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Teacher not found for user: " + userId));
     }
 
     // ===================== AVATAR UPLOAD =====================
-    
-    private static final String UPLOAD_DIR = "uploads/avatars/";
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
     private static final String ERROR_KEY = "error";
-    
+
     @PostMapping("/upload-avatar")
     public ResponseEntity<Map<String, String>> uploadAvatar(
             @RequestParam("file") MultipartFile file,
             Authentication auth) {
+        log.info("Upload avatar request received. File: {}, Size: {}",
+                file.getOriginalFilename(), file.getSize());
         try {
             // Validate file
             if (file.isEmpty()) {
+                log.warn("File is empty");
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
             }
-            
+
             if (file.getSize() > MAX_FILE_SIZE) {
+                log.warn("File size exceeds 5MB: {}", file.getSize());
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File size exceeds 5MB"));
             }
-            
+
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
+                log.warn("Invalid content type: {}", contentType);
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image"));
             }
-            
-            // Generate unique filename
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename != null && originalFilename.contains(".") 
-                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                : ".jpg";
-            String filename = UUID.randomUUID().toString() + extension;
-            
-            // Create upload directory if not exists
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-            
-            // Save file
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            
-            // Return URL (adjust based on your server configuration)
-            String fileUrl = "/uploads/avatars/" + filename;
+
+            // Upload to Cloudinary
+            log.info("Uploading to Cloudinary...");
+            String fileUrl = cloudinaryService.uploadImage(file, "avatars");
+            log.info("Upload successful. URL: {}", fileUrl);
+
             Map<String, String> response = new HashMap<>();
             response.put("url", fileUrl);
-            
+
             return ResponseEntity.ok(response);
-            
-        } catch (IOException e) {
+
+        } catch (Exception e) {
+            log.error("Failed to upload avatar", e);
             return ResponseEntity.internalServerError()
                     .body(Map.of(ERROR_KEY, "Failed to upload file: " + e.getMessage()));
         }
     }
 
     // ===================== SECURITY (CHANGE PASSWORD) =====================
-
-
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             Authentication auth,
@@ -148,7 +132,6 @@ public class TeacherProfileController {
     }
 
     // ===================== CERTIFICATES =====================
-
     @GetMapping("/certificates")
     public ResponseEntity<List<TeacherCertificateRequest>> getMyCertificates(Authentication auth) {
         Teacher teacher = getAuthenticatedTeacher(auth);
@@ -163,7 +146,7 @@ public class TeacherProfileController {
     public ResponseEntity<TeacherCertificateRequest> addCertificate(
             Authentication auth,
             @RequestBody TeacherCertificateRequest request) {
-        
+
         Teacher teacher = getAuthenticatedTeacher(auth);
 
         TeacherCertificate certificate = TeacherCertificate.builder()
@@ -185,7 +168,7 @@ public class TeacherProfileController {
             @RequestBody TeacherCertificateRequest request) {
 
         Teacher teacher = getAuthenticatedTeacher(auth);
-        
+
         TeacherCertificate certificate = certificateRepository.findById(certId)
                 .orElseThrow(() -> new EntityNotFoundException("Certificate not found with id: " + certId));
 
@@ -208,7 +191,7 @@ public class TeacherProfileController {
             @PathVariable Long certId) {
 
         Teacher teacher = getAuthenticatedTeacher(auth);
-        
+
         TeacherCertificate certificate = certificateRepository.findById(certId)
                 .orElseThrow(() -> new EntityNotFoundException("Certificate not found with id: " + certId));
 
@@ -221,7 +204,6 @@ public class TeacherProfileController {
     }
 
     // ===================== EXPERIENCES =====================
-
     @GetMapping("/experiences")
     public ResponseEntity<List<TeacherExperienceRequest>> getMyExperiences(Authentication auth) {
         Teacher teacher = getAuthenticatedTeacher(auth);
@@ -259,7 +241,7 @@ public class TeacherProfileController {
             @RequestBody TeacherExperienceRequest request) {
 
         Teacher teacher = getAuthenticatedTeacher(auth);
-        
+
         TeacherExperience experience = experienceRepository.findById(expId)
                 .orElseThrow(() -> new EntityNotFoundException("Experience not found with id: " + expId));
 
@@ -283,7 +265,7 @@ public class TeacherProfileController {
             @PathVariable Long expId) {
 
         Teacher teacher = getAuthenticatedTeacher(auth);
-        
+
         TeacherExperience experience = experienceRepository.findById(expId)
                 .orElseThrow(() -> new EntityNotFoundException("Experience not found with id: " + expId));
 
@@ -296,7 +278,6 @@ public class TeacherProfileController {
     }
 
     // ===================== EDUCATION =====================
-
     @GetMapping("/educations")
     public ResponseEntity<List<TeacherEducationRequest>> getMyEducations(Authentication auth) {
         Teacher teacher = getAuthenticatedTeacher(auth);
@@ -333,7 +314,7 @@ public class TeacherProfileController {
             @RequestBody TeacherEducationRequest request) {
 
         Teacher teacher = getAuthenticatedTeacher(auth);
-        
+
         TeacherEducation education = educationRepository.findById(eduId)
                 .orElseThrow(() -> new EntityNotFoundException("Education not found with id: " + eduId));
 
@@ -356,7 +337,7 @@ public class TeacherProfileController {
             @PathVariable Long eduId) {
 
         Teacher teacher = getAuthenticatedTeacher(auth);
-        
+
         TeacherEducation education = educationRepository.findById(eduId)
                 .orElseThrow(() -> new EntityNotFoundException("Education not found with id: " + eduId));
 
@@ -369,7 +350,6 @@ public class TeacherProfileController {
     }
 
     // ===================== MAPPER METHODS =====================
-
     private TeacherCertificateRequest mapCertificateToDto(TeacherCertificate entity) {
         return TeacherCertificateRequest.builder()
                 .id(entity.getId())

@@ -1,24 +1,29 @@
 package fpt.capstone.edu360managementsystem.controller;
 
-import fpt.capstone.edu360managementsystem.dto.request.NewsRequest;
-import fpt.capstone.edu360managementsystem.dto.response.NewsResponse;
-import fpt.capstone.edu360managementsystem.service.NewsService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import fpt.capstone.edu360managementsystem.dto.request.NewsRequest;
+import fpt.capstone.edu360managementsystem.dto.response.NewsResponse;
+import fpt.capstone.edu360managementsystem.service.CloudinaryService;
+import fpt.capstone.edu360managementsystem.service.NewsService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/news")
@@ -26,12 +31,11 @@ import java.util.UUID;
 public class NewsController {
 
     private final NewsService newsService;
-    
+    private final CloudinaryService cloudinaryService;
+
     // ===================== IMAGE UPLOAD =====================
-    private static final String UPLOAD_DIR = "uploads/news-images/";
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
     private static final String ERROR_KEY = "error";
-    
 
     @PostMapping("/upload-image")
     @PreAuthorize("hasRole('ADMIN')")
@@ -42,50 +46,33 @@ public class NewsController {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
             }
-            
+
             if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File size exceeds 5MB"));
             }
-            
+
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image (PNG, JPG, JPEG, GIF, WebP)"));
             }
-            
-            // Generate unique filename
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename != null && originalFilename.contains(".") 
-                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                : ".jpg";
-            String filename = UUID.randomUUID().toString() + extension;
-            
-            // Create upload directory if not exists
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-            
-            // Save file
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            
-            // Return URL
-            String fileUrl = "/uploads/news-images/" + filename;
+
+            // Upload to Cloudinary
+            String fileUrl = cloudinaryService.uploadImage(file, "news-images");
+
             Map<String, String> response = new HashMap<>();
             response.put("url", fileUrl);
-            
+
             return ResponseEntity.ok(response);
-            
-        } catch (IOException e) {
+
+        } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of(ERROR_KEY, "Failed to upload file: " + e.getMessage()));
         }
     }
 
     /**
-     * GET /api/news - Lấy danh sách tin tức (có phân trang)
-     * Public: Chỉ lấy PUBLISHED
-     * Admin: Lấy tất cả
+     * GET /api/news - Lấy danh sách tin tức (có phân trang) Public: Chỉ lấy
+     * PUBLISHED Admin: Lấy tất cả
      */
     @GetMapping
     public ResponseEntity<Page<NewsResponse>> getNewsList(

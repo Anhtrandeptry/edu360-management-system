@@ -33,12 +33,13 @@ public class ClassResponse {
     private List<ScheduleItemView> schedule;
     private Integer sessionsGenerated;
 
-    private Long pricePerSession;
-    private Integer totalSessions;
+    // Thêm trường phục vụ hiển thị học phí
+    private Long pricePerSession;   // Giá mỗi buổi (VND)
+    private Integer totalSessions;  // Tổng số buổi của lớp
+    private Integer completedSessions; // Số buổi đã hoàn thành (status = DONE)
 
     private Long courseId;
     private String courseTitle;
-
 
     private String subjectName;
     private String teacherFullName;

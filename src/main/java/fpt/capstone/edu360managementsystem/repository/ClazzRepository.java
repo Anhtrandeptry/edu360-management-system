@@ -178,4 +178,34 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             @Param("teacherUserId") Long teacherUserId,
             Pageable pageable
     );
+
+    /**
+     * Lấy danh sách lớp DRAFT có startDate trong khoảng từ ngày A đến ngày B
+     * Dùng để nhắc nhở admin về các lớp DRAFT sắp đến ngày bắt đầu
+     */
+    @Query("""
+      SELECT c FROM Clazz c
+      WHERE c.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.DRAFT
+      AND c.startDate BETWEEN :fromDate AND :toDate
+      """)
+    java.util.List<Clazz> findDraftClassesWithStartDateBetween(
+            @Param("fromDate") java.time.LocalDate fromDate,
+            @Param("toDate") java.time.LocalDate toDate
+    );
+
+    // ==================== REPORT QUERIES ====================
+    // Đếm lớp theo status
+    Long countByStatus(ClassStatus status);
+
+    // Đếm lớp theo giáo viên và status
+    @Query("SELECT COUNT(c) FROM Clazz c WHERE c.teacher.id = :teacherId AND c.status = :status")
+    Integer countByTeacherIdAndStatus(@Param("teacherId") Long teacherId, @Param("status") ClassStatus status);
+
+    // Đếm lớp theo môn học và status
+    @Query("SELECT COUNT(c) FROM Clazz c WHERE c.subject.id = :subjectId AND c.status = :status")
+    Integer countBySubjectIdAndStatus(@Param("subjectId") Long subjectId, @Param("status") ClassStatus status);
+
+    // Đếm số giáo viên có lớp PUBLIC
+    @Query("SELECT COUNT(DISTINCT c.teacher.id) FROM Clazz c WHERE c.status = 'PUBLIC'")
+    Long countDistinctTeachersWithPublicClasses();
 }
