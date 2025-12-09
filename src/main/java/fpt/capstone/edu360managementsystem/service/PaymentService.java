@@ -382,7 +382,7 @@ public class PaymentService {
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
         
         Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
-        Page<Payment> payments = paymentRepository.findByStudent_IdOrderByCreatedAtDesc(student.getId(), pageable);
+        Page<Payment> payments = paymentRepository.findByStudent_Id(student.getId(), pageable);
         return payments.map(this::mapToResponse);
     }
 
