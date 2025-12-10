@@ -2,6 +2,7 @@ package fpt.capstone.edu360managementsystem.controller;
 
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +17,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminSchedulerController {
 
-    private final DraftClassReminderScheduler draftClassReminderScheduler;
+    @Autowired
+    private DraftClassReminderScheduler draftClassReminderScheduler;
 
     /**
      * Chạy thủ công job nhắc nhở lớp DRAFT sắp đến ngày bắt đầu

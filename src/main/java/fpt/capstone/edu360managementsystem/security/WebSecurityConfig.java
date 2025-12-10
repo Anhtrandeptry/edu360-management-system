@@ -66,8 +66,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/auth/**", "/auth/**").permitAll()
+                                .requestMatchers("/api/test/**").permitAll()
                 // Allow Spring Boot error endpoint so 404 won't be masked as 401
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/rooms/**").permitAll()
