@@ -9,8 +9,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Request DTO for updating teacher profile information.
- * Allows teachers to update their personal information, avatar, and professional details.
+ * Request DTO for updating teacher profile information. Allows teachers to
+ * update their personal information, avatar, and professional details.
  */
 @Data
 @Builder
@@ -30,7 +30,7 @@ public class TeacherProfileUpdateRequest {
     @Size(max = 50, message = "Degree must not exceed 50 characters")
     private String degree;
 
-    @Size(max = 500, message = "Specialization must not exceed 500 characters")
+    @Size(max = 5000, message = "Specialization must not exceed 5000 characters")
     private String specialization;
 
     @Size(max = 255, message = "Workplace must not exceed 255 characters")
@@ -42,20 +42,19 @@ public class TeacherProfileUpdateRequest {
     @Size(max = 500, message = "Facebook URL must not exceed 500 characters")
     private String facebookUrl;
 
-    @Size(max = 1000, message = "Bio must not exceed 1000 characters")
+    @Size(max = 10000, message = "Bio must not exceed 10000 characters")
     private String bio;
 
-    @Size(max = 1000, message = "Note must not exceed 1000 characters")
+    @Size(max = 5000, message = "Note must not exceed 5000 characters")
     private String note;
 
-
     private String avatarUrl;
-    
 
     private Integer yearsOfExperience;
     private Double rating;
+
+    @Size(max = 5000, message = "Achievements must not exceed 5000 characters")
     private String achievements;
-    
 
     private List<TeacherCertificateRequest> certificates;
     private List<TeacherExperienceRequest> experiences;
