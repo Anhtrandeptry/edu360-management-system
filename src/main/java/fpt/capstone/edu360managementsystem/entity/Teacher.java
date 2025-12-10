@@ -29,11 +29,9 @@ public class Teacher {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
-
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {jakarta.persistence.CascadeType.PERSIST, jakarta.persistence.CascadeType.MERGE})
     @JoinTable(
@@ -44,51 +42,49 @@ public class Teacher {
     @Builder.Default
     private Set<Subject> subjects = new HashSet<>();
 
+    @Column(name = "specialization", columnDefinition = "TEXT")
     private String specialization;
-    
+
     @Column(length = 50)
     private String degree;
-    
-    @Column(length = 1000)
+
+    @Column(name = "note", columnDefinition = "TEXT")
     private String note;
-    
 
     @Column(name = "workplace", length = 255)
     private String workplace;
-    
+
     @Column(name = "avatar_url", columnDefinition = "LONGTEXT")
     private String avatarUrl;
-    
+
     @Column(name = "linkedin_url", length = 500)
     private String linkedinUrl;
-    
+
     @Column(name = "facebook_url", length = 500)
     private String facebookUrl;
-    
+
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
-    
 
     @Column(name = "years_of_experience")
     @Builder.Default
     private Integer yearsOfExperience = 0;
-    
+
     @Column(name = "rating")
     @Builder.Default
     private Double rating = 0.0;
-    
+
     @Column(name = "achievements", columnDefinition = "TEXT")
     private String achievements;
-    
 
     @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TeacherCertificate> certificates = new ArrayList<>();
-    
+
     @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TeacherExperience> experiences = new ArrayList<>();
-    
+
     @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TeacherEducation> educations = new ArrayList<>();
