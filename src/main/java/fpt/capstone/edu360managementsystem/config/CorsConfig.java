@@ -40,7 +40,11 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
 
-        cfg.setAllowedOriginPatterns(List.of("http://localhost:8386"));
+        cfg.setAllowedOriginPatterns(List.of(
+                "http://localhost:8386",
+                "https://360edu.online",
+                "https://www.360edu.online"
+        ));
 
         cfg.setAllowCredentials(true);
 
