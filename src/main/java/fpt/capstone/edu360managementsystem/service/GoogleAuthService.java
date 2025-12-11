@@ -1,20 +1,19 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import fpt.capstone.edu360managementsystem.dto.request.GoogleAuthRequest;
-import fpt.capstone.edu360managementsystem.dto.request.GoogleRegisterRequest;
-import fpt.capstone.edu360managementsystem.dto.response.GoogleAuthResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.enums.ERole;
-import fpt.capstone.edu360managementsystem.repository.ParentRepository;
-import fpt.capstone.edu360managementsystem.repository.RoleRepository;
-import fpt.capstone.edu360managementsystem.repository.StudentRepository;
-import fpt.capstone.edu360managementsystem.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +21,23 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import fpt.capstone.edu360managementsystem.dto.request.GoogleAuthRequest;
+import fpt.capstone.edu360managementsystem.dto.request.GoogleRegisterRequest;
+import fpt.capstone.edu360managementsystem.dto.response.GoogleAuthResponse;
+import fpt.capstone.edu360managementsystem.entity.Parent;
+import fpt.capstone.edu360managementsystem.entity.Role;
+import fpt.capstone.edu360managementsystem.entity.Student;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.ERole;
+import fpt.capstone.edu360managementsystem.repository.ParentRepository;
+import fpt.capstone.edu360managementsystem.repository.RoleRepository;
+import fpt.capstone.edu360managementsystem.repository.StudentRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -47,12 +61,9 @@ public class GoogleAuthService {
     private static final String GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 
     /**
-     * Xử lý Google OAuth callback
-     * 1. Đổi authorization code lấy access token
-     * 2. Lấy thông tin user từ Google
-     * 3. Check email có trong DB không:
-     *    - Có → Login thành công
-     *    - Chưa có → Yêu cầu đăng ký (trả về thông tin Google)
+     * Xử lý Google OAuth callback 1. Đổi authorization code lấy access token 2.
+     * Lấy thông tin user từ Google 3. Check email có trong DB không: - Có →
+     * Login thành công - Chưa có → Yêu cầu đăng ký (trả về thông tin Google)
      */
     public GoogleAuthResponse handleGoogleCallback(GoogleAuthRequest request) {
         try {
@@ -136,7 +147,7 @@ public class GoogleAuthService {
             // Check if email already exists
             boolean emailExists = userRepository.findAll().stream()
                     .anyMatch(u -> request.getGoogleEmail().equalsIgnoreCase(u.getEmail()));
-            
+
             if (emailExists) {
                 return GoogleAuthResponse.builder()
                         .needsRegistration(false)
@@ -147,24 +158,24 @@ public class GoogleAuthService {
             // 1. Check if parent already exists by phone
             Parent parent;
             Optional<Parent> existingParent = parentRepository.findByPhone(request.getParentPhone());
-            
+
             if (existingParent.isPresent()) {
                 // Use existing parent
                 parent = existingParent.get();
                 log.info("Using existing parent with phone={}, parentId={}", request.getParentPhone(), parent.getId());
             } else {
                 // Create new parent user
-                String parentUsername = generateUsernameFromEmail(request.getParentEmail() != null ? 
-                        request.getParentEmail() : "parent_" + request.getGoogleEmail());
+                String parentUsername = generateUsernameFromEmail(request.getParentEmail() != null
+                        ? request.getParentEmail() : "parent_" + request.getGoogleEmail());
                 String parentPassword = UUID.randomUUID().toString().substring(0, 12);
-                
+
                 User parentUser = new User();
                 parentUser.setUsername(parentUsername);
                 parentUser.setEmail(request.getParentEmail() != null ? request.getParentEmail() : "noemail_" + parentUsername + "@placeholder.com");
                 parentUser.setPassword(passwordEncoder.encode(parentPassword));
                 parentUser.setFullName(request.getParentFullName());
                 parentUser.setPhoneNumber(request.getParentPhone());
-                
+
                 Role parentRole = roleRepository.findByName(ERole.ROLE_PARENT)
                         .orElseThrow(() -> new RuntimeException("Role PARENT not found"));
                 parentUser.getRoles().add(parentRole);
@@ -180,7 +191,7 @@ public class GoogleAuthService {
 
             // 3. Create student user - Use username from request
             String studentUsername = request.getUsername();
-            
+
             // Check if username already exists
             if (userRepository.existsByUsername(studentUsername)) {
                 return GoogleAuthResponse.builder()
@@ -195,7 +206,7 @@ public class GoogleAuthService {
             studentUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString().substring(0, 12)));
             studentUser.setFullName(request.getStudentFullName());
             studentUser.setPhoneNumber(request.getStudentPhone());
-            
+
             Role studentRole = roleRepository.findByName(ERole.ROLE_STUDENT)
                     .orElseThrow(() -> new RuntimeException("Role STUDENT not found"));
             studentUser.getRoles().add(studentRole);
@@ -207,7 +218,7 @@ public class GoogleAuthService {
             student.setParent(parent);
             student.setAvatarUrl(request.getGooglePicture()); // Save Google avatar
             student = studentRepository.save(student);
-            log.info("Created Student record with ID={}, userId={}, parentId={}", 
+            log.info("Created Student record with ID={}, userId={}, parentId={}",
                     student.getId(), studentUser.getId(), parent.getId());
 
             // 5. Return success response
@@ -242,14 +253,14 @@ public class GoogleAuthService {
         try {
             // URL decode the code in case it contains encoded characters
             String decodedCode = java.net.URLDecoder.decode(code, java.nio.charset.StandardCharsets.UTF_8);
-            
+
             log.info("Exchanging code for token...");
             log.info("Client ID: {}", clientId);
             log.info("Client Secret: {}", clientSecret); // Log full secret for debugging (remove in production!)
             log.info("Redirect URI: {}", redirectUri);
             log.info("Original Code (first 30 chars): {}", code != null && code.length() > 30 ? code.substring(0, 30) + "..." : code);
             log.info("Decoded Code (first 30 chars): {}", decodedCode != null && decodedCode.length() > 30 ? decodedCode.substring(0, 30) + "..." : decodedCode);
-            
+
             RestTemplate restTemplate = new RestTemplate();
 
             HttpHeaders headers = new HttpHeaders();
@@ -266,7 +277,7 @@ public class GoogleAuthService {
             ResponseEntity<String> response = restTemplate.postForEntity(GOOGLE_TOKEN_URL, request, String.class);
 
             log.info("Google token response status: {}", response.getStatusCode());
-            
+
             if (response.getStatusCode() == HttpStatus.OK) {
                 JsonNode jsonNode = objectMapper.readTree(response.getBody());
                 return jsonNode.get("access_token").asText();
@@ -321,7 +332,7 @@ public class GoogleAuthService {
         String baseUsername = email.split("@")[0]
                 .replaceAll("[^a-zA-Z0-9]", "")
                 .toLowerCase();
-        
+
         // Check if username exists, add random suffix if needed
         String username = baseUsername;
         int counter = 1;
@@ -333,30 +344,43 @@ public class GoogleAuthService {
     }
 
     /**
-     * Check if parent phone exists and return parent info
+     * Check if parent phone exists and return parent info Tìm theo phone trong
+     * bảng parents hoặc phone_number trong bảng users
      */
     public Map<String, Object> checkParentPhone(String phone) {
         Map<String, Object> response = new HashMap<>();
-        
+
+        // Tìm trong cột phone của Parent trước, nếu không có thì tìm trong User.phoneNumber
         Optional<Parent> parentOpt = parentRepository.findByPhone(phone);
-        
+        if (parentOpt.isEmpty()) {
+            parentOpt = parentRepository.findByUserPhoneNumber(phone);
+        }
+
         if (parentOpt.isPresent()) {
             Parent parent = parentOpt.get();
             response.put("exists", true);
-            
+
             Map<String, Object> parentInfo = new HashMap<>();
+            parentInfo.put("id", parent.getId()); // ID để liên kết với student mới
             parentInfo.put("fullName", parent.getFullName());
             parentInfo.put("email", parent.getEmail());
-            
+            // Ưu tiên phone trong Parent, nếu không có thì lấy từ User
+            String parentPhone = parent.getPhone();
+            if (parentPhone == null || parentPhone.isEmpty()) {
+                parentPhone = parent.getUser() != null ? parent.getUser().getPhoneNumber() : null;
+            }
+            parentInfo.put("phone", parentPhone);
+
             // Count children (students) linked to this parent
             long childCount = studentRepository.countByParent(parent);
             parentInfo.put("childCount", childCount);
-            
+
             response.put("parentInfo", parentInfo);
         } else {
             response.put("exists", false);
+            return response;
         }
-        
+
         return response;
     }
 }

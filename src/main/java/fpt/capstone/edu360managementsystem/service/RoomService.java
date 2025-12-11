@@ -93,8 +93,8 @@ public class RoomService {
     }
 
     public RoomResponse createRoom(RoomRequest request) {
-        if (roomRepository.existsByName(request.getName())) {
-            throw new RuntimeException("Room name already exists!");
+        if (roomRepository.existsByNameIgnoreCase(request.getName())) {
+            throw new RuntimeException("Phòng học đã tồn tại");
         }
         Room room = roomMapper.toEntity(request);
         return roomMapper.toResponse(roomRepository.save(room));
@@ -104,8 +104,8 @@ public class RoomService {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
         roomMapper.updateEntityFromDto(request, room);
-        if (roomRepository.existsByNameAndIdNot(request.getName(), id)) {
-            throw new RuntimeException("Room name already exists!");
+        if (roomRepository.existsByNameIgnoreCaseAndIdNot(request.getName(), id)) {
+            throw new RuntimeException("Phòng học đã tồn tại");
         }
         return roomMapper.toResponse(roomRepository.save(room));
     }
