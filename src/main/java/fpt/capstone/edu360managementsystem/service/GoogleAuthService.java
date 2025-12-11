@@ -334,28 +334,52 @@ public class GoogleAuthService {
 
     /**
      * Check if parent phone exists and return parent info
+     * Tìm theo phone trong bảng parents hoặc phone_number trong bảng users
      */
     public Map<String, Object> checkParentPhone(String phone) {
         Map<String, Object> response = new HashMap<>();
         
-        Optional<Parent> parentOpt = parentRepository.findByPhone(phone);
+        log.info("Checking parent phone: {}", phone);
         
-        if (parentOpt.isPresent()) {
-            Parent parent = parentOpt.get();
-            response.put("exists", true);
-            
-            Map<String, Object> parentInfo = new HashMap<>();
-            parentInfo.put("fullName", parent.getFullName());
-            parentInfo.put("email", parent.getEmail());
-            
-            // Count children (students) linked to this parent
-            long childCount = studentRepository.countByParent(parent);
-            parentInfo.put("childCount", childCount);
-            
-            response.put("parentInfo", parentInfo);
-        } else {
+        // Lấy tất cả user có role PARENT với số điện thoại này
+        var parentUsers = userRepository.findParentsByPhone(phone, ERole.ROLE_PARENT);
+        log.info("Found {} parent users with phone {}", parentUsers.size(), phone);
+
+        if (parentUsers.isEmpty()) {
             response.put("exists", false);
+            return response;
         }
+
+        // Lấy parent đầu tiên để hiển thị tên + email (nếu nhiều, ưu tiên cái đầu)
+        Parent displayParent = null;
+        for (var u : parentUsers) {
+            var pOpt = parentRepository.findByUser_Id(u.getId());
+            if (pOpt.isPresent()) {
+                displayParent = pOpt.get();
+                break;
+            }
+        }
+
+        // Nếu vẫn chưa có parent entity, thử theo bảng parents.phone
+        if (displayParent == null) {
+            displayParent = parentRepository.findByPhoneOrUserPhoneNumber(phone).orElse(null);
+        }
+
+        response.put("exists", true);
+
+        Map<String, Object> parentInfo = new HashMap<>();
+        if (displayParent != null) {
+            parentInfo.put("fullName", displayParent.getFullName());
+            parentInfo.put("email", displayParent.getEmail());
+        }
+
+        // Đếm tổng số học sinh mà parent (bất kỳ với số điện thoại này) đang gắn
+        long childCountTotal = studentRepository.countByParentPhone(phone);
+        log.info("Total child count by phone {}: {}", phone, childCountTotal);
+        parentInfo.put("childCount", childCountTotal);
+
+        response.put("parentInfo", parentInfo);
+        log.info("Parent phone check result for {}: exists={}, childCount={}", phone, true, childCountTotal);
         
         return response;
     }

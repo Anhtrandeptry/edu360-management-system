@@ -324,6 +324,7 @@ public class CourseService {
                 .createdByName(c.getCreatedBy().getFullName())
                 .ownerTeacherId(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getId() : null)
                 .ownerTeacherName(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getUser().getFullName() : null)
+                .createdAt(c.getCreatedAt())
                 .chapters(chapterResponses)
                 .build();
     }
