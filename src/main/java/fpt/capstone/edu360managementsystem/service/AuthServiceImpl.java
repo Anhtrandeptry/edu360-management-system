@@ -5,7 +5,6 @@ import java.text.Normalizer;
 import java.util.Random;
 import java.util.regex.Pattern;
 
-import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
@@ -13,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
@@ -76,37 +76,56 @@ public class AuthServiceImpl implements AuthService {
             return ResponseEntity.badRequest().body(new MessageResponse("Email học sinh này đã được sử dụng. Vui lòng sử dụng email khác."));
         }
 
-        if (request.getParentEmail() != null && userRepository.existsByEmail(request.getParentEmail())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Email phụ huynh này đã được sử dụng. Vui lòng sử dụng email khác."));
+        Parent parent;
+        boolean isNewParent = false;
+
+        // 2. Kiểm tra nếu có existingParentId -> liên kết với phụ huynh đã có
+        if (request.getExistingParentId() != null) {
+            parent = parentRepository.findById(request.getExistingParentId())
+                    .orElseThrow(() -> new RuntimeException("Error: Parent with ID " + request.getExistingParentId() + " not found."));
+        } else {
+            // 3. Tạo parent user mới
+            if (request.getParentEmail() != null && userRepository.existsByEmail(request.getParentEmail())) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Email phụ huynh này đã được sử dụng. Vui lòng sử dụng email khác."));
+            }
+
+            String parentUsernameBase = generateUsernameFromFullName(request.getParentFullName());
+            String parentUsername = ensureUniqueUsername(parentUsernameBase);
+
+            String parentPlainPassword = generateRandomPassword(10);
+            String parentEncodedPassword = encoder.encode(parentPlainPassword);
+
+            User parentUser = new User();
+            parentUser.setUsername(parentUsername);
+            parentUser.setEmail(request.getParentEmail());
+            parentUser.setPassword(parentEncodedPassword);
+            parentUser.setFullName(request.getParentFullName());
+            parentUser.setPhoneNumber(request.getParentPhoneNumber());
+
+            Role parentRole = roleRepository.findByName(ERole.ROLE_PARENT)
+                    .orElseThrow(() -> new RuntimeException("Error: Role ROLE_PARENT not found."));
+            parentUser.getRoles().add(parentRole);
+
+            userRepository.save(parentUser);
+
+            parent = new Parent();
+            parent.setUser(parentUser);
+            parent.setPhone(request.getParentPhoneNumber()); // Lưu phone vào Parent để tìm kiếm sau này
+            parentRepository.save(parent);
+
+            isNewParent = true;
+
+            // Gửi email thông báo tài khoản cho phụ huynh mới
+            String subject = "Tài khoản phụ huynh đã được tạo trên Edu360";
+            String text = String.format("Xin chào %s,\n\nTài khoản phụ huynh của bạn đã được tạo:\n\n- Tên đăng nhập: %s\n- Mật khẩu: %s\n\nVui lòng đăng nhập và đổi mật khẩu ngay lần đầu sử dụng.\n\nTrân trọng,\nĐội ngũ Edu360",
+                    parentUser.getFullName(), parentUsername, parentPlainPassword);
+
+            try {
+                emailService.sendSimpleMessage(parentUser.getEmail(), subject, text);
+            } catch (MailException ex) {
+                // Không throw exception để tránh rollback, chỉ log lỗi
+            }
         }
-
-        // 2. Create parent user
-        String parentUsernameBase = generateUsernameFromFullName(request.getParentFullName());
-        String parentUsername = ensureUniqueUsername(parentUsernameBase);
-
-        String parentPlainPassword = generateRandomPassword(10);
-        String parentEncodedPassword = encoder.encode(parentPlainPassword);
-
-        User parentUser = new User();
-        parentUser.setUsername(parentUsername);
-        parentUser.setEmail(request.getParentEmail());
-        parentUser.setPassword(parentEncodedPassword);
-        // assumed fields
-        parentUser.setFullName(request.getParentFullName());
-        parentUser.setPhoneNumber(request.getParentPhoneNumber());
-
-        // add ROLE_PARENT
-        Role parentRole = roleRepository.findByName(ERole.ROLE_PARENT)
-                .orElseThrow(() -> new RuntimeException("Error: Role ROLE_PARENT not found."));
-        parentUser.getRoles().add(parentRole);
-
-        userRepository.save(parentUser);
-
-        // 3. Create Parent entity
-        Parent parent = new Parent();
-        parent.setUser(parentUser);
-        // optional fields left blank: occupation/address
-        parentRepository.save(parent);
 
         // 4. Create student user
         User studentUser = new User();
@@ -126,24 +145,13 @@ public class AuthServiceImpl implements AuthService {
         Student student = new Student();
         student.setUser(studentUser);
         student.setParent(parent);
-        // optional fields: dob, grade, school -> keep null or set if request contains them
         studentRepository.save(student);
 
-        // 6. Send email to parent with login info (best-effort)
-        String subject = "Tài khoản phụ huynh đã được tạo trên Edu360";
-        String text = String.format("Xin chào %s,\n\nTài khoản phụ huynh của bạn đã được tạo:\n\n- Tên đăng nhập: %s\n- Mật khẩu: %s\n\nVui lòng đăng nhập và đổi mật khẩu ngay lần đầu sử dụng.\n\nTrân trọng,\nĐội ngũ Edu360",
-                parentUser.getFullName(), parentUsername, parentPlainPassword);
-
-        try {
-            emailService.sendSimpleMessage(parentUser.getEmail(), subject, text);
-        } catch (MailException ex) {
-            // Không ném lỗi để rollback DB vì gửi mail có thể thất bại; log và trả thông báo success + warning.
-            // (Bạn có thể thay đổi để rollback nếu muốn)
-            // dùng ResponseEntity 200 nhưng kèm thông báo
-            return ResponseEntity.ok(new MessageResponse("User created but failed to send email to parent: " + ex.getMessage()));
+        if (isNewParent) {
+            return ResponseEntity.ok(new MessageResponse("Đăng ký thành công! Thông tin đăng nhập của phụ huynh đã được gửi qua email."));
+        } else {
+            return ResponseEntity.ok(new MessageResponse("Đăng ký thành công! Học sinh đã được liên kết với phụ huynh hiện có trong hệ thống."));
         }
-
-        return ResponseEntity.ok(new MessageResponse("Đăng ký thành công! Tài khoản phụ huynh: " + parentUsername + ". Thông tin đăng nhập đã được gửi qua email."));
     }
 
     @Override
@@ -263,11 +271,11 @@ public class AuthServiceImpl implements AuthService {
         // 3. Gửi email mật khẩu mới
         String subject = "Mật khẩu mới cho tài khoản Edu360";
         String text = String.format(
-                "Xin chào %s,\n\n" +
-                        "Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản trên hệ thống Edu360.\n\n" +
-                        "Mật khẩu mới của bạn là: %s\n\n" +
-                        "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập để đảm bảo an toàn.\n\n" +
-                        "Trân trọng,\nĐội ngũ Edu360",
+                "Xin chào %s,\n\n"
+                + "Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản trên hệ thống Edu360.\n\n"
+                + "Mật khẩu mới của bạn là: %s\n\n"
+                + "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập để đảm bảo an toàn.\n\n"
+                + "Trân trọng,\nĐội ngũ Edu360",
                 user.getFullName(), newPlainPassword
         );
 
@@ -283,15 +291,15 @@ public class AuthServiceImpl implements AuthService {
                 "Mật khẩu mới đã được gửi tới email của bạn (nếu email tồn tại trong hệ thống)."));
     }
 
-
     // --- helper methods ---
-    
     /**
-     * Loại bỏ dấu tiếng Việt và chuyển thành ký tự ASCII
-     * Ví dụ: "Nguyễn Văn Ân" -> "nguyen van an"
+     * Loại bỏ dấu tiếng Việt và chuyển thành ký tự ASCII Ví dụ: "Nguyễn Văn Ân"
+     * -> "nguyen van an"
      */
     private String removeVietnameseAccents(String str) {
-        if (str == null) return null;
+        if (str == null) {
+            return null;
+        }
         // Chuẩn hóa Unicode NFD để tách dấu ra khỏi ký tự gốc
         String normalized = Normalizer.normalize(str, Normalizer.Form.NFD);
         // Loại bỏ các dấu combining (dấu thanh)
@@ -301,12 +309,11 @@ public class AuthServiceImpl implements AuthService {
         result = result.replace('đ', 'd').replace('Đ', 'D');
         return result;
     }
-    
+
     /**
-     * Tạo username từ họ tên đầy đủ
-     * Format: tên + chữ cái đầu của họ và tên đệm (không dấu)
-     * Ví dụ: "Trần Quốc Anh" -> "anhtq"
-     *        "Nguyễn Thị Hương" -> "huongnth"
+     * Tạo username từ họ tên đầy đủ Format: tên + chữ cái đầu của họ và tên đệm
+     * (không dấu) Ví dụ: "Trần Quốc Anh" -> "anhtq" "Nguyễn Thị Hương" ->
+     * "huongnth"
      */
     private String generateUsernameFromFullName(String fullName) {
         if (fullName == null || fullName.isBlank()) {

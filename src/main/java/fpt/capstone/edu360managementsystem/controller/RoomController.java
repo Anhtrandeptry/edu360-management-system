@@ -41,7 +41,6 @@ public class RoomController {
         return ResponseEntity.ok(roomService.getAllRooms());
     }
 
-
     @GetMapping("/paginated")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<RoomResponse>> getRoomsPaginated(
@@ -58,8 +57,8 @@ public class RoomController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createRoom(@Valid @RequestBody RoomRequest request) {
-        if (roomRepository.existsByName(request.getName())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Room name is already in use!"));
+        if (roomRepository.existsByNameIgnoreCase(request.getName())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Phòng học đã tồn tại"));
         }
         return ResponseEntity.ok(roomService.createRoom(request));
     }
@@ -90,7 +89,6 @@ public class RoomController {
         roomService.enableRoom(id);
         return ResponseEntity.ok("Room enabled successfully");
     }
-
 
     @GetMapping("/{id}/free-busy")
     public ResponseEntity<List<fpt.capstone.edu360managementsystem.dto.response.BusySlotResponse>> getRoomFreeBusy(
