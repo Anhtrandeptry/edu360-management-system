@@ -344,7 +344,8 @@ public class GoogleAuthService {
     }
 
     /**
-     * Check if parent phone exists and return parent info
+     * Check if parent phone exists and return parent info Tìm theo phone trong
+     * bảng parents hoặc phone_number trong bảng users
      */
     public Map<String, Object> checkParentPhone(String phone) {
         Map<String, Object> response = new HashMap<>();
@@ -377,6 +378,7 @@ public class GoogleAuthService {
             response.put("parentInfo", parentInfo);
         } else {
             response.put("exists", false);
+            return response;
         }
 
         return response;

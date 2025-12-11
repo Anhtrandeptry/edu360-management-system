@@ -50,4 +50,39 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
       """)
     java.util.List<User> findAllByRole(@Param("roleName") fpt.capstone.edu360managementsystem.enums.ERole roleName);
 
+    /**
+     * Tìm tất cả Users có role PARENT theo số điện thoại
+     */
+    @Query("""
+      SELECT u FROM User u 
+      JOIN u.roles r
+      WHERE r.name = :roleName
+        AND u.phoneNumber = :phone
+      """)
+    java.util.List<User> findParentsByPhone(@Param("phone") String phone, @Param("roleName") fpt.capstone.edu360managementsystem.enums.ERole roleName);
+
+    /**
+     * Kiểm tra trùng email trong nhóm giáo viên (role TEACHER), loại trừ một userId nếu cung cấp.
+     */
+    @Query("""
+      SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END
+      FROM User u JOIN u.roles r
+      WHERE r.name = :roleName
+        AND LOWER(u.email) = LOWER(:email)
+        AND (:excludeUserId IS NULL OR u.id <> :excludeUserId)
+      """)
+    boolean existsTeacherEmail(@Param("email") String email, @Param("excludeUserId") Long excludeUserId, @Param("roleName") fpt.capstone.edu360managementsystem.enums.ERole roleName);
+
+    /**
+     * Kiểm tra trùng số điện thoại trong nhóm giáo viên (role TEACHER), loại trừ một userId nếu cung cấp.
+     */
+    @Query("""
+      SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END
+      FROM User u JOIN u.roles r
+      WHERE r.name = :roleName
+        AND u.phoneNumber = :phone
+        AND (:excludeUserId IS NULL OR u.id <> :excludeUserId)
+      """)
+    boolean existsTeacherPhone(@Param("phone") String phone, @Param("excludeUserId") Long excludeUserId, @Param("roleName") fpt.capstone.edu360managementsystem.enums.ERole roleName);
+
 }

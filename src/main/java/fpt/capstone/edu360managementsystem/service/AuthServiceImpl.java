@@ -157,26 +157,33 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<?> registerTeacher(RegisterTeacherRequest request) {
-        // 1. Kiểm tra email đã tồn tại chưa
-        if (userRepository.existsByEmail(request.getEmail())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use!"));
+        // 1. Kiểm tra email đã tồn tại trong giáo viên khác chưa
+        if (userRepository.existsTeacherEmail(request.getEmail(), null, ERole.ROLE_TEACHER)) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Email đã được sử dụng bởi giáo viên khác!"));
         }
 
-        // 2. Sinh username tự động từ họ tên
+        // 2. Kiểm tra số điện thoại đã tồn tại trong giáo viên khác chưa
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isBlank()) {
+            if (userRepository.existsTeacherPhone(request.getPhoneNumber(), null, ERole.ROLE_TEACHER)) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Error: Số điện thoại đã được sử dụng bởi giáo viên khác!"));
+            }
+        }
+
+        // 3. Sinh username tự động từ họ tên
         String usernameBase = generateUsernameFromFullName(request.getFullName());
         String username = ensureUniqueUsername(usernameBase);
 
-        // 3. Sinh mật khẩu ngẫu nhiên
+        // 4. Sinh mật khẩu ngẫu nhiên
         String rawPassword = generateRandomPassword(10);
 
-        // 4. Mã hóa mật khẩu
+        // 5. Mã hóa mật khẩu
         String encodedPassword = encoder.encode(rawPassword);
 
-        // 5. Lấy role TEACHER
+        // 6. Lấy role TEACHER
         Role teacherRole = roleRepository.findByName(ERole.ROLE_TEACHER)
                 .orElseThrow(() -> new RuntimeException("Error: Role ROLE_TEACHER not found."));
 
-        // 6. Tạo user
+        // 7. Tạo user
         User teacherUser = new User();
         teacherUser.setUsername(username);
         teacherUser.setEmail(request.getEmail());
@@ -187,7 +194,7 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(teacherUser);
 
-        // 7. Load subjects & validate (multi-subject)
+        // 8. Load subjects & validate (multi-subject)
         if (request.getSubjectIds() == null || request.getSubjectIds().isEmpty()) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: At least one subject is required"));
         }
@@ -201,7 +208,7 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 8. Tạo teacher entity với danh sách subjects + subject chính (lấy môn đầu tiên)
+        // 9. Tạo teacher entity với danh sách subjects + subject chính (lấy môn đầu tiên)
         Teacher teacher = new Teacher();
         teacher.setUser(teacherUser);
         // Chọn môn đầu tiên làm subject chính để thỏa mãn NOT NULL cột subject_id cũ
@@ -215,7 +222,7 @@ public class AuthServiceImpl implements AuthService {
         }
         teacherRepository.save(teacher);
 
-        // 9. Gửi email tài khoản cho giáo viên
+        // 10. Gửi email tài khoản cho giáo viên
         String emailSubject = "Tài khoản giáo viên đã được tạo trên Edu360";
         String text = String.format("""
             Xin chào %s,
