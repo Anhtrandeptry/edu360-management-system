@@ -21,6 +21,13 @@ import fpt.capstone.edu360managementsystem.service.SessionContentService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
+/**
+ * REST controller for session content management.
+ * Provides endpoints for managing lesson content within class sessions.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/sessions")
 public class SessionContentController {
@@ -29,6 +36,16 @@ public class SessionContentController {
     private SessionContentService sessionContentService;
     private static final Logger log = LoggerFactory.getLogger(SessionContentController.class);
 
+    /**
+     * Creates or updates session content by class and date.
+     *
+     * @param user    the authenticated teacher
+     * @param classId the class ID
+     * @param date    the session date
+     * @param slotId  optional time slot ID
+     * @param req     the session content data
+     * @return success message
+     */
     @PostMapping("/by-class-date")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsertSessionContentByClassDate(
@@ -47,6 +64,14 @@ public class SessionContentController {
         return ResponseEntity.status(HttpStatus.CREATED).body("Session content saved");
     }
 
+    /**
+     * Creates or updates session content by session ID.
+     *
+     * @param user      the authenticated teacher
+     * @param sessionId the session ID
+     * @param req       the session content data
+     * @return success message
+     */
     @PostMapping("/{sessionId}/content")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsertSessionContent(
@@ -54,7 +79,7 @@ public class SessionContentController {
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionContentUpsertRequest req
     ) {
-        log.info("➡️ API upsertSessionContent userId={}, sessionId={}, chapters={}, lessons={}, contentLength={}",
+        log.info("API upsertSessionContent userId={}, sessionId={}, chapters={}, lessons={}, contentLength={}",
                 user.getId(), sessionId,
                 req.getChapterIds() != null ? req.getChapterIds() : "[]",
                 req.getLessonIds() != null ? req.getLessonIds() : "[]",
@@ -63,16 +88,30 @@ public class SessionContentController {
         return ResponseEntity.status(HttpStatus.CREATED).body("Session content saved");
     }
 
+    /**
+     * Retrieves session content by class and date.
+     *
+     * @param classId the class ID
+     * @param date    the session date
+     * @param slotId  optional time slot ID
+     * @return session content details
+     */
     @GetMapping("/content/by-class-date")
     @PreAuthorize("hasRole('TEACHER') or hasRole('STUDENT') or hasRole('ADMIN')")
-        public ResponseEntity<SessionContentResponse> getSessionContentByClassDate(
-                        @RequestParam Long classId,
-                        @RequestParam String date,
-                        @RequestParam(required = false) Long slotId
+    public ResponseEntity<SessionContentResponse> getSessionContentByClassDate(
+            @RequestParam Long classId,
+            @RequestParam String date,
+            @RequestParam(required = false) Long slotId
     ) {
-                return ResponseEntity.ok(sessionContentService.getSessionContentByClassDate(classId, date, slotId));
+        return ResponseEntity.ok(sessionContentService.getSessionContentByClassDate(classId, date, slotId));
     }
 
+    /**
+     * Retrieves session content by session ID.
+     *
+     * @param sessionId the session ID
+     * @return session content details
+     */
     @GetMapping("/{sessionId}/content")
     @PreAuthorize("hasRole('TEACHER') or hasRole('STUDENT') or hasRole('ADMIN')")
     public ResponseEntity<SessionContentResponse> getSessionContent(

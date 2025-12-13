@@ -13,7 +13,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import jakarta.annotation.PostConstruct;
 
-
+/**
+ * Database migration configuration for automatic schema updates.
+ * Handles automatic migration of database tables on application startup,
+ * including adding missing columns and recreating constraints.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @Configuration
 public class DatabaseMigrationConfig {
 
@@ -22,33 +29,39 @@ public class DatabaseMigrationConfig {
     @Autowired
     private DataSource dataSource;
 
+    /**
+     * Executes database migration on application startup.
+     * Migrates session_chapters and session_lessons tables to add missing 'id' columns.
+     */
     @PostConstruct
     public void migrateDatabase() {
-        log.info("🔧 [DATABASE MIGRATION] Starting automatic database migration...");
+        log.info("[DATABASE MIGRATION] Starting automatic database migration...");
 
         try {
             JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
 
-            // Fix session_chapters table
             fixSessionChaptersTable(jdbcTemplate);
-
-            // Fix session_lessons table
             fixSessionLessonsTable(jdbcTemplate);
 
             log.info("[DATABASE MIGRATION] Migration completed successfully!");
 
         } catch (Exception e) {
             log.error("[DATABASE MIGRATION] Migration failed: {}", e.getMessage(), e);
-
         }
     }
 
+    /**
+     * Migrates the session_chapters table to add auto-increment primary key.
+     * Creates backup, drops existing constraints, adds 'id' column,
+     * and recreates foreign keys with unique constraint.
+     *
+     * @param jdbcTemplate the JDBC template for database operations
+     */
     private void fixSessionChaptersTable(JdbcTemplate jdbcTemplate) {
         String tableName = "session_chapters";
         log.info("[MIGRATION] Checking table: {}", tableName);
 
         try {
-            // Kiểm tra xem cột 'id' đã tồn tại chưa
             String checkColumnSql = "SELECT COUNT(*) FROM information_schema.COLUMNS "
                     + "WHERE TABLE_SCHEMA = DATABASE() "
                     + "AND TABLE_NAME = ? "
@@ -63,7 +76,6 @@ public class DatabaseMigrationConfig {
 
             log.info("[MIGRATION] Table '{}' missing 'id' column. Starting migration...", tableName);
 
-            // Backup dữ liệu
             String backupTableName = tableName + "_backup_auto";
             log.info("[MIGRATION] Creating backup: {}", backupTableName);
             jdbcTemplate.execute("DROP TABLE IF EXISTS " + backupTableName);
@@ -72,11 +84,9 @@ public class DatabaseMigrationConfig {
             Integer backupCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + backupTableName, Integer.class);
             log.info("[MIGRATION] Backed up {} rows", backupCount);
 
-            // Drop foreign keys
             log.info("[MIGRATION] Dropping foreign keys...");
             dropForeignKeys(jdbcTemplate, tableName);
 
-            // Drop primary key
             log.info("[MIGRATION] Dropping primary key...");
             try {
                 jdbcTemplate.execute("ALTER TABLE " + tableName + " DROP PRIMARY KEY");
@@ -84,11 +94,9 @@ public class DatabaseMigrationConfig {
                 log.warn("[MIGRATION] No primary key to drop or already dropped");
             }
 
-            // Thêm cột id
             log.info("[MIGRATION] Adding 'id' column...");
             jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN id BIGINT AUTO_INCREMENT PRIMARY KEY FIRST");
 
-            // Recreate foreign keys
             log.info("[MIGRATION] Recreating foreign keys...");
             jdbcTemplate.execute("ALTER TABLE " + tableName + " "
                     + "ADD CONSTRAINT fk_session_chapters_session "
@@ -98,7 +106,6 @@ public class DatabaseMigrationConfig {
                     + "ADD CONSTRAINT fk_session_chapters_chapter "
                     + "FOREIGN KEY (chapter_id) REFERENCES course_chapters(id) ON DELETE CASCADE");
 
-            // Add unique constraint
             jdbcTemplate.execute("ALTER TABLE " + tableName + " "
                     + "ADD CONSTRAINT uk_session_chapter UNIQUE (session_id, chapter_id)");
 
@@ -110,12 +117,18 @@ public class DatabaseMigrationConfig {
         }
     }
 
+    /**
+     * Migrates the session_lessons table to add auto-increment primary key.
+     * Creates backup, drops existing constraints, adds 'id' column,
+     * and recreates foreign keys with unique constraint.
+     *
+     * @param jdbcTemplate the JDBC template for database operations
+     */
     private void fixSessionLessonsTable(JdbcTemplate jdbcTemplate) {
         String tableName = "session_lessons";
         log.info("[MIGRATION] Checking table: {}", tableName);
 
         try {
-            // Kiểm tra xem cột 'id' đã tồn tại chưa
             String checkColumnSql = "SELECT COUNT(*) FROM information_schema.COLUMNS "
                     + "WHERE TABLE_SCHEMA = DATABASE() "
                     + "AND TABLE_NAME = ? "
@@ -130,7 +143,6 @@ public class DatabaseMigrationConfig {
 
             log.info("[MIGRATION] Table '{}' missing 'id' column. Starting migration...", tableName);
 
-            // Backup dữ liệu
             String backupTableName = tableName + "_backup_auto";
             log.info("[MIGRATION] Creating backup: {}", backupTableName);
             jdbcTemplate.execute("DROP TABLE IF EXISTS " + backupTableName);
@@ -139,11 +151,9 @@ public class DatabaseMigrationConfig {
             Integer backupCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + backupTableName, Integer.class);
             log.info("[MIGRATION] Backed up {} rows", backupCount);
 
-            // Drop foreign keys
             log.info("[MIGRATION] Dropping foreign keys...");
             dropForeignKeys(jdbcTemplate, tableName);
 
-            // Drop primary key
             log.info("[MIGRATION] Dropping primary key...");
             try {
                 jdbcTemplate.execute("ALTER TABLE " + tableName + " DROP PRIMARY KEY");
@@ -151,11 +161,9 @@ public class DatabaseMigrationConfig {
                 log.warn("[MIGRATION] No primary key to drop or already dropped");
             }
 
-            // Thêm cột id
             log.info("[MIGRATION] Adding 'id' column...");
             jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN id BIGINT AUTO_INCREMENT PRIMARY KEY FIRST");
 
-            // Recreate foreign keys
             log.info("[MIGRATION] Recreating foreign keys...");
             jdbcTemplate.execute("ALTER TABLE " + tableName + " "
                     + "ADD CONSTRAINT fk_session_lessons_session "
@@ -165,7 +173,6 @@ public class DatabaseMigrationConfig {
                     + "ADD CONSTRAINT fk_session_lessons_lesson "
                     + "FOREIGN KEY (lesson_id) REFERENCES course_lessons(id) ON DELETE CASCADE");
 
-            // Add unique constraint
             jdbcTemplate.execute("ALTER TABLE " + tableName + " "
                     + "ADD CONSTRAINT uk_session_lesson UNIQUE (session_id, lesson_id)");
 
@@ -177,9 +184,14 @@ public class DatabaseMigrationConfig {
         }
     }
 
+    /**
+     * Drops all foreign keys from the specified table.
+     *
+     * @param jdbcTemplate the JDBC template for database operations
+     * @param tableName    the name of the table to drop foreign keys from
+     */
     private void dropForeignKeys(JdbcTemplate jdbcTemplate, String tableName) {
         try {
-            // Lấy danh sách foreign keys
             String getFkSql = "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
                     + "WHERE TABLE_SCHEMA = DATABASE() "
                     + "AND TABLE_NAME = ? "

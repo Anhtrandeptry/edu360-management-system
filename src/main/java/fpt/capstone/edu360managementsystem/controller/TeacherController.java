@@ -23,7 +23,13 @@ import fpt.capstone.edu360managementsystem.service.ScheduleService;
 import fpt.capstone.edu360managementsystem.service.TeacherService;
 import jakarta.validation.Valid;
 
-
+/**
+ * REST controller for teacher management.
+ * Provides endpoints for teacher CRUD operations, profile management, and subject assignments.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/teachers")
 public class TeacherController {
@@ -34,7 +40,12 @@ public class TeacherController {
     @Autowired
     private TeacherService teacherService;
 
-
+    /**
+     * Retrieves list of teachers with optional subject filter.
+     *
+     * @param subjectId optional subject ID to filter teachers
+     * @return list of teachers
+     */
     @GetMapping
     public ResponseEntity<List<TeacherResponse>> getTeachers(
             @RequestParam(name = "subjectId", required = false) Long subjectId
@@ -43,7 +54,17 @@ public class TeacherController {
         return ResponseEntity.ok(teachers);
     }
 
-
+    /**
+     * Retrieves teachers with pagination and filtering.
+     *
+     * @param search    optional search term
+     * @param subjectId optional subject ID filter
+     * @param page      page number
+     * @param size      page size
+     * @param sortBy    sort field
+     * @param order     sort order (asc/desc)
+     * @return paginated list of teachers
+     */
     @GetMapping("/paginated")
     public ResponseEntity<Page<TeacherResponse>> getTeachersPaginated(
             @RequestParam(required = false) String search,
@@ -58,7 +79,14 @@ public class TeacherController {
         ));
     }
 
-
+    /**
+     * Retrieves busy time slots for a teacher within a date range.
+     *
+     * @param userId the teacher user ID
+     * @param from   start date
+     * @param to     end date
+     * @return list of busy time slots
+     */
     @GetMapping("/{id}/free-busy")
     public ResponseEntity<List<BusySlotResponse>> getTeacherFreeBusy(
             @PathVariable("id") Long userId,
@@ -69,34 +97,47 @@ public class TeacherController {
         return ResponseEntity.ok(busySlots);
     }
 
-
+    /**
+     * Retrieves teacher information by user ID.
+     *
+     * @param userId the user ID
+     * @return teacher details
+     */
     @GetMapping("/by-user/{userId}")
     public ResponseEntity<TeacherResponse> getTeacherByUserId(@PathVariable Long userId) {
         TeacherResponse resp = teacherService.getByUserId(userId);
         return ResponseEntity.ok(resp);
     }
 
-
+    /**
+     * Retrieves teacher profile by user ID.
+     *
+     * @param userId the user ID
+     * @return teacher profile details
+     */
     @GetMapping("/by-user/{userId}/profile")
     public ResponseEntity<TeacherProfileResponse> getTeacherProfileByUserId(@PathVariable Long userId) {
         TeacherProfileResponse profile = teacherService.getTeacherProfile(userId);
         return ResponseEntity.ok(profile);
     }
 
-
+    /**
+     * Retrieves the authenticated teacher's own profile.
+     *
+     * @param auth authentication object containing user details
+     * @return teacher profile for the authenticated user
+     */
     @GetMapping("/profile")
     public ResponseEntity<TeacherProfileResponse> getMyProfile(Authentication auth) {
         if (auth == null || auth.getPrincipal() == null) {
             return ResponseEntity.status(401).build();
         }
 
-        // Extract userId from UserDetailsImpl
         Long userId;
         if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
             org.springframework.security.core.userdetails.UserDetails userDetails
                     = (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal();
 
-            // UserDetailsImpl has getId() method
             if (userDetails instanceof fpt.capstone.edu360managementsystem.service.UserDetailsImpl) {
                 userId = ((fpt.capstone.edu360managementsystem.service.UserDetailsImpl) userDetails).getId();
             } else {
@@ -110,7 +151,13 @@ public class TeacherController {
         return ResponseEntity.ok(profile);
     }
 
-
+    /**
+     * Updates the authenticated teacher's own profile.
+     *
+     * @param auth    authentication object containing user details
+     * @param request profile update data
+     * @return updated teacher profile
+     */
     @PutMapping("/profile")
     public ResponseEntity<TeacherProfileResponse> updateMyProfile(
             Authentication auth,
@@ -120,7 +167,6 @@ public class TeacherController {
             return ResponseEntity.status(401).build();
         }
 
-        // Extract userId from UserDetailsImpl
         Long userId;
         if (auth.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
             org.springframework.security.core.userdetails.UserDetails userDetails
@@ -139,14 +185,25 @@ public class TeacherController {
         return ResponseEntity.ok(updated);
     }
 
-
+    /**
+     * Retrieves subjects assigned to a teacher.
+     *
+     * @param teacherId the teacher ID
+     * @return list of subjects taught by the teacher
+     */
     @GetMapping("/{teacherId}/subjects")
     public ResponseEntity<List<SubjectResponse>> getSubjectsByTeacherId(@PathVariable Long teacherId) {
         List<SubjectResponse> subjects = teacherService.getSubjectsByTeacherId(teacherId);
         return ResponseEntity.ok(subjects);
     }
 
-
+    /**
+     * Updates the subjects assigned to a teacher.
+     *
+     * @param teacherId the teacher ID
+     * @param body      request body containing subjectIds list
+     * @return updated list of subjects
+     */
     @PutMapping("/{teacherId}/subjects")
     public ResponseEntity<List<SubjectResponse>> updateTeacherSubjects(
             @PathVariable Long teacherId,
@@ -157,7 +214,6 @@ public class TeacherController {
             List<SubjectResponse> updated = teacherService.updateTeacherSubjects(teacherId, subjectIds);
             return ResponseEntity.ok(updated);
         } catch (IllegalStateException ex) {
-            // Vi phạm nghiệp vụ: đang dạy lớp nên không thể chuyển môn
             return ResponseEntity.badRequest().body(java.util.List.of(
                     SubjectResponse.builder()
                             .id(-1L)
@@ -169,7 +225,13 @@ public class TeacherController {
         }
     }
 
-
+    /**
+     * Updates the primary subject for a teacher.
+     *
+     * @param teacherId the teacher ID
+     * @param body      request body containing subjectId
+     * @return updated primary subject
+     */
     @PutMapping("/{teacherId}/primary-subject")
     public ResponseEntity<SubjectResponse> updatePrimarySubject(
             @PathVariable Long teacherId,

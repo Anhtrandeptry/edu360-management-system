@@ -21,6 +21,13 @@ import fpt.capstone.edu360managementsystem.service.AttendanceService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
+/**
+ * REST controller for attendance management.
+ * Provides endpoints for teachers to take and manage student attendance.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/attendance")
 public class AttendanceController {
@@ -28,7 +35,12 @@ public class AttendanceController {
     @Autowired
     private AttendanceService attendanceService;
 
-
+    /**
+     * Retrieves today's sessions for the authenticated teacher.
+     *
+     * @param user the authenticated teacher
+     * @return list of today's sessions or message if none
+     */
     @GetMapping("/today")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> today(@AuthenticationPrincipal UserDetailsImpl user) {
@@ -40,7 +52,13 @@ public class AttendanceController {
         return ResponseEntity.ok(sessions);
     }
 
-
+    /**
+     * Retrieves attendance details for a specific session.
+     *
+     * @param user      the authenticated teacher
+     * @param sessionId the session ID
+     * @return session attendance details
+     */
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<AttendanceSessionDetailResponse> sessionDetail(
@@ -51,7 +69,14 @@ public class AttendanceController {
         );
     }
 
-
+    /**
+     * Creates or updates attendance records for a session.
+     *
+     * @param user      the authenticated teacher
+     * @param sessionId the session ID
+     * @param body      attendance data
+     * @return success message
+     */
     @PostMapping("/session/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsert(
@@ -62,7 +87,16 @@ public class AttendanceController {
         return ResponseEntity.ok("Đã lưu điểm danh.");
     }
 
-
+    /**
+     * Creates or updates attendance by class and date.
+     *
+     * @param user    the authenticated teacher
+     * @param classId the class ID
+     * @param date    the date string
+     * @param slotId  optional time slot ID
+     * @param body    attendance data
+     * @return success message
+     */
     @PostMapping("/class/{classId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> upsertByClass(
@@ -75,7 +109,15 @@ public class AttendanceController {
         return ResponseEntity.ok("Đã lưu điểm danh.");
     }
 
-
+    /**
+     * Retrieves attendance details by class and date.
+     *
+     * @param user    the authenticated teacher
+     * @param classId the class ID
+     * @param date    the date string
+     * @param slotId  optional time slot ID
+     * @return session attendance details
+     */
     @GetMapping("/class/{classId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<AttendanceSessionDetailResponse> detailByClass(
@@ -88,7 +130,14 @@ public class AttendanceController {
         );
     }
 
-
+    /**
+     * Admin endpoint to view attendance by class and date.
+     *
+     * @param classId the class ID
+     * @param date    the date string
+     * @param slotId  optional time slot ID
+     * @return session attendance details
+     */
     @GetMapping("/admin/class/{classId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AttendanceSessionDetailResponse> adminViewByClass(

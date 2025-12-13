@@ -17,6 +17,13 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller for session material management.
+ * Provides endpoints for uploading, downloading, and managing session materials.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/materials")
 @RequiredArgsConstructor
@@ -25,6 +32,15 @@ public class SessionMaterialController {
 
     private final SessionMaterialService materialService;
 
+    /**
+     * Uploads a material file for a session.
+     *
+     * @param sessionId   the session ID
+     * @param file        the material file (max 50MB)
+     * @param description optional file description
+     * @param userDetails the authenticated user
+     * @return uploaded material response
+     */
     @PostMapping("/upload/{sessionId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<SessionMaterialResponse> uploadMaterial(
@@ -41,7 +57,6 @@ public class SessionMaterialController {
                 return ResponseEntity.badRequest().build();
             }
 
-            // Kiểm tra kích thước file (max 50MB)
             if (file.getSize() > 50 * 1024 * 1024) {
                 log.warn("File too large: {} bytes", file.getSize());
                 return ResponseEntity.badRequest().build();
@@ -57,6 +72,14 @@ public class SessionMaterialController {
         }
     }
 
+    /**
+     * Adds a link material to a session.
+     *
+     * @param sessionId   the session ID
+     * @param request     map containing url, title, and description
+     * @param userDetails the authenticated user
+     * @return created link material response
+     */
     @PostMapping("/link/{sessionId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<SessionMaterialResponse> addLink(
@@ -81,6 +104,12 @@ public class SessionMaterialController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Retrieves all materials for a session.
+     *
+     * @param sessionId the session ID
+     * @return list of session materials
+     */
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<SessionMaterialResponse>> getMaterialsBySession(
@@ -91,8 +120,10 @@ public class SessionMaterialController {
     }
 
     /**
-     * Download/redirect đến file trên Cloudinary Do file được lưu trên
-     * Cloudinary, ta redirect đến URL trực tiếp
+     * Downloads or redirects to the material file on Cloudinary.
+     *
+     * @param materialId the material ID
+     * @return redirect to Cloudinary URL
      */
     @GetMapping("/download/{materialId}")
     @PreAuthorize("isAuthenticated()")
@@ -105,7 +136,6 @@ public class SessionMaterialController {
                 return ResponseEntity.notFound().build();
             }
 
-            // Redirect đến Cloudinary URL
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(fileUrl))
                     .build();
@@ -116,6 +146,13 @@ public class SessionMaterialController {
         }
     }
 
+    /**
+     * Deletes a session material.
+     *
+     * @param materialId  the material ID
+     * @param userDetails the authenticated user
+     * @return success or error response
+     */
     @DeleteMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<Void> deleteMaterial(
@@ -131,6 +168,12 @@ public class SessionMaterialController {
         }
     }
 
+    /**
+     * Retrieves a material by ID.
+     *
+     * @param materialId the material ID
+     * @return material details
+     */
     @GetMapping("/{materialId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SessionMaterialResponse> getMaterial(@PathVariable Long materialId) {

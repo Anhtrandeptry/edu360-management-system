@@ -19,6 +19,13 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+/**
+ * REST controller for payment management.
+ * Provides endpoints for payment creation, webhooks, and payment history.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
@@ -26,7 +33,13 @@ public class PaymentController {
     @Autowired
     private PaymentService paymentService;
 
-    // Endpoint student get QR như trước
+    /**
+     * Creates a payment and generates QR code for class enrollment.
+     *
+     * @param classId the class ID to pay for
+     * @param user    the authenticated student
+     * @return payment response with QR code
+     */
     @PostMapping("/class/{classId}")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<PaymentCreateResponse> createPayment(
@@ -37,19 +50,28 @@ public class PaymentController {
         return ResponseEntity.ok(resp);
     }
 
-
+    /**
+     * Handles VietQR payment callback.
+     *
+     * @param body the callback request data
+     * @return success or error message
+     */
     @PostMapping("/vietqr/callback")
     public ResponseEntity<?> vietQrCallback(@RequestBody VietQrCallbackRequest body) {
         try {
             paymentService.handleVietQrCallback(body);
             return ResponseEntity.ok(new MessageResponse("Payment verified and student enrolled"));
         } catch (Exception ex) {
-            // Có thể log chi tiết hơn
             return ResponseEntity.badRequest().body(new MessageResponse(ex.getMessage()));
         }
     }
 
-
+    /**
+     * Handles Casso payment webhook.
+     *
+     * @param body the webhook request data
+     * @return acknowledgement message
+     */
     @PostMapping("/casso/webhook")
     public ResponseEntity<?> cassoWebhook(@RequestBody CassoWebhookRequest body) {
         try {
@@ -57,14 +79,22 @@ public class PaymentController {
             return ResponseEntity.ok(new MessageResponse("OK"));
         } catch (Exception ex) {
             System.err.println("Casso webhook error: " + ex.getMessage());
-            // Trả OK để Casso không retry liên tục
             return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
         }
     }
 
-    // ===================== ADMIN ENDPOINTS =====================
-
-
+    /**
+     * Lists all payments with filters and pagination.
+     *
+     * @param status      optional status filter
+     * @param studentName optional student name filter
+     * @param classId     optional class filter
+     * @param from        optional start date filter
+     * @param to          optional end date filter
+     * @param page        page number
+     * @param size        page size
+     * @return paginated payment list
+     */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<PaymentResponse>> listPayments(
@@ -80,7 +110,12 @@ public class PaymentController {
         return ResponseEntity.ok(result);
     }
 
-
+    /**
+     * Retrieves payment details by ID.
+     *
+     * @param id the payment ID
+     * @return payment details
+     */
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaymentResponse> getPayment(@PathVariable Long id) {
@@ -88,7 +123,11 @@ public class PaymentController {
         return ResponseEntity.ok(resp);
     }
 
-
+    /**
+     * Retrieves payment statistics.
+     *
+     * @return payment statistics
+     */
     @GetMapping("/stats")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getStats() {
@@ -96,7 +135,12 @@ public class PaymentController {
         return ResponseEntity.ok(stats);
     }
 
-
+    /**
+     * Manually confirms a payment.
+     *
+     * @param id the payment ID
+     * @return success message
+     */
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> confirmPayment(@PathVariable Long id) {
@@ -104,11 +148,13 @@ public class PaymentController {
         return ResponseEntity.ok(new MessageResponse("Đã xác nhận thanh toán thành công"));
     }
 
-    // ===================== STUDENT ENDPOINTS =====================
-
     /**
-     * Student: Lấy lịch sử thanh toán của chính mình.
-     * GET /api/payments/my-history?page=0&size=10
+     * Retrieves payment history for the authenticated student.
+     *
+     * @param user the authenticated student
+     * @param page page number
+     * @param size page size
+     * @return paginated payment history
      */
     @GetMapping("/my-history")
     @PreAuthorize("hasRole('STUDENT')")

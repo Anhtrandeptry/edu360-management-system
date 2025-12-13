@@ -30,6 +30,13 @@ import fpt.capstone.edu360managementsystem.service.CourseService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
+/**
+ * REST controller for course management.
+ * Provides endpoints for CRUD operations on courses, chapters, and lessons.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/courses")
 public class CourseController {
@@ -37,6 +44,13 @@ public class CourseController {
     @Autowired
     private CourseService courseService;
 
+    /**
+     * Creates a new course.
+     *
+     * @param user the authenticated user
+     * @param req  the course creation data
+     * @return created course response
+     */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<CourseResponse> createCourse(
@@ -49,7 +63,13 @@ public class CourseController {
         return ResponseEntity.ok(resp);
     }
 
-
+    /**
+     * Lists all courses with optional filters.
+     *
+     * @param subjectId optional subject filter
+     * @param status    optional status filter
+     * @return list of courses
+     */
     @GetMapping
     public ResponseEntity<List<CourseResponse>> listCourses(
             @RequestParam(name = "subjectId", required = false) Long subjectId,
@@ -62,7 +82,19 @@ public class CourseController {
         return ResponseEntity.ok(courseService.listCourses(subjectId, st));
     }
 
-
+    /**
+     * Retrieves paginated courses with filters and sorting.
+     *
+     * @param search        optional search term
+     * @param status        status filter
+     * @param subjectId     optional subject filter
+     * @param teacherUserId optional teacher filter
+     * @param page          page number
+     * @param size          page size
+     * @param sortBy        sort field
+     * @param order         sort order
+     * @return paginated course list
+     */
     @GetMapping("/paginated")
     public ResponseEntity<Page<CourseResponse>> getCoursesPaginated(
             @RequestParam(required = false) String search,
@@ -79,7 +111,12 @@ public class CourseController {
         ));
     }
 
-
+    /**
+     * Lists courses created by the authenticated teacher.
+     *
+     * @param auth the authentication object
+     * @return list of teacher's courses
+     */
     @GetMapping("/mine")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<List<CourseResponse>> listMyCourses(Authentication auth) {
@@ -96,12 +133,23 @@ public class CourseController {
         return ResponseEntity.ok(courseService.listCoursesOfTeacher(userId));
     }
 
+    /**
+     * Retrieves course details by ID.
+     *
+     * @param id the course ID
+     * @return course details
+     */
     @GetMapping("/{id}")
     public ResponseEntity<CourseResponse> getCourseDetail(@PathVariable Long id) {
         return ResponseEntity.ok(courseService.getCourseDetail(id));
     }
 
-    // Admin duyệt course
+    /**
+     * Approves a pending course.
+     *
+     * @param id the course ID
+     * @return success message
+     */
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> approveCourse(@PathVariable Long id) {
@@ -109,7 +157,12 @@ public class CourseController {
         return ResponseEntity.ok("Course approved");
     }
 
-
+    /**
+     * Rejects a pending course.
+     *
+     * @param id the course ID
+     * @return success message
+     */
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> rejectCourse(@PathVariable Long id) {
@@ -117,7 +170,14 @@ public class CourseController {
         return ResponseEntity.ok("Course rejected");
     }
 
-
+    /**
+     * Updates an existing course.
+     * Course status will be reset to PENDING after update.
+     *
+     * @param id  the course ID
+     * @param req the update data
+     * @return success message
+     */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<?> updateCourse(
@@ -128,7 +188,12 @@ public class CourseController {
         return ResponseEntity.ok("Course updated and reset to PENDING");
     }
 
-
+    /**
+     * Creates a new chapter for a course.
+     *
+     * @param req the chapter creation data
+     * @return created chapter response
+     */
     @PostMapping("/chapters")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<ChapterResponse> createChapter(
@@ -137,6 +202,13 @@ public class CourseController {
         return ResponseEntity.ok(courseService.createChapter(req));
     }
 
+    /**
+     * Updates an existing chapter.
+     *
+     * @param id  the chapter ID
+     * @param req the update data
+     * @return updated chapter response
+     */
     @PutMapping("/chapters/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<ChapterResponse> updateChapter(
@@ -146,6 +218,12 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateChapter(id, req));
     }
 
+    /**
+     * Creates a new lesson for a chapter.
+     *
+     * @param req the lesson creation data
+     * @return created lesson response
+     */
     @PostMapping("/lessons")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<LessonResponse> createLesson(
@@ -154,6 +232,13 @@ public class CourseController {
         return ResponseEntity.ok(courseService.createLesson(req));
     }
 
+    /**
+     * Updates an existing lesson.
+     *
+     * @param id  the lesson ID
+     * @param req the update data
+     * @return updated lesson response
+     */
     @PutMapping("/lessons/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<LessonResponse> updateLesson(
@@ -163,7 +248,12 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateLesson(id, req));
     }
 
-
+    /**
+     * Removes a chapter and its lessons.
+     *
+     * @param id the chapter ID
+     * @return no content response
+     */
     @DeleteMapping("/chapters/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<?> removeChapter(@PathVariable Long id) {
@@ -171,7 +261,12 @@ public class CourseController {
         return ResponseEntity.noContent().build();
     }
 
-
+    /**
+     * Removes a lesson.
+     *
+     * @param id the lesson ID
+     * @return no content response
+     */
     @DeleteMapping("/lessons/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<?> removeLesson(@PathVariable Long id) {

@@ -17,6 +17,13 @@ import fpt.capstone.edu360managementsystem.dto.response.ReportTeacherRevenueDTO;
 import fpt.capstone.edu360managementsystem.service.ReportService;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * REST controller for admin reports and statistics.
+ * Provides endpoints for revenue, performance, and overview reports.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/admin/reports")
 @RequiredArgsConstructor
@@ -26,7 +33,9 @@ public class ReportController {
     private final ReportService reportService;
 
     /**
-     * Báo cáo tổng quan
+     * Retrieves overview report with key metrics.
+     *
+     * @return overview statistics
      */
     @GetMapping("/overview")
     public ResponseEntity<ReportOverviewDTO> getOverview() {
@@ -34,7 +43,9 @@ public class ReportController {
     }
 
     /**
-     * Doanh thu theo giáo viên
+     * Retrieves revenue report by teacher.
+     *
+     * @return list of teacher revenue data
      */
     @GetMapping("/teacher-revenue")
     public ResponseEntity<List<ReportTeacherRevenueDTO>> getTeacherRevenue() {
@@ -42,7 +53,9 @@ public class ReportController {
     }
 
     /**
-     * Top giáo viên doanh thu cao nhất
+     * Retrieves the top performing teacher by revenue.
+     *
+     * @return top teacher data or no content
      */
     @GetMapping("/top-teacher")
     public ResponseEntity<ReportTeacherRevenueDTO> getTopTeacher() {
@@ -54,7 +67,9 @@ public class ReportController {
     }
 
     /**
-     * Doanh thu theo môn học
+     * Retrieves revenue report by subject.
+     *
+     * @return list of subject revenue data
      */
     @GetMapping("/subject-revenue")
     public ResponseEntity<List<ReportSubjectRevenueDTO>> getSubjectRevenue() {
@@ -62,7 +77,10 @@ public class ReportController {
     }
 
     /**
-     * Doanh thu theo ngày (mặc định 30 ngày)
+     * Retrieves daily revenue report.
+     *
+     * @param days number of days to include (default 30)
+     * @return list of daily revenue data
      */
     @GetMapping("/revenue-by-day")
     public ResponseEntity<List<ReportRevenueByTimeDTO>> getRevenueByDay(
@@ -71,7 +89,9 @@ public class ReportController {
     }
 
     /**
-     * Hiệu suất lớp học
+     * Retrieves class performance report.
+     *
+     * @return list of class performance data
      */
     @GetMapping("/class-performance")
     public ResponseEntity<List<ReportClassPerformanceDTO>> getClassPerformance() {

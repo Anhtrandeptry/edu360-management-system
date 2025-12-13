@@ -14,6 +14,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller for notification management.
+ * Provides endpoints for retrieving and managing user notifications.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {
@@ -24,7 +31,14 @@ public class NotificationController {
     @Autowired
     private UserRepository userRepository;
 
-
+    /**
+     * Retrieves paginated notifications for the authenticated user.
+     *
+     * @param userDetails the authenticated user
+     * @param page        page number
+     * @param size        page size
+     * @return paginated notifications
+     */
     @GetMapping
     public ResponseEntity<Page<NotificationResponse>> getNotifications(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -36,7 +50,12 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-
+    /**
+     * Retrieves unread notifications for the authenticated user.
+     *
+     * @param userDetails the authenticated user
+     * @return list of unread notifications
+     */
     @GetMapping("/unread")
     public ResponseEntity<List<NotificationResponse>> getUnreadNotifications(
             @AuthenticationPrincipal UserDetails userDetails
@@ -46,7 +65,12 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-
+    /**
+     * Retrieves the count of unread notifications.
+     *
+     * @param userDetails the authenticated user
+     * @return unread count
+     */
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Long>> getUnreadCount(
             @AuthenticationPrincipal UserDetails userDetails
@@ -56,7 +80,13 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("count", count));
     }
 
-
+    /**
+     * Marks a notification as read.
+     *
+     * @param id          the notification ID
+     * @param userDetails the authenticated user
+     * @return success message
+     */
     @PostMapping("/{id}/read")
     public ResponseEntity<Map<String, String>> markAsRead(
             @PathVariable Long id,
@@ -67,7 +97,12 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("message", "Marked as read"));
     }
 
-
+    /**
+     * Marks all notifications as read.
+     *
+     * @param userDetails the authenticated user
+     * @return count of marked notifications
+     */
     @PostMapping("/read-all")
     public ResponseEntity<Map<String, Object>> markAllAsRead(
             @AuthenticationPrincipal UserDetails userDetails
@@ -80,7 +115,13 @@ public class NotificationController {
         ));
     }
 
-
+    /**
+     * Deletes a notification.
+     *
+     * @param id          the notification ID
+     * @param userDetails the authenticated user
+     * @return success message
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteNotification(
             @PathVariable Long id,
@@ -91,7 +132,12 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("message", "Notification deleted"));
     }
 
-
+    /**
+     * Retrieves notification statistics for the user.
+     *
+     * @param userDetails the authenticated user
+     * @return notification statistics
+     */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats(
             @AuthenticationPrincipal UserDetails userDetails
