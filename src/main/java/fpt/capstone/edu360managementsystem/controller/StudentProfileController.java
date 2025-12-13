@@ -26,8 +26,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Student Profile Controller - allows students to manage their own profile.
- * Includes: view profile, update profile, upload avatar, change password.
+ * REST controller for student profile management.
+ * Provides endpoints for viewing/updating profile, uploading avatar, and changing password.
+ *
+ * @author 360edu
+ * @version 1.0
  */
 @RestController
 @RequestMapping("/api/students/profile")
@@ -39,7 +42,7 @@ public class StudentProfileController {
     private final StudentProfileService studentProfileService;
     private final CloudinaryService cloudinaryService;
 
-    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final String ERROR_KEY = "error";
 
     private Long getAuthenticatedUserId(Authentication auth) {
@@ -49,6 +52,12 @@ public class StudentProfileController {
         return ((UserDetailsImpl) auth.getPrincipal()).getId();
     }
 
+    /**
+     * Retrieves the authenticated student's profile.
+     *
+     * @param auth the authentication object
+     * @return student profile details
+     */
     @GetMapping
     public ResponseEntity<StudentProfileResponse> getProfile(Authentication auth) {
         Long userId = getAuthenticatedUserId(auth);
@@ -56,6 +65,13 @@ public class StudentProfileController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Updates the authenticated student's profile.
+     *
+     * @param auth    the authentication object
+     * @param request the profile update data
+     * @return updated profile details
+     */
     @PutMapping
     public ResponseEntity<StudentProfileResponse> updateProfile(
             Authentication auth,
@@ -65,6 +81,13 @@ public class StudentProfileController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Uploads a new avatar for the authenticated student.
+     *
+     * @param file the avatar image file (max 5MB)
+     * @param auth the authentication object
+     * @return URL of the uploaded avatar
+     */
     @PostMapping("/upload-avatar")
     public ResponseEntity<Map<String, String>> uploadAvatar(
             @RequestParam("file") MultipartFile file,
@@ -72,7 +95,6 @@ public class StudentProfileController {
         try {
             Long userId = getAuthenticatedUserId(auth);
 
-            // Validate file
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
             }
@@ -86,10 +108,8 @@ public class StudentProfileController {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image"));
             }
 
-            // Upload to Cloudinary
             String fileUrl = cloudinaryService.uploadImage(file, "avatars");
 
-            // Update avatar URL in database
             studentProfileService.updateAvatar(userId, fileUrl);
 
             Map<String, String> response = new HashMap<>();
@@ -105,6 +125,13 @@ public class StudentProfileController {
         }
     }
 
+    /**
+     * Changes the password for the authenticated student.
+     *
+     * @param auth    the authentication object
+     * @param request the password change data
+     * @return success or error message
+     */
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             Authentication auth,

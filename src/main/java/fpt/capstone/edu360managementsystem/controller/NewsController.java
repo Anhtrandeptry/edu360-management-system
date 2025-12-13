@@ -25,6 +25,13 @@ import fpt.capstone.edu360managementsystem.service.NewsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * REST controller for news management.
+ * Provides endpoints for CRUD operations on news articles.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/news")
 @RequiredArgsConstructor
@@ -33,16 +40,20 @@ public class NewsController {
     private final NewsService newsService;
     private final CloudinaryService cloudinaryService;
 
-    // ===================== IMAGE UPLOAD =====================
-    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final String ERROR_KEY = "error";
 
+    /**
+     * Uploads an image for news articles.
+     *
+     * @param file the image file (max 5MB)
+     * @return URL of the uploaded image
+     */
     @PostMapping("/upload-image")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> uploadImage(
             @RequestParam("file") MultipartFile file) {
         try {
-            // Validate file
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
             }
@@ -56,7 +67,6 @@ public class NewsController {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image (PNG, JPG, JPEG, GIF, WebP)"));
             }
 
-            // Upload to Cloudinary
             String fileUrl = cloudinaryService.uploadImage(file, "news-images");
 
             Map<String, String> response = new HashMap<>();
@@ -71,8 +81,16 @@ public class NewsController {
     }
 
     /**
-     * GET /api/news - Lấy danh sách tin tức (có phân trang) Public: Chỉ lấy
-     * PUBLISHED Admin: Lấy tất cả
+     * Retrieves paginated news list.
+     * Public users see only PUBLISHED; Admin sees all.
+     *
+     * @param search optional search term
+     * @param status status filter
+     * @param page   page number
+     * @param size   page size
+     * @param sortBy sort field
+     * @param order  sort order
+     * @return paginated news list
      */
     @GetMapping
     public ResponseEntity<Page<NewsResponse>> getNewsList(
@@ -83,20 +101,22 @@ public class NewsController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String order
     ) {
-        // Nếu không có auth hoặc không phải admin, chỉ lấy PUBLISHED
         Page<NewsResponse> newsPage;
         try {
-            // Admin có thể xem tất cả
             newsPage = newsService.getNewsList(search, status, page, size, sortBy, order);
         } catch (Exception e) {
-            // Guest chỉ xem PUBLISHED
             newsPage = newsService.getPublishedNews(search, page, size);
         }
         return ResponseEntity.ok(newsPage);
     }
 
     /**
-     * GET /api/news/public - Lấy tin tức PUBLISHED cho guest (không cần auth)
+     * Retrieves published news for public access.
+     *
+     * @param search optional search term
+     * @param page   page number
+     * @param size   page size
+     * @return paginated published news
      */
     @GetMapping("/public")
     public ResponseEntity<Page<NewsResponse>> getPublishedNews(
@@ -109,7 +129,10 @@ public class NewsController {
     }
 
     /**
-     * GET /api/news/{id} - Lấy chi tiết tin tức
+     * Retrieves news details by ID.
+     *
+     * @param id the news ID
+     * @return news details
      */
     @GetMapping("/{id}")
     public ResponseEntity<NewsResponse> getNewsById(@PathVariable Long id) {
@@ -118,7 +141,10 @@ public class NewsController {
     }
 
     /**
-     * POST /api/news - Tạo tin tức mới (Admin only)
+     * Creates a new news article.
+     *
+     * @param request news data
+     * @return created news
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -128,7 +154,11 @@ public class NewsController {
     }
 
     /**
-     * PUT /api/news/{id} - Cập nhật tin tức (Admin only)
+     * Updates an existing news article.
+     *
+     * @param id      the news ID
+     * @param request updated news data
+     * @return updated news
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -141,7 +171,10 @@ public class NewsController {
     }
 
     /**
-     * DELETE /api/news/{id} - Xóa tin tức (Admin only)
+     * Deletes a news article.
+     *
+     * @param id the news ID
+     * @return no content response
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -151,7 +184,10 @@ public class NewsController {
     }
 
     /**
-     * POST /api/news/{id}/view - Tăng lượt xem
+     * Increments the view count for a news article.
+     *
+     * @param id the news ID
+     * @return success response
      */
     @PostMapping("/{id}/view")
     public ResponseEntity<Void> incrementView(@PathVariable Long id) {
@@ -160,7 +196,11 @@ public class NewsController {
     }
 
     /**
-     * PATCH /api/news/{id}/status - Cập nhật trạng thái (Admin only)
+     * Updates the status of a news article.
+     *
+     * @param id   the news ID
+     * @param body map containing the new status
+     * @return updated news
      */
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")

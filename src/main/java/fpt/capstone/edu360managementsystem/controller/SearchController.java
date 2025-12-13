@@ -14,8 +14,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Controller cho tính năng tìm kiếm tổng hợp
- * Cho phép tìm kiếm đồng thời nhiều loại dữ liệu: classes, teachers, subjects
+ * REST controller for global search functionality.
+ * Provides endpoints for searching classes, teachers, and subjects.
+ *
+ * @author 360edu
+ * @version 1.0
  */
 @RestController
 @RequestMapping("/api/search")
@@ -28,9 +31,11 @@ public class SearchController {
     private final SubjectService subjectService;
 
     /**
-     * Tìm kiếm tổng hợp - trả về kết quả từ nhiều nguồn
-     * @param q Từ khóa tìm kiếm
-     * @param limit Số lượng kết quả tối đa mỗi loại (mặc định 5)
+     * Performs a global search across multiple data types.
+     *
+     * @param q     the search keyword
+     * @param limit maximum results per type (default 5)
+     * @return search results from classes, teachers, and subjects
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> globalSearch(
@@ -51,19 +56,22 @@ public class SearchController {
         Map<String, Object> results = new HashMap<>();
         results.put("query", searchTerm);
 
-        // Temporary stubbed results until service filters are available
         results.put("classes", List.of());
         results.put("teachers", List.of());
         results.put("subjects", List.of());
 
-        // Calculate total results
         results.put("totalResults", 0);
 
         return ResponseEntity.ok(results);
     }
 
     /**
-     * Tìm kiếm lớp học
+     * Searches for classes by keyword.
+     *
+     * @param q    the search keyword
+     * @param page page number
+     * @param size page size
+     * @return paginated class results
      */
     @GetMapping("/classes")
     public ResponseEntity<Page<ClassResponse>> searchClasses(
@@ -71,12 +79,16 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        // Temporary stub: return empty page until service API is aligned
         return ResponseEntity.ok(Page.empty());
     }
 
     /**
-     * Tìm kiếm giáo viên
+     * Searches for teachers by keyword.
+     *
+     * @param q    the search keyword
+     * @param page page number
+     * @param size page size
+     * @return paginated teacher results
      */
     @GetMapping("/teachers")
     public ResponseEntity<Page<TeacherResponse>> searchTeachers(
@@ -84,12 +96,16 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        // Temporary stub: return empty page until service API is aligned
         return ResponseEntity.ok(Page.empty());
     }
 
     /**
-     * Tìm kiếm môn học
+     * Searches for subjects by keyword.
+     *
+     * @param q    the search keyword
+     * @param page page number
+     * @param size page size
+     * @return paginated subject results
      */
     @GetMapping("/subjects")
     public ResponseEntity<Page<SubjectResponse>> searchSubjects(
@@ -97,7 +113,6 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        // Temporary stub: return empty page until service API is aligned
         return ResponseEntity.ok(Page.empty());
     }
 }

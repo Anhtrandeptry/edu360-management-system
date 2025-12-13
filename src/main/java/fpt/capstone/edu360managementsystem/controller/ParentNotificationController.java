@@ -15,7 +15,13 @@ import org.springframework.web.bind.annotation.RestController;
 import fpt.capstone.edu360managementsystem.service.ParentNotificationService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 
-
+/**
+ * REST controller for parent notification management.
+ * Provides endpoints for teachers to send attendance notifications to parents.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/teacher/parent-notification")
 public class ParentNotificationController {
@@ -23,7 +29,13 @@ public class ParentNotificationController {
     @Autowired
     private ParentNotificationService parentNotificationService;
 
-
+    /**
+     * Sends attendance notification to parents for a specific session.
+     *
+     * @param user      the authenticated teacher
+     * @param sessionId the session ID
+     * @return count of notifications sent
+     */
     @PostMapping("/send/{sessionId}")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> sendNotificationBySession(
@@ -44,7 +56,15 @@ public class ParentNotificationController {
         }
     }
 
-
+    /**
+     * Sends attendance notification to parents for a class on a specific date.
+     *
+     * @param user    the authenticated teacher
+     * @param classId the class ID
+     * @param date    the date string
+     * @param slotId  optional time slot ID
+     * @return count of notifications sent
+     */
     @PostMapping("/send-by-class")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> sendNotificationByClass(

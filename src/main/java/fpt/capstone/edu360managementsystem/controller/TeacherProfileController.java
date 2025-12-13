@@ -31,6 +31,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller for teacher profile management.
+ * Provides endpoints for managing teacher profile including avatar, password,
+ * certificates, experiences, and education records.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/teachers/profile")
 @RequiredArgsConstructor
@@ -46,6 +54,17 @@ public class TeacherProfileController {
     private final PasswordEncoder passwordEncoder;
     private final CloudinaryService cloudinaryService;
 
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
+    private static final String ERROR_KEY = "error";
+
+    /**
+     * Retrieves the authenticated teacher entity from authentication context.
+     *
+     * @param auth the authentication object
+     * @return the teacher entity
+     * @throws SecurityException       if user is not authenticated
+     * @throws EntityNotFoundException if teacher not found
+     */
     private Teacher getAuthenticatedTeacher(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof UserDetailsImpl)) {
             throw new SecurityException("User not authenticated");
@@ -56,10 +75,13 @@ public class TeacherProfileController {
                 .orElseThrow(() -> new EntityNotFoundException("Teacher not found for user: " + userId));
     }
 
-    // ===================== AVATAR UPLOAD =====================
-    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
-    private static final String ERROR_KEY = "error";
-
+    /**
+     * Uploads a new avatar image for the teacher.
+     *
+     * @param file the image file to upload
+     * @param auth the authentication object
+     * @return map containing the uploaded image URL or error message
+     */
     @PostMapping("/upload-avatar")
     public ResponseEntity<Map<String, String>> uploadAvatar(
             @RequestParam("file") MultipartFile file,
@@ -67,7 +89,6 @@ public class TeacherProfileController {
         log.info("Upload avatar request received. File: {}, Size: {}",
                 file.getOriginalFilename(), file.getSize());
         try {
-            // Validate file
             if (file.isEmpty()) {
                 log.warn("File is empty");
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File is empty"));
@@ -84,7 +105,6 @@ public class TeacherProfileController {
                 return ResponseEntity.badRequest().body(Map.of(ERROR_KEY, "File must be an image"));
             }
 
-            // Upload to Cloudinary
             log.info("Uploading to Cloudinary...");
             String fileUrl = cloudinaryService.uploadImage(file, "avatars");
             log.info("Upload successful. URL: {}", fileUrl);
@@ -101,7 +121,13 @@ public class TeacherProfileController {
         }
     }
 
-    // ===================== SECURITY (CHANGE PASSWORD) =====================
+    /**
+     * Changes the password for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param request the password change request containing current and new passwords
+     * @return success or error message
+     */
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             Authentication auth,
@@ -110,17 +136,14 @@ public class TeacherProfileController {
             Teacher teacher = getAuthenticatedTeacher(auth);
             var user = teacher.getUser();
 
-            // Validate current password
             if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu hiện tại không đúng"));
             }
 
-            // Validate confirmation
             if (!request.getNewPassword().equals(request.getConfirmPassword())) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu xác nhận không khớp"));
             }
 
-            // Persist new password
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
             userRepository.save(user);
 
@@ -131,7 +154,12 @@ public class TeacherProfileController {
         }
     }
 
-    // ===================== CERTIFICATES =====================
+    /**
+     * Retrieves all certificates for the authenticated teacher.
+     *
+     * @param auth the authentication object
+     * @return list of teacher certificates
+     */
     @GetMapping("/certificates")
     public ResponseEntity<List<TeacherCertificateRequest>> getMyCertificates(Authentication auth) {
         Teacher teacher = getAuthenticatedTeacher(auth);
@@ -142,6 +170,13 @@ public class TeacherProfileController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Adds a new certificate for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param request the certificate data
+     * @return the created certificate
+     */
     @PostMapping("/certificates")
     public ResponseEntity<TeacherCertificateRequest> addCertificate(
             Authentication auth,
@@ -161,6 +196,14 @@ public class TeacherProfileController {
         return ResponseEntity.ok(mapCertificateToDto(certificate));
     }
 
+    /**
+     * Updates an existing certificate for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param certId  the certificate ID to update
+     * @param request the updated certificate data
+     * @return the updated certificate
+     */
     @PutMapping("/certificates/{certId}")
     public ResponseEntity<TeacherCertificateRequest> updateCertificate(
             Authentication auth,
@@ -185,6 +228,13 @@ public class TeacherProfileController {
         return ResponseEntity.ok(mapCertificateToDto(certificate));
     }
 
+    /**
+     * Deletes a certificate for the authenticated teacher.
+     *
+     * @param auth   the authentication object
+     * @param certId the certificate ID to delete
+     * @return no content on success
+     */
     @DeleteMapping("/certificates/{certId}")
     public ResponseEntity<Void> deleteCertificate(
             Authentication auth,
@@ -203,7 +253,12 @@ public class TeacherProfileController {
         return ResponseEntity.noContent().build();
     }
 
-    // ===================== EXPERIENCES =====================
+    /**
+     * Retrieves all work experiences for the authenticated teacher.
+     *
+     * @param auth the authentication object
+     * @return list of teacher experiences
+     */
     @GetMapping("/experiences")
     public ResponseEntity<List<TeacherExperienceRequest>> getMyExperiences(Authentication auth) {
         Teacher teacher = getAuthenticatedTeacher(auth);
@@ -214,6 +269,13 @@ public class TeacherProfileController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Adds a new work experience for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param request the experience data
+     * @return the created experience
+     */
     @PostMapping("/experiences")
     public ResponseEntity<TeacherExperienceRequest> addExperience(
             Authentication auth,
@@ -234,6 +296,14 @@ public class TeacherProfileController {
         return ResponseEntity.ok(mapExperienceToDto(experience));
     }
 
+    /**
+     * Updates an existing work experience for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param expId   the experience ID to update
+     * @param request the updated experience data
+     * @return the updated experience
+     */
     @PutMapping("/experiences/{expId}")
     public ResponseEntity<TeacherExperienceRequest> updateExperience(
             Authentication auth,
@@ -259,6 +329,13 @@ public class TeacherProfileController {
         return ResponseEntity.ok(mapExperienceToDto(experience));
     }
 
+    /**
+     * Deletes a work experience for the authenticated teacher.
+     *
+     * @param auth  the authentication object
+     * @param expId the experience ID to delete
+     * @return no content on success
+     */
     @DeleteMapping("/experiences/{expId}")
     public ResponseEntity<Void> deleteExperience(
             Authentication auth,
@@ -277,7 +354,12 @@ public class TeacherProfileController {
         return ResponseEntity.noContent().build();
     }
 
-    // ===================== EDUCATION =====================
+    /**
+     * Retrieves all education records for the authenticated teacher.
+     *
+     * @param auth the authentication object
+     * @return list of teacher education records
+     */
     @GetMapping("/educations")
     public ResponseEntity<List<TeacherEducationRequest>> getMyEducations(Authentication auth) {
         Teacher teacher = getAuthenticatedTeacher(auth);
@@ -288,6 +370,13 @@ public class TeacherProfileController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Adds a new education record for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param request the education data
+     * @return the created education record
+     */
     @PostMapping("/educations")
     public ResponseEntity<TeacherEducationRequest> addEducation(
             Authentication auth,
@@ -307,6 +396,14 @@ public class TeacherProfileController {
         return ResponseEntity.ok(mapEducationToDto(education));
     }
 
+    /**
+     * Updates an existing education record for the authenticated teacher.
+     *
+     * @param auth    the authentication object
+     * @param eduId   the education record ID to update
+     * @param request the updated education data
+     * @return the updated education record
+     */
     @PutMapping("/educations/{eduId}")
     public ResponseEntity<TeacherEducationRequest> updateEducation(
             Authentication auth,
@@ -331,6 +428,13 @@ public class TeacherProfileController {
         return ResponseEntity.ok(mapEducationToDto(education));
     }
 
+    /**
+     * Deletes an education record for the authenticated teacher.
+     *
+     * @param auth  the authentication object
+     * @param eduId the education record ID to delete
+     * @return no content on success
+     */
     @DeleteMapping("/educations/{eduId}")
     public ResponseEntity<Void> deleteEducation(
             Authentication auth,
@@ -349,7 +453,12 @@ public class TeacherProfileController {
         return ResponseEntity.noContent().build();
     }
 
-    // ===================== MAPPER METHODS =====================
+    /**
+     * Maps a TeacherCertificate entity to DTO.
+     *
+     * @param entity the certificate entity
+     * @return the certificate DTO
+     */
     private TeacherCertificateRequest mapCertificateToDto(TeacherCertificate entity) {
         return TeacherCertificateRequest.builder()
                 .id(entity.getId())
@@ -360,6 +469,12 @@ public class TeacherProfileController {
                 .build();
     }
 
+    /**
+     * Maps a TeacherExperience entity to DTO.
+     *
+     * @param entity the experience entity
+     * @return the experience DTO
+     */
     private TeacherExperienceRequest mapExperienceToDto(TeacherExperience entity) {
         return TeacherExperienceRequest.builder()
                 .id(entity.getId())
@@ -371,6 +486,12 @@ public class TeacherProfileController {
                 .build();
     }
 
+    /**
+     * Maps a TeacherEducation entity to DTO.
+     *
+     * @param entity the education entity
+     * @return the education DTO
+     */
     private TeacherEducationRequest mapEducationToDto(TeacherEducation entity) {
         return TeacherEducationRequest.builder()
                 .id(entity.getId())

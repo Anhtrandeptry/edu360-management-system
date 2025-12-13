@@ -44,6 +44,13 @@ import fpt.capstone.edu360managementsystem.service.AuthService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
+/**
+ * REST controller for authentication and authorization.
+ * Handles login, logout, registration, password reset, and Google OAuth.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
@@ -76,8 +83,13 @@ public class AuthController {
     @Autowired
     fpt.capstone.edu360managementsystem.service.GoogleAuthService googleAuthService;
 
-//Login
-
+    /**
+     * Authenticates user with username and password.
+     * Sets JWT token in HTTP-only cookie upon successful authentication.
+     *
+     * @param loginRequest the login credentials
+     * @return user info with roles and JWT cookie
+     */
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -94,7 +106,6 @@ public class AuthController {
                 .map(item -> item.getAuthority())
                 .collect(Collectors.toList());
 
-        // Get additional user info from Student/Teacher entities
         String fullName = null;
         String avatarUrl = null;
         
@@ -102,12 +113,10 @@ public class AuthController {
         if (user != null) {
             fullName = user.getFullName();
             
-            // Check if user is a student and get avatar from Student entity
             Student student = studentRepository.findByUser_Id(userDetails.getId()).orElse(null);
             if (student != null && student.getAvatarUrl() != null) {
                 avatarUrl = student.getAvatarUrl();
             } else {
-                // Check if user is a teacher and get avatar from Teacher entity  
                 Teacher teacher = teacherRepository.findByUserId(userDetails.getId()).orElse(null);
                 if (teacher != null && teacher.getAvatarUrl() != null) {
                     avatarUrl = teacher.getAvatarUrl();
@@ -124,7 +133,11 @@ public class AuthController {
                         roles));
     }
 
-
+    /**
+     * Logs out the current user by clearing the JWT cookie.
+     *
+     * @return success message
+     */
     @PostMapping("/logout")
     public ResponseEntity<?> logoutUser() {
         ResponseCookie cookie = jwtUtils.getCleanJwtCookie();
@@ -132,6 +145,12 @@ public class AuthController {
                 .body(new MessageResponse("You've been signed out!"));
     }
 
+    /**
+     * Retrieves current authenticated user information.
+     *
+     * @param user the authenticated user details
+     * @return user info with roles and avatar
+     */
     @GetMapping("/me")
     public ResponseEntity<?> me(@org.springframework.security.core.annotation.AuthenticationPrincipal fpt.capstone.edu360managementsystem.service.UserDetailsImpl user) {
         if (user == null) {
@@ -139,7 +158,6 @@ public class AuthController {
         }
         var roles = user.getAuthorities().stream().map(a -> a.getAuthority()).toList();
         
-        // Get additional user info from Student/Teacher entities
         String fullName = null;
         String avatarUrl = null;
         
@@ -147,12 +165,10 @@ public class AuthController {
         if (userEntity != null) {
             fullName = userEntity.getFullName();
             
-            // Check if user is a student and get avatar from Student entity
             Student student = studentRepository.findByUser_Id(user.getId()).orElse(null);
             if (student != null && student.getAvatarUrl() != null) {
                 avatarUrl = student.getAvatarUrl();
             } else {
-                // Check if user is a teacher and get avatar from Teacher entity  
                 Teacher teacher = teacherRepository.findByUserId(user.getId()).orElse(null);
                 if (teacher != null && teacher.getAvatarUrl() != null) {
                     avatarUrl = teacher.getAvatarUrl();
@@ -165,35 +181,58 @@ public class AuthController {
         ));
     }
 
-
+    /**
+     * Registers a new teacher account.
+     * Admin only endpoint.
+     *
+     * @param request teacher registration data
+     * @return registration result
+     */
     @PostMapping("/register-teacher")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerTeacher(@Valid @RequestBody RegisterTeacherRequest request) {
         return authService.registerTeacher(request);
     }
 
-
+    /**
+     * Registers a new student account with parent information.
+     * Public endpoint for student self-registration.
+     *
+     * @param request student and parent registration data
+     * @return registration result
+     */
     @PostMapping("/signup")
     public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
         return authService.registerStudentWithParent(request);
     }
 
+    /**
+     * Initiates password reset process.
+     * Sends reset link to user's email.
+     *
+     * @param request forgot password data with email
+     * @return operation result
+     */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request);
     }
 
-    // Google OAuth - Authenticate with Google
+    /**
+     * Authenticates user with Google OAuth.
+     * Returns existing user info or indicates registration is needed.
+     *
+     * @param request Google authentication data with ID token
+     * @return authentication result with user info or registration flag
+     */
     @PostMapping("/google")
     public ResponseEntity<GoogleAuthResponse> authenticateWithGoogle(@Valid @RequestBody GoogleAuthRequest request) {
         try {
             GoogleAuthResponse response = googleAuthService.handleGoogleCallback(request);
             
             if (response.getUserId() != null && !response.isNeedsRegistration()) {
-                // User exists, generate JWT cookie from username
                 String jwt = jwtUtils.generateTokenFromUsername(response.getUsername());
                 
-                // Set token in response body as backup (in case cookie doesn't work due to cross-origin)
                 response.setToken(jwt);
                 
                 ResponseCookie jwtCookie = ResponseCookie.from("edu360_jwt", jwt)
@@ -218,17 +257,21 @@ public class AuthController {
         }
     }
 
-    // Google OAuth - Complete Registration
+    /**
+     * Completes Google OAuth registration for new users.
+     * Creates account and links with Google profile.
+     *
+     * @param request Google registration data with role selection
+     * @return registration result with user info
+     */
     @PostMapping("/google/register")
     public ResponseEntity<GoogleAuthResponse> completeGoogleRegistration(@Valid @RequestBody GoogleRegisterRequest request) {
         try {
             GoogleAuthResponse response = googleAuthService.registerWithGoogle(request);
             
             if (response.getUserId() != null) {
-                // Registration successful, generate JWT cookie from username
                 String jwt = jwtUtils.generateTokenFromUsername(response.getUsername());
                 
-                // Set token in response body as backup (in case cookie doesn't work due to cross-origin)
                 response.setToken(jwt);
                 
                 ResponseCookie jwtCookie = ResponseCookie.from("edu360_jwt", jwt)
@@ -253,7 +296,13 @@ public class AuthController {
         }
     }
 
-    // Check if parent phone exists
+    /**
+     * Checks if a parent phone number already exists.
+     * Used during student registration to link with existing parent.
+     *
+     * @param phone parent phone number to check
+     * @return exists flag and parent info if found
+     */
     @GetMapping("/check-parent-phone")
     public ResponseEntity<Map<String, Object>> checkParentPhone(@RequestParam String phone) {
         try {

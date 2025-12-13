@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +21,13 @@ import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
 import fpt.capstone.edu360managementsystem.service.ClassService;
 import jakarta.validation.Valid;
 
+/**
+ * REST controller for class management.
+ * Provides endpoints for CRUD operations on classes including publish/draft workflows.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/classes")
 public class ClassController {
@@ -27,16 +35,19 @@ public class ClassController {
     @Autowired
     private ClassService classService;
 
+    /**
+     * Creates a new class.
+     *
+     * @param request the class creation data
+     * @return created class response
+     */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> create(@Valid @RequestBody CreateClassRequest request) {
-        System.out.println("\uD83D\uDD0D [ClassController] Create request payload=" + this.safeToString(request));
         try {
             ClassResponse resp = classService.createClass(request);
-            System.out.println(" [ClassController] Create OK id=" + (resp != null ? resp.getId() : null));
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException ex) {
-            System.out.println(" [ClassController] Create blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of(
                     "message", "Dữ liệu không hợp lệ",
                     "detail", ex.getMessage()
@@ -44,8 +55,14 @@ public class ClassController {
         }
     }
 
+    /**
+     * Lists all classes with optional filters.
+     *
+     * @param teacherUserId optional teacher filter
+     * @param timeSlotId    optional time slot filter
+     * @return list of classes
+     */
     @GetMapping
-
     public ResponseEntity<java.util.List<ClassResponse>> list(
             @RequestParam(name = "teacherUserId", required = false) Long teacherUserId,
             @RequestParam(name = "timeSlotId", required = false) Long timeSlotId
@@ -53,7 +70,19 @@ public class ClassController {
         return ResponseEntity.ok(classService.listClasses(teacherUserId, timeSlotId));
     }
 
-
+    /**
+     * Retrieves paginated classes with filters and sorting.
+     *
+     * @param search        optional search term
+     * @param status        status filter
+     * @param online        online/offline filter
+     * @param teacherUserId optional teacher filter
+     * @param page          page number
+     * @param size          page size
+     * @param sortBy        sort field
+     * @param order         sort order
+     * @return paginated class list
+     */
     @GetMapping("/paginated")
     public ResponseEntity<Page<ClassResponse>> getClassesPaginated(
             @RequestParam(required = false) String search,
@@ -70,108 +99,114 @@ public class ClassController {
         ));
     }
 
+    /**
+     * Retrieves class details by ID.
+     *
+     * @param id the class ID
+     * @return class details
+     */
     @GetMapping("/{id}")
     public ResponseEntity<ClassResponse> getById(@PathVariable Long id) {
-        System.out.println("\uD83D\uDD0D [ClassController] getById id=" + id);
         return ResponseEntity.ok(classService.getClassById(id));
     }
 
-
+    /**
+     * Retrieves public class details for guest/student view.
+     *
+     * @param id the class ID
+     * @return public class details
+     */
     @GetMapping("/{id}/public")
     public ResponseEntity<ClassPublicDetailResponse> getPublicDetail(@PathVariable Long id) {
-        System.out.println("\uD83D\uDD0D [ClassController] getPublicDetail id=" + id);
         return ResponseEntity.ok(classService.getClassPublicDetail(id));
     }
 
-
+    /**
+     * Publishes a draft class making it available for enrollment.
+     *
+     * @param id the class ID
+     * @return success or error response
+     */
     @PostMapping("/{id}/publish")
     public ResponseEntity<?> publishClass(@PathVariable Long id) {
-        System.out.println("\uD83D\uDD14 [ClassController] Publish request for classId=" + id);
         try {
             classService.publishClass(id);
-            System.out.println(" [ClassController] Publish completed for classId=" + id);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException ex) {
-            System.out.println(" [ClassController] Publish failed: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println(" [ClassController] Publish error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }
 
-
+    /**
+     * Reverts a published class back to draft status.
+     *
+     * @param id the class ID
+     * @return success or error response
+     */
     @PostMapping("/{id}/revert-draft")
     public ResponseEntity<?> revertToDraft(@PathVariable Long id) {
-        System.out.println("\uD83D\uDD14 [ClassController] Revert-to-draft request for classId=" + id);
         try {
             classService.revertToDraft(id);
-            System.out.println(" [ClassController] Revert-to-draft completed for classId=" + id);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException ex) {
-            System.out.println(" [ClassController] Revert-to-draft blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println(" [ClassController] Revert-to-draft error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }
 
+    /**
+     * Updates an existing class.
+     *
+     * @param id  the class ID
+     * @param req the update data
+     * @return updated class response
+     */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody UpdateClassRequest req) {
-        System.out.println("\uD83D\uDD14 [ClassController] Update request for classId=" + id);
         try {
             ClassResponse resp = classService.updateClass(id, req);
-            System.out.println(" [ClassController] Update completed for classId=" + id);
             return ResponseEntity.ok(resp);
         } catch (IllegalStateException ex) {
-            System.out.println(" [ClassController] Update blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println(" [ClassController] Update error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }
 
     /**
-     * Delete a DRAFT class permanently. Only classes with status DRAFT can be
-     * deleted. All related data (schedules, sessions, enrollments, etc.) will
-     * be deleted.
+     * Deletes a DRAFT class permanently.
+     * Only classes with status DRAFT can be deleted.
+     * All related data (schedules, sessions, enrollments) will be removed.
+     *
+     * @param id the class ID
+     * @return success or error response
      */
-    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteClass(@PathVariable Long id) {
-        System.out.println("\uD83D\uDDD1 [ClassController] Delete request for classId=" + id);
         try {
             classService.deleteClass(id);
-            System.out.println(" [ClassController] Delete completed for classId=" + id);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException ex) {
-            System.out.println(" [ClassController] Delete blocked: " + ex.getMessage());
             return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
-            System.out.println(" [ClassController] Delete error: " + ex.getMessage());
             return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
         }
     }
 
-    private String safeToString(Object o) {
-        try {
-            return String.valueOf(o);
-        } catch (Exception e) {
-            return "<unprintable>";
-        }
-    }
-
     /**
-     * Get DRAFT classes that are approaching their start date (within 3 days).
+     * Retrieves DRAFT classes approaching their start date (within 3 days).
      * Used for admin warning/reminder on the class management page.
+     *
+     * @return list of draft classes approaching start date
      */
     @GetMapping("/draft-approaching")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<java.util.List<ClassResponse>> getDraftClassesApproachingStartDate() {
-        System.out.println("⚠️ [ClassController] Getting DRAFT classes approaching start date");
         return ResponseEntity.ok(classService.getDraftClassesApproachingStartDate());
     }
 }

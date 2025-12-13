@@ -5,7 +5,6 @@ import fpt.capstone.edu360managementsystem.service.LessonMaterialService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +17,13 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller for lesson material management.
+ * Provides endpoints for uploading, downloading, and managing course lesson materials.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/lesson-materials")
 @RequiredArgsConstructor
@@ -26,6 +32,15 @@ public class LessonMaterialController {
 
     private final LessonMaterialService materialService;
 
+    /**
+     * Uploads a material file for a lesson.
+     *
+     * @param lessonId    the lesson ID
+     * @param file        the material file (max 50MB)
+     * @param description optional file description
+     * @param userDetails the authenticated user
+     * @return uploaded material response
+     */
     @PostMapping("/upload/{lessonId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<LessonMaterialResponse> uploadMaterial(
@@ -42,7 +57,6 @@ public class LessonMaterialController {
                 return ResponseEntity.badRequest().build();
             }
 
-            // Kiểm tra kích thước file (max 50MB)
             if (file.getSize() > 50 * 1024 * 1024) {
                 log.warn("File too large: {} bytes", file.getSize());
                 return ResponseEntity.badRequest().build();
@@ -58,6 +72,14 @@ public class LessonMaterialController {
         }
     }
 
+    /**
+     * Adds a link material to a lesson.
+     *
+     * @param lessonId    the lesson ID
+     * @param request     map containing the URL
+     * @param userDetails the authenticated user
+     * @return created link material response
+     */
     @PostMapping("/link/{lessonId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<LessonMaterialResponse> addLink(
@@ -80,6 +102,12 @@ public class LessonMaterialController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Retrieves all materials for a lesson.
+     *
+     * @param lessonId the lesson ID
+     * @return list of lesson materials
+     */
     @GetMapping("/lesson/{lessonId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LessonMaterialResponse>> getMaterialsByLesson(
@@ -89,6 +117,12 @@ public class LessonMaterialController {
         return ResponseEntity.ok(materials);
     }
 
+    /**
+     * Retrieves all materials for a chapter.
+     *
+     * @param chapterId the chapter ID
+     * @return list of lesson materials in the chapter
+     */
     @GetMapping("/chapter/{chapterId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<LessonMaterialResponse>> getMaterialsByChapter(
@@ -99,8 +133,10 @@ public class LessonMaterialController {
     }
 
     /**
-     * Download/redirect đến file trên Cloudinary Do file được lưu trên
-     * Cloudinary, ta redirect đến URL trực tiếp
+     * Downloads or redirects to the material file on Cloudinary.
+     *
+     * @param materialId the material ID
+     * @return redirect to Cloudinary URL
      */
     @GetMapping("/download/{materialId}")
     @PreAuthorize("isAuthenticated()")
@@ -113,7 +149,6 @@ public class LessonMaterialController {
                 return ResponseEntity.notFound().build();
             }
 
-            // Redirect đến Cloudinary URL
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(fileUrl))
                     .build();
@@ -124,6 +159,13 @@ public class LessonMaterialController {
         }
     }
 
+    /**
+     * Deletes a lesson material.
+     *
+     * @param materialId  the material ID
+     * @param userDetails the authenticated user
+     * @return success or error response
+     */
     @DeleteMapping("/{materialId}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<Void> deleteMaterial(
@@ -139,6 +181,12 @@ public class LessonMaterialController {
         }
     }
 
+    /**
+     * Retrieves a material by ID.
+     *
+     * @param materialId the material ID
+     * @return material details
+     */
     @GetMapping("/{materialId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<LessonMaterialResponse> getMaterial(@PathVariable Long materialId) {

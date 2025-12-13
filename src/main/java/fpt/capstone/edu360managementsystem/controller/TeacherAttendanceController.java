@@ -12,6 +12,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST controller for teacher attendance management.
+ * Provides endpoints for tracking and viewing teacher work attendance.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/teacher-attendance")
 @RequiredArgsConstructor
@@ -19,7 +26,14 @@ public class TeacherAttendanceController {
 
     private final TeacherAttendanceService teacherAttendanceService;
 
-
+    /**
+     * Retrieves all teachers with pagination for attendance tracking.
+     *
+     * @param search search term for filtering teachers
+     * @param page   page number
+     * @param size   page size
+     * @return paginated list of teachers for attendance
+     */
     @GetMapping("/teachers")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<TeacherListForAttendanceResponse>> getAllTeachers(
@@ -31,7 +45,14 @@ public class TeacherAttendanceController {
         return ResponseEntity.ok(teacherAttendanceService.getAllTeachersForAttendancePaginated(search, pageable));
     }
 
-
+    /**
+     * Retrieves work summary for a specific teacher.
+     *
+     * @param teacherId the teacher ID
+     * @param month     optional month filter
+     * @param year      optional year filter
+     * @return teacher work summary including hours and sessions
+     */
     @GetMapping("/teachers/{teacherId}/summary")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TeacherWorkSummaryResponse> getTeacherSummary(
@@ -42,7 +63,13 @@ public class TeacherAttendanceController {
         return ResponseEntity.ok(teacherAttendanceService.getTeacherWorkSummary(teacherId, month, year));
     }
 
-
+    /**
+     * Retrieves attendance details for a teacher in a specific class.
+     *
+     * @param teacherId the teacher ID
+     * @param classId   the class ID
+     * @return teacher attendance details for the class
+     */
     @GetMapping("/teachers/{teacherId}/classes/{classId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TeacherClassAttendanceResponse> getTeacherClassAttendance(

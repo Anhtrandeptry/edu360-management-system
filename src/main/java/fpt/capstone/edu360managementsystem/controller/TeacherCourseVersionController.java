@@ -20,6 +20,13 @@ import fpt.capstone.edu360managementsystem.service.TeacherCourseVersionService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
+/**
+ * REST controller for teacher course version management.
+ * Provides endpoints for teachers to create and manage their course versions.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/course-versions")
 public class TeacherCourseVersionController {
@@ -27,16 +34,29 @@ public class TeacherCourseVersionController {
     @Autowired
     private TeacherCourseVersionService teacherCourseVersionService;
 
+    /**
+     * Creates a new course version mapping for the authenticated teacher.
+     *
+     * @param user the authenticated teacher
+     * @param req  course version creation request data
+     * @return created course version mapping
+     */
     @PostMapping
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<TeacherCourseVersionResponse> createMapping(
             @AuthenticationPrincipal UserDetailsImpl user,
             @Valid @RequestBody CreateTeacherCourseVersionRequest req) {
-        // Truyền userId, service sẽ ánh xạ sang teacherId
         TeacherCourseVersionResponse resp = teacherCourseVersionService.createMapping(user.getId(), req);
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
+    /**
+     * Retrieves course version mappings for a base course.
+     *
+     * @param user         the authenticated teacher
+     * @param baseCourseId the base course ID to filter by
+     * @return list of course version mappings
+     */
     @GetMapping
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<List<TeacherCourseVersionResponse>> listMappings(
