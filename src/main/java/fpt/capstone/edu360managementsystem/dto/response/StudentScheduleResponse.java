@@ -9,6 +9,7 @@ import java.util.List;
 @Data
 @Builder
 public class StudentScheduleResponse {
+
     private Long sessionId;
     private Long classId;
     private String className;
@@ -20,33 +21,35 @@ public class StudentScheduleResponse {
     private String timeEnd;
     private Integer dayOfWeek;
     private String attendanceStatus;
-    
 
     private String lessonContent;
-    
+
+    // Link Google Meet cho lớp học online
+    private String meetingLink;
+    private Boolean isOnline;
 
     private List<SessionChapterInfo> linkedChapters;
     private List<SessionLessonInfo> linkedLessons;
-    
 
     private Long courseId;
     private String courseTitle;
-    
 
     private List<SessionMaterialInfo> materials;
-    
+
     @Data
     @Builder
     public static class SessionChapterInfo {
+
         private Long id;
         private String title;
         private String description;
         private Integer orderIndex;
     }
-    
+
     @Data
     @Builder
     public static class SessionLessonInfo {
+
         private Long id;
         private Long chapterId;
         private String chapterTitle;
@@ -54,10 +57,11 @@ public class StudentScheduleResponse {
         private String description;
         private Integer orderIndex;
     }
-    
+
     @Data
     @Builder
     public static class SessionMaterialInfo {
+
         private Long id;
         private String fileName;
         private String fileUrl;
