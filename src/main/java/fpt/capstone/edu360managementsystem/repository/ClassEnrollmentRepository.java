@@ -39,6 +39,8 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     List<ClassEnrollment> findByStudent_Id(Long studentId);
 
+    long countByStudent_Id(Long studentId);
+
     // ==================== REPORT QUERIES ====================
     // Đếm số enrollment đang active (lớp PUBLIC)
     @Query("SELECT COUNT(ce) FROM ClassEnrollment ce WHERE ce.clazz.status = 'PUBLIC'")
