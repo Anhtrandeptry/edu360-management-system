@@ -11,6 +11,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
 
+    /**
+     * Counts news by status.
+     */
+    long countByStatus(String status);
 
     @Query("SELECT n FROM News n WHERE " +
            "LOWER(n.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +

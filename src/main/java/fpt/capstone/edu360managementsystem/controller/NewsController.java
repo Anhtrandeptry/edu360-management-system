@@ -184,6 +184,18 @@ public class NewsController {
     }
 
     /**
+     * Retrieves news statistics by status.
+     *
+     * @return map containing counts for each status
+     */
+    @GetMapping("/stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Long>> getNewsStats() {
+        Map<String, Long> stats = newsService.getNewsStats();
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
      * Increments the view count for a news article.
      *
      * @param id the news ID
