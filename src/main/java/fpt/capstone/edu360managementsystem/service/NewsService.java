@@ -217,6 +217,25 @@ public class NewsService {
     }
 
     /**
+     * Lấy thống kê số lượng tin tức theo trạng thái
+     */
+    public java.util.Map<String, Long> getNewsStats() {
+        long total = newsRepository.count();
+        long published = newsRepository.countByStatus("PUBLISHED");
+        long draft = newsRepository.countByStatus("DRAFT");
+        long hidden = newsRepository.countByStatus("HIDDEN");
+        long scheduled = newsRepository.countByStatus("SCHEDULED");
+
+        java.util.Map<String, Long> stats = new java.util.HashMap<>();
+        stats.put("total", total);
+        stats.put("published", published);
+        stats.put("draft", draft);
+        stats.put("hidden", hidden);
+        stats.put("scheduled", scheduled);
+        return stats;
+    }
+
+    /**
      * Convert entity sang response DTO
      */
     private NewsResponse toResponse(News news) {

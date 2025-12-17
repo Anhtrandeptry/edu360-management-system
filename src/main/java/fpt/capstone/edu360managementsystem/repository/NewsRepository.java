@@ -13,9 +13,20 @@ import fpt.capstone.edu360managementsystem.enums.NewsStatus;
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
 
+<<<<<<< HEAD
     @Query("SELECT n FROM News n WHERE "
             + "LOWER(n.title) LIKE LOWER(CONCAT('%', :search, '%')) OR "
             + "LOWER(n.content) LIKE LOWER(CONCAT('%', :search, '%'))")
+=======
+    /**
+     * Counts news by status.
+     */
+    long countByStatus(String status);
+
+    @Query("SELECT n FROM News n WHERE " +
+           "LOWER(n.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(n.content) LIKE LOWER(CONCAT('%', :search, '%'))")
+>>>>>>> origin/hung-fixbug
     Page<News> searchNews(@Param("search") String search, Pageable pageable);
 
     Page<News> findByStatus(NewsStatus status, Pageable pageable);
