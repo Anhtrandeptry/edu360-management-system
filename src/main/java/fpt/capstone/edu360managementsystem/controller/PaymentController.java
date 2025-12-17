@@ -86,27 +86,27 @@ public class PaymentController {
     /**
      * Lists all payments with filters and pagination.
      *
-     * @param status      optional status filter
-     * @param studentName optional student name filter
-     * @param classId     optional class filter
-     * @param from        optional start date filter
-     * @param to          optional end date filter
-     * @param page        page number
-     * @param size        page size
+     * @param status  optional status filter
+     * @param search  optional search (student name or class name)
+     * @param classId optional class filter
+     * @param from    optional start date filter
+     * @param to      optional end date filter
+     * @param page    page number
+     * @param size    page size
      * @return paginated payment list
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<PaymentResponse>> listPayments(
             @RequestParam(required = false) PaymentStatus status,
-            @RequestParam(required = false) String studentName,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) Long classId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<PaymentResponse> result = paymentService.getPayments(status, studentName, classId, from, to, page, size);
+        Page<PaymentResponse> result = paymentService.getPayments(status, search, classId, from, to, page, size);
         return ResponseEntity.ok(result);
     }
 
