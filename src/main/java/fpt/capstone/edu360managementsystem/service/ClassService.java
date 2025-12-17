@@ -638,6 +638,11 @@ public class ClassService {
                 if (room != null && max > room.getCapacity()) {
                     throw new IllegalStateException("maxStudents cannot exceed room capacity");
                 }
+                // Validate: maxStudents must be >= currentStudents for PUBLIC classes
+                int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
+                if (max < currentStudents) {
+                    throw new IllegalStateException("Không thể giảm sĩ số xuống " + max + " vì lớp đang có " + currentStudents + " học sinh");
+                }
                 clazz.setMaxStudents(max);
             }
 
@@ -783,6 +788,11 @@ public class ClassService {
                 int max = req.getMaxStudents();
                 if (room != null && max > room.getCapacity()) {
                     throw new IllegalStateException("maxStudents cannot exceed room capacity");
+                }
+                // Validate: maxStudents must be >= currentStudents even for DRAFT classes
+                int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
+                if (max < currentStudents) {
+                    throw new IllegalStateException("Không thể giảm sĩ số xuống " + max + " vì lớp đang có " + currentStudents + " học sinh");
                 }
                 clazz.setMaxStudents(max);
             }

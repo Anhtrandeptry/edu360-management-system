@@ -103,6 +103,15 @@ public class RoomService {
     public RoomResponse updateRoom(Long id, RoomRequest request) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        // Check if trying to disable room (change status to UNAVAILABLE)
+        if (request.getStatus() == RoomStatus.UNAVAILABLE && room.getStatus() == RoomStatus.AVAILABLE) {
+            long used = clazzRepository.countActiveByRoom(room.getId());
+            if (used > 0) {
+                throw new RuntimeException("Không thể vô hiệu hóa phòng học đang có lớp hoạt động");
+            }
+        }
+
         roomMapper.updateEntityFromDto(request, room);
         if (roomRepository.existsByNameIgnoreCaseAndIdNot(request.getName(), id)) {
             throw new RuntimeException("Phòng học đã tồn tại");
