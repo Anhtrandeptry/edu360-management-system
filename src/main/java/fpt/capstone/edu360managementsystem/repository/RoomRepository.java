@@ -20,12 +20,12 @@ public interface RoomRepository extends JpaRepository<Room, Long>, JpaSpecificat
 
     boolean existsByNameAndIdNot(String name, Long id);
 
-    // Case-insensitive check for duplicate room name
-    @Query("SELECT COUNT(r) > 0 FROM Room r WHERE LOWER(r.name) = LOWER(:name)")
+    // Case-insensitive check for duplicate room name (with TRIM)
+    @Query("SELECT COUNT(r) > 0 FROM Room r WHERE LOWER(TRIM(r.name)) = LOWER(TRIM(:name))")
     boolean existsByNameIgnoreCase(@Param("name") String name);
 
-    // Case-insensitive check for duplicate room name excluding current room (for update)
-    @Query("SELECT COUNT(r) > 0 FROM Room r WHERE LOWER(r.name) = LOWER(:name) AND r.id != :id")
+    // Case-insensitive check for duplicate room name excluding current room (for update, with TRIM)
+    @Query("SELECT COUNT(r) > 0 FROM Room r WHERE LOWER(TRIM(r.name)) = LOWER(TRIM(:name)) AND r.id != :id")
     boolean existsByNameIgnoreCaseAndIdNot(@Param("name") String name, @Param("id") Long id);
 
     List<Room> findByStatus(RoomStatus status);

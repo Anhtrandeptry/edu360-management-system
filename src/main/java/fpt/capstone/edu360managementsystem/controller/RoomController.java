@@ -25,8 +25,8 @@ import fpt.capstone.edu360managementsystem.service.ScheduleService;
 import jakarta.validation.Valid;
 
 /**
- * REST controller for classroom/room management.
- * Provides endpoints for CRUD operations on physical classrooms.
+ * REST controller for classroom/room management. Provides endpoints for CRUD
+ * operations on physical classrooms.
  *
  * @author 360edu
  * @version 1.0
@@ -60,10 +60,10 @@ public class RoomController {
      *
      * @param search optional search term
      * @param status status filter
-     * @param page   page number
-     * @param size   page size
+     * @param page page number
+     * @param size page size
      * @param sortBy sort field
-     * @param order  sort order
+     * @param order sort order
      * @return paginated room list
      */
     @GetMapping("/paginated")
@@ -88,10 +88,11 @@ public class RoomController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createRoom(@Valid @RequestBody RoomRequest request) {
-        if (roomRepository.existsByNameIgnoreCase(request.getName())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Phòng học đã tồn tại"));
+        try {
+            return ResponseEntity.ok(roomService.createRoom(request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
-        return ResponseEntity.ok(roomService.createRoom(request));
     }
 
     /**
@@ -109,14 +110,18 @@ public class RoomController {
     /**
      * Updates an existing room.
      *
-     * @param id      the room ID
+     * @param id the room ID
      * @param request updated room data
      * @return updated room
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<RoomResponse> updateRoom(@PathVariable Long id, @Valid @RequestBody RoomRequest request) {
-        return ResponseEntity.ok(roomService.updateRoom(id, request));
+    public ResponseEntity<?> updateRoom(@PathVariable Long id, @Valid @RequestBody RoomRequest request) {
+        try {
+            return ResponseEntity.ok(roomService.updateRoom(id, request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
     }
 
     /**
@@ -148,9 +153,9 @@ public class RoomController {
     /**
      * Retrieves busy time slots for a room.
      *
-     * @param id   the room ID
+     * @param id the room ID
      * @param from optional start date filter
-     * @param to   optional end date filter
+     * @param to optional end date filter
      * @return list of busy time slots
      */
     @GetMapping("/{id}/free-busy")

@@ -1,24 +1,32 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.response.TeacherClassAttendanceResponse;
-import fpt.capstone.edu360managementsystem.dto.response.TeacherListForAttendanceResponse;
-import fpt.capstone.edu360managementsystem.dto.response.TeacherWorkSummaryResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.enums.AttendanceStatus;
-import fpt.capstone.edu360managementsystem.enums.ClassStatus;
-import fpt.capstone.edu360managementsystem.enums.SessionStatus;
-import fpt.capstone.edu360managementsystem.repository.*;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import fpt.capstone.edu360managementsystem.dto.response.TeacherClassAttendanceResponse;
+import fpt.capstone.edu360managementsystem.dto.response.TeacherListForAttendanceResponse;
+import fpt.capstone.edu360managementsystem.dto.response.TeacherWorkSummaryResponse;
+import fpt.capstone.edu360managementsystem.entity.Attendance;
+import fpt.capstone.edu360managementsystem.entity.ClassSession;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.AttendanceStatus;
+import fpt.capstone.edu360managementsystem.enums.ClassStatus;
+import fpt.capstone.edu360managementsystem.enums.SessionStatus;
+import fpt.capstone.edu360managementsystem.repository.AttendanceRepository;
+import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -88,6 +96,7 @@ public class TeacherAttendanceService {
                     .fullName(user.getFullName())
                     .email(user.getEmail())
                     .phone(user.getPhoneNumber())
+                    .avatar(teacher.getAvatarUrl())
                     .subjectNames(subjectNames)
                     .degree(teacher.getDegree())
                     .specialization(teacher.getSpecialization())
@@ -214,6 +223,7 @@ public class TeacherAttendanceService {
                 .teacherName(user.getFullName())
                 .email(user.getEmail())
                 .phone(user.getPhoneNumber())
+                .avatar(teacher.getAvatarUrl())
                 .subjectNames(subjectNames)
                 .totalAssignedClasses(assignedClasses.size())
                 .totalScheduledSlots(totalScheduledSlots)

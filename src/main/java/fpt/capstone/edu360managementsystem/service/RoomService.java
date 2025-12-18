@@ -93,16 +93,39 @@ public class RoomService {
     }
 
     public RoomResponse createRoom(RoomRequest request) {
-        if (roomRepository.existsByNameIgnoreCase(request.getName())) {
-            throw new RuntimeException("Phòng học đã tồn tại");
+        // Trim name before validation and save
+        String trimmedName = request.getName() != null ? request.getName().trim() : null;
+
+        // Validate name is not empty
+        if (trimmedName == null || trimmedName.isEmpty()) {
+            throw new RuntimeException("Tên phòng học không được để trống");
         }
+
+        // Check duplicate (case-insensitive)
+        if (roomRepository.existsByNameIgnoreCase(trimmedName)) {
+            throw new RuntimeException("Tên phòng học '" + trimmedName + "' đã tồn tại");
+        }
+
+        // Set trimmed name back to request
+        request.setName(trimmedName);
         Room room = roomMapper.toEntity(request);
         return roomMapper.toResponse(roomRepository.save(room));
     }
 
     public RoomResponse updateRoom(Long id, RoomRequest request) {
         Room room = roomRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng học"));
+
+        // Trim name before validation
+        String trimmedName = request.getName() != null ? request.getName().trim() : null;
+
+        // Validate name is not empty
+        if (trimmedName == null || trimmedName.isEmpty()) {
+            throw new RuntimeException("Tên phòng học không được để trống");
+        }
+
+        // Set trimmed name back to request
+        request.setName(trimmedName);
 
         // Check if trying to disable room (change status to UNAVAILABLE)
         if (request.getStatus() == RoomStatus.UNAVAILABLE && room.getStatus() == RoomStatus.AVAILABLE) {
@@ -112,10 +135,12 @@ public class RoomService {
             }
         }
 
-        roomMapper.updateEntityFromDto(request, room);
-        if (roomRepository.existsByNameIgnoreCaseAndIdNot(request.getName(), id)) {
-            throw new RuntimeException("Phòng học đã tồn tại");
+        // Check duplicate (case-insensitive, excluding current room)
+        if (roomRepository.existsByNameIgnoreCaseAndIdNot(trimmedName, id)) {
+            throw new RuntimeException("Tên phòng học '" + trimmedName + "' đã tồn tại");
         }
+
+        roomMapper.updateEntityFromDto(request, room);
         return roomMapper.toResponse(roomRepository.save(room));
     }
 

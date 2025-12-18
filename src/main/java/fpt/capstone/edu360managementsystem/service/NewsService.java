@@ -221,17 +221,13 @@ public class NewsService {
      */
     public java.util.Map<String, Long> getNewsStats() {
         long total = newsRepository.count();
-        long published = newsRepository.countByStatus("PUBLISHED");
-        long draft = newsRepository.countByStatus("DRAFT");
-        long hidden = newsRepository.countByStatus("HIDDEN");
-        long scheduled = newsRepository.countByStatus("SCHEDULED");
+        long published = newsRepository.countByStatus(NewsStatus.PUBLISHED);
+        long draft = newsRepository.countByStatus(NewsStatus.DRAFT);
 
         java.util.Map<String, Long> stats = new java.util.HashMap<>();
         stats.put("total", total);
         stats.put("published", published);
         stats.put("draft", draft);
-        stats.put("hidden", hidden);
-        stats.put("scheduled", scheduled);
         return stats;
     }
 
