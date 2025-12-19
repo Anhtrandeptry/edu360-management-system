@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -13,6 +14,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 
@@ -124,6 +127,52 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Xử lý lỗi khi parse JSON không hợp lệ (ví dụ: enum không hợp lệ)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        String message = "Dữ liệu không hợp lệ";
+
+        Throwable cause = ex.getCause();
+        if (cause instanceof InvalidFormatException) {
+            InvalidFormatException ife = (InvalidFormatException) cause;
+            Class<?> targetType = ife.getTargetType();
+
+            // Xử lý enum không hợp lệ
+            if (targetType != null && targetType.isEnum()) {
+                String fieldName = ife.getPath().isEmpty() ? "field" : ife.getPath().get(0).getFieldName();
+                Object[] enumConstants = targetType.getEnumConstants();
+                StringBuilder validValues = new StringBuilder();
+                for (int i = 0; i < enumConstants.length; i++) {
+                    if (i > 0) {
+                        validValues.append(", ");
+                    }
+                    validValues.append(enumConstants[i].toString());
+                }
+
+                message = String.format(
+                        "Giá trị '%s' không hợp lệ cho trường '%s'. Chỉ chấp nhận: %s",
+                        ife.getValue(), fieldName, validValues.toString()
+                );
+            }
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new MessageResponse(message));
+    }
+
+    /**
+     * Xử lý lỗi IllegalArgumentException (thường từ validation trong service)
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new MessageResponse(ex.getMessage()));
+    }
+
+    /**
      * Xử lý lỗi RuntimeException với message cụ thể từ service layer
      */
     @ExceptionHandler(RuntimeException.class)
@@ -141,19 +190,6 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<?> handleIllegalState(IllegalStateException ex) {
-        String message = ex.getMessage();
-        String vietnameseMessage = translateRuntimeError(message);
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new MessageResponse(vietnameseMessage));
-    }
-
-    /**
-     * Xử lý lỗi IllegalArgumentException (invalid input)
-     */
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex) {
         String message = ex.getMessage();
         String vietnameseMessage = translateRuntimeError(message);
 

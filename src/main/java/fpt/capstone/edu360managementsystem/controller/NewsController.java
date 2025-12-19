@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,12 +23,13 @@ import fpt.capstone.edu360managementsystem.dto.request.NewsRequest;
 import fpt.capstone.edu360managementsystem.dto.response.NewsResponse;
 import fpt.capstone.edu360managementsystem.service.CloudinaryService;
 import fpt.capstone.edu360managementsystem.service.NewsService;
+import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * REST controller for news management.
- * Provides endpoints for CRUD operations on news articles.
+ * REST controller for news management. Provides endpoints for CRUD operations
+ * on news articles.
  *
  * @author 360edu
  * @version 1.0
@@ -81,15 +83,15 @@ public class NewsController {
     }
 
     /**
-     * Retrieves paginated news list.
-     * Public users see only PUBLISHED; Admin sees all.
+     * Retrieves paginated news list. Public users see only PUBLISHED; Admin
+     * sees all.
      *
      * @param search optional search term
      * @param status status filter
-     * @param page   page number
-     * @param size   page size
+     * @param page page number
+     * @param size page size
      * @param sortBy sort field
-     * @param order  sort order
+     * @param order sort order
      * @return paginated news list
      */
     @GetMapping
@@ -114,8 +116,8 @@ public class NewsController {
      * Retrieves published news for public access.
      *
      * @param search optional search term
-     * @param page   page number
-     * @param size   page size
+     * @param page page number
+     * @param size page size
      * @return paginated published news
      */
     @GetMapping("/public")
@@ -144,29 +146,34 @@ public class NewsController {
      * Creates a new news article.
      *
      * @param request news data
+     * @param currentUser the authenticated user
      * @return created news
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<NewsResponse> createNews(@Valid @RequestBody NewsRequest request) {
-        NewsResponse news = newsService.createNews(request);
+    public ResponseEntity<NewsResponse> createNews(
+            @Valid @RequestBody NewsRequest request,
+            @AuthenticationPrincipal UserDetailsImpl currentUser) {
+        NewsResponse news = newsService.createNews(request, currentUser.getUsername());
         return ResponseEntity.ok(news);
     }
 
     /**
      * Updates an existing news article.
      *
-     * @param id      the news ID
+     * @param id the news ID
      * @param request updated news data
+     * @param currentUser the authenticated user
      * @return updated news
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<NewsResponse> updateNews(
             @PathVariable Long id,
-            @Valid @RequestBody NewsRequest request
+            @Valid @RequestBody NewsRequest request,
+            @AuthenticationPrincipal UserDetailsImpl currentUser
     ) {
-        NewsResponse news = newsService.updateNews(id, request);
+        NewsResponse news = newsService.updateNews(id, request, currentUser.getUsername());
         return ResponseEntity.ok(news);
     }
 
@@ -184,6 +191,18 @@ public class NewsController {
     }
 
     /**
+     * Retrieves news statistics by status.
+     *
+     * @return map containing counts for each status
+     */
+    @GetMapping("/stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Long>> getNewsStats() {
+        Map<String, Long> stats = newsService.getNewsStats();
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
      * Increments the view count for a news article.
      *
      * @param id the news ID
@@ -198,7 +217,7 @@ public class NewsController {
     /**
      * Updates the status of a news article.
      *
-     * @param id   the news ID
+     * @param id the news ID
      * @param body map containing the new status
      * @return updated news
      */

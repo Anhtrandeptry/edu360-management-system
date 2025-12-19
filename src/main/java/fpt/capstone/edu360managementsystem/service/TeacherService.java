@@ -62,7 +62,8 @@ public class TeacherService {
     private SubjectRepository subjectRepository;
 
     /**
-     * Get all teachers, optionally filtered by subject.
+     * Get all active teachers, optionally filtered by subject. Only returns
+     * teachers where user.active = true.
      *
      * @param subjectId Optional subject ID to filter teachers
      * @return List of teacher responses
@@ -71,9 +72,9 @@ public class TeacherService {
         List<Teacher> teachers;
 
         if (subjectId != null) {
-            teachers = teacherRepository.findByAnySubject(subjectId);
+            teachers = teacherRepository.findActiveByAnySubject(subjectId);
         } else {
-            teachers = teacherRepository.findAll();
+            teachers = teacherRepository.findAllActive();
         }
 
         return teachers.stream()
