@@ -248,6 +248,18 @@ public class ParentService {
 
         System.out.println("Found sessions count: " + sessions.size());
 
+        // Get all session IDs to fetch attendance records
+        List<Long> sessionIds = sessions.stream().map(ClassSession::getId).collect(Collectors.toList());
+
+        // Fetch attendance records for this child in these sessions
+        Map<Long, Attendance> attendanceBySession = new HashMap<>();
+        if (!sessionIds.isEmpty()) {
+            List<Attendance> attendances = attendanceRepository.findBySession_IdInAndStudent_Id(sessionIds, childId);
+            for (Attendance att : attendances) {
+                attendanceBySession.put(att.getSession().getId(), att);
+            }
+        }
+
         return sessions.stream().map(session -> {
             Map<String, Object> scheduleItem = new HashMap<>();
             scheduleItem.put("id", session.getId());
@@ -260,6 +272,17 @@ public class ParentService {
             scheduleItem.put("teacherName", session.getClazz().getTeacher().getUser().getFullName());
             scheduleItem.put("room", session.getRoom() != null ? session.getRoom().getName() : null);
             scheduleItem.put("status", session.getStatus().name());
+
+            // Add attendance status for this child
+            Attendance attendance = attendanceBySession.get(session.getId());
+            if (attendance != null && attendance.getStatus() != AttendanceStatus.UNMARKED) {
+                scheduleItem.put("attendanceStatus", attendance.getStatus().name());
+                scheduleItem.put("attendanceNote", attendance.getNote());
+            } else {
+                scheduleItem.put("attendanceStatus", "UNMARKED");
+                scheduleItem.put("attendanceNote", null);
+            }
+
             return scheduleItem;
         }).collect(Collectors.toList());
     }

@@ -75,8 +75,8 @@ public class ReportService {
             growthPercent = ((monthlyRevenue - lastMonthRevenue) * 100.0) / lastMonthRevenue;
         }
 
-        // Thống kê học sinh
-        Long totalStudents = studentRepository.count();
+        // Thống kê học sinh - chỉ đếm active
+        Long totalStudents = studentRepository.countActive();
         // Note: User/ClassEnrollment không có createdAt, đếm payment mới thay thế (đại diện cho đăng ký mới)
         Long newStudentsThisMonth = paymentRepository.countDistinctStudentsCreatedAfter(monthStart);
         Long activeEnrollments = classEnrollmentRepository.countActiveEnrollments();
@@ -86,8 +86,8 @@ public class ReportService {
         Long publicClasses = clazzRepository.countByStatus(ClassStatus.PUBLIC);
         Long draftClasses = clazzRepository.countByStatus(ClassStatus.DRAFT);
 
-        // Thống kê giáo viên
-        Long totalTeachers = teacherRepository.count();
+        // Thống kê giáo viên - chỉ đếm active
+        Long totalTeachers = teacherRepository.countActive();
         Long activeTeachers = clazzRepository.countDistinctTeachersWithPublicClasses();
 
         // Thống kê thanh toán

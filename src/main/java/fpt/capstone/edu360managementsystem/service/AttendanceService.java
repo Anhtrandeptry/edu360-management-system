@@ -1,7 +1,9 @@
 package fpt.capstone.edu360managementsystem.service;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,7 +49,6 @@ public class AttendanceService {
     @Autowired
     private NotificationService notificationService;
 
-
     public List<AttendanceSessionSummaryResponse> getTodaySessionsForTeacher(Long userId) {
         // Map user -> teacher
         Teacher teacher = teacherRepository.findAll()
@@ -72,7 +73,6 @@ public class AttendanceService {
                     .build();
         }).toList();
     }
-
 
     public AttendanceSessionDetailResponse getSessionDetailForTeacher(Long userId, Long sessionId) {
         ClassSession session = classSessionRepository.findById(sessionId)
@@ -107,7 +107,6 @@ public class AttendanceService {
                 .students(students)
                 .build();
     }
-
 
     @Transactional
     public void upsertAttendanceForToday(Long userId, Long sessionId, AttendanceUpsertRequest req) {
@@ -155,7 +154,6 @@ public class AttendanceService {
         }
         // Note: Email thông báo cho phụ huynh được gửi thủ công bởi giáo viên qua nút "Gửi thông báo"
     }
-
 
     @Transactional
     public void upsertAttendanceByClassAndDate(Long userId, Long classId, String dateStr, Long slotId, AttendanceUpsertRequest req) {
@@ -260,7 +258,8 @@ public class AttendanceService {
         // Gửi notification
         try {
             Long userId = student.getUser().getId();
-            String link = "/home/student/schedule"; // Link đến trang lịch học của học sinh
+            Long classId = session.getClazz().getId();
+            String link = "/home/my-classes/" + classId; // Link đến chi tiết lớp học
             notificationService.createNotification(userId, title, message, notificationType, link);
         } catch (Exception e) {
             // Log error but don't fail the attendance operation
@@ -410,5 +409,57 @@ public class AttendanceService {
                 .timeEnd(session.getTimeSlot().getEndTime().toString())
                 .students(students)
                 .build();
+    }
+
+    /**
+     * Check attendance status for multiple sessions. Each session identifier is
+     * in format "classId-date-slotId". Returns a map of session identifier to
+     * boolean (true if has attendance).
+     *
+     * @param sessionIdentifiers list of session identifiers
+     * @return map of session identifier to attendance status
+     */
+    public Map<String, Boolean> checkAttendanceStatus(List<String> sessionIdentifiers) {
+        Map<String, Boolean> result = new HashMap<>();
+
+        for (String identifier : sessionIdentifiers) {
+            try {
+                String[] parts = identifier.split("-");
+                if (parts.length < 4) {
+                    result.put(identifier, false);
+                    continue;
+                }
+
+                // Parse identifier: classId-yyyy-MM-dd-slotId
+                Long classId = Long.parseLong(parts[0]);
+                String dateStr = parts[1] + "-" + parts[2] + "-" + parts[3];
+                LocalDate date = LocalDate.parse(dateStr);
+                Long slotId = parts.length > 4 ? Long.parseLong(parts[4]) : null;
+
+                // Find session by class, date, and slot
+                List<ClassSession> sessions = classSessionRepository.findByClazz_IdAndDateOrderByTimeSlot_StartTimeAsc(classId, date);
+
+                boolean hasAttendance = false;
+                for (ClassSession session : sessions) {
+                    // If slotId is provided, filter by it
+                    if (slotId != null && !session.getTimeSlot().getId().equals(slotId)) {
+                        continue;
+                    }
+                    // Check if session has any attendance records (not UNMARKED)
+                    List<Attendance> attendances = attendanceRepository.findBySession_Id(session.getId());
+                    hasAttendance = attendances.stream()
+                            .anyMatch(a -> a.getStatus() != AttendanceStatus.UNMARKED);
+                    if (hasAttendance) {
+                        break;
+                    }
+                }
+
+                result.put(identifier, hasAttendance);
+            } catch (Exception e) {
+                result.put(identifier, false);
+            }
+        }
+
+        return result;
     }
 }

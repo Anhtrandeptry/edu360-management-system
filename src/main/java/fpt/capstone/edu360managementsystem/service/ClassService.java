@@ -719,6 +719,13 @@ public class ClassService {
                 if (!teachesSubject) {
                     throw new RuntimeException("Teacher does not teach the selected subject");
                 }
+
+                // Validate teacher conflict: check if teacher has schedule conflict with this class's schedule
+                if (oldTeacherRef == null || !oldTeacherRef.getId().equals(newTeacher.getId())) {
+                    // Teacher is changing - validate for conflicts
+                    validateTeacherConflict(clazz, newTeacher);
+                }
+
                 clazz.setTeacher(newTeacher);
 
                 // If teacher actually changed, handle teacher-course migration:
@@ -781,6 +788,12 @@ public class ClassService {
             Room room = null;
             if (req.getRoomId() != null) {
                 room = roomRepository.findById(req.getRoomId()).orElseThrow(() -> new RuntimeException("Room not found"));
+
+                // Validate room conflict: check if new room has schedule conflict with this class's schedule (DRAFT classes too!)
+                if (!room.getId().equals(clazz.getRoom() != null ? clazz.getRoom().getId() : null)) {
+                    // Room is changing - validate for conflicts
+                    validateRoomConflict(clazz, room);
+                }
             }
             clazz.setRoom(room);
 
@@ -835,16 +848,12 @@ public class ClassService {
             boolean totalSessionsChanged = totalSessions != null && totalSessions > 0 && totalSessions != currentSessionsCount;
 
             if (scheduleChanged) {
-                // Xóa lịch cũ
-                classScheduleRepository.deleteAll(existingSchedules);
-                // Tạo lịch mới
-                List<ClassSchedule> newSchedules = req.getSchedule().stream().map(si -> {
-                    // FE đang gửi dayOfWeek theo chuẩn 1..7? Nếu FE gửi 1..7 thì convert sang 1..7 cho entity.
-                    // Nếu FE gửi 0..6 (0=CN) thì chuyển 0->7.
+                // VALIDATE CONFLICTS BEFORE CHANGING SCHEDULE
+                // Build new schedule list for validation
+                List<ClassSchedule> pendingSchedules = req.getSchedule().stream().map(si -> {
                     int dow = si.getDayOfWeek();
                     if (dow == 0) {
-                        dow = 7; // normalize Sunday
-
+                        dow = 7;
                     }
                     TimeSlot slot = timeSlotRepository.findById(si.getTimeSlotId())
                             .orElseThrow(() -> new RuntimeException("Invalid time slot id: " + si.getTimeSlotId()));
@@ -854,12 +863,28 @@ public class ClassService {
                             .timeSlot(slot)
                             .build();
                 }).toList();
-                classScheduleRepository.saveAll(newSchedules);
+
+                // Validate room conflict with new schedule (if offline class)
+                Room currentRoom = clazz.getRoom();
+                if (currentRoom != null) {
+                    validateScheduleRoomConflict(clazz, currentRoom, pendingSchedules);
+                }
+
+                // Validate teacher conflict with new schedule
+                Teacher currentTeacher = clazz.getTeacher();
+                if (currentTeacher != null) {
+                    validateScheduleTeacherConflict(clazz, currentTeacher, pendingSchedules);
+                }
+
+                // Xóa lịch cũ
+                classScheduleRepository.deleteAll(existingSchedules);
+                // Tạo lịch mới (reuse pendingSchedules)
+                classScheduleRepository.saveAll(pendingSchedules);
 
                 // Re-calc endDate nếu không được gửi trực tiếp nhưng có totalSessions
                 if (totalSessions != null && totalSessions > 0 && (req.getEndDate() == null)) {
                     // Map slots per day
-                    var slotsPerDay = newSchedules.stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
+                    var slotsPerDay = pendingSchedules.stream().collect(Collectors.groupingBy(ClassSchedule::getDayOfWeek, Collectors.counting()));
                     LocalDate newEnd = calculateEndDate(clazz.getStartDate(), totalSessions, slotsPerDay);
                     clazz.setEndDate(newEnd);
                 }
@@ -941,8 +966,8 @@ public class ClassService {
                     }
                     // Generate sessions mới
                     List<ClassSchedule> currentSchedules = classScheduleRepository.findByClazz_Id(id);
-                    Room currentRoom = clazz.getRoom();
-                    List<ClassSession> regenerated = generateSessionsByDateRange(clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(), currentSchedules, totalSessions);
+                    Room roomForSession = clazz.getRoom();
+                    List<ClassSession> regenerated = generateSessionsByDateRange(clazz, roomForSession, clazz.getStartDate(), clazz.getEndDate(), currentSchedules, totalSessions);
                     classSessionRepository.saveAll(regenerated);
                 }
             } else if (totalSessionsChanged && req.getStartDate() != null && req.getEndDate() == null) {
@@ -982,9 +1007,9 @@ public class ClassService {
                 }
 
                 // Generate sessions mới theo totalSessions
-                Room currentRoom = clazz.getRoom();
+                Room roomForRegen = clazz.getRoom();
                 List<ClassSession> regenerated = generateSessionsByDateRange(
-                        clazz, currentRoom, clazz.getStartDate(), clazz.getEndDate(),
+                        clazz, roomForRegen, clazz.getStartDate(), clazz.getEndDate(),
                         currentSchedules, totalSessions);
                 classSessionRepository.saveAll(regenerated);
             }
@@ -1075,6 +1100,181 @@ public class ClassService {
                                 "Phòng " + newRoom.getName() + " đã có lớp \"" + otherClass.getName()
                                 + "\" dạy vào " + dayName + " (" + slotTime + "). "
                                 + "Vui lòng chọn phòng khác."
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Validate that the new teacher doesn't have schedule conflicts with the
+     * class's schedule. Throws IllegalStateException if there's a conflict.
+     */
+    private void validateTeacherConflict(Clazz clazz, Teacher newTeacher) {
+        // Get this class's schedules
+        var thisClassSchedules = classScheduleRepository.findByClazz_Id(clazz.getId());
+        if (thisClassSchedules.isEmpty()) {
+            return; // No schedule to conflict
+        }
+
+        // Find all other classes taught by this teacher (exclude archived and current class)
+        List<ClassSchedule> otherTeacherSchedules = classScheduleRepository.findAll().stream()
+                .filter(cs -> {
+                    Clazz otherClass = cs.getClazz();
+                    return otherClass != null
+                            && otherClass.getTeacher() != null
+                            && newTeacher.getId().equals(otherClass.getTeacher().getId())
+                            && !otherClass.getId().equals(clazz.getId()) // exclude current class
+                            && otherClass.getStatus() != ClassStatus.ARCHIVED;
+                })
+                .toList();
+
+        if (otherTeacherSchedules.isEmpty()) {
+            return; // Teacher is free
+        }
+
+        // Check for overlapping time slots
+        for (ClassSchedule thisSchedule : thisClassSchedules) {
+            int thisDow = thisSchedule.getDayOfWeek();
+            Long thisSlotId = thisSchedule.getTimeSlot().getId();
+
+            // Check date range overlap with other classes
+            LocalDate thisStart = clazz.getStartDate();
+            LocalDate thisEnd = clazz.getEndDate();
+
+            for (ClassSchedule otherSchedule : otherTeacherSchedules) {
+                Clazz otherClass = otherSchedule.getClazz();
+                int otherDow = otherSchedule.getDayOfWeek();
+                Long otherSlotId = otherSchedule.getTimeSlot().getId();
+
+                // Same day of week and same time slot?
+                if (thisDow == otherDow && thisSlotId.equals(otherSlotId)) {
+                    // Check if date ranges overlap
+                    LocalDate otherStart = otherClass.getStartDate();
+                    LocalDate otherEnd = otherClass.getEndDate();
+
+                    boolean dateOverlap = !(thisEnd.isBefore(otherStart) || thisStart.isAfter(otherEnd));
+
+                    if (dateOverlap) {
+                        String dayName = getDayName(thisDow);
+                        String slotTime = thisSchedule.getTimeSlot().getStartTime() + " - " + thisSchedule.getTimeSlot().getEndTime();
+                        throw new IllegalStateException(
+                                "Giáo viên " + newTeacher.getUser().getFullName() + " đã có lớp \"" + otherClass.getName()
+                                + "\" dạy vào " + dayName + " (" + slotTime + "). "
+                                + "Vui lòng chọn giáo viên khác."
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Validate that the new schedule doesn't have room conflicts. Used when
+     * updating class schedule (not room).
+     */
+    private void validateScheduleRoomConflict(Clazz clazz, Room room, List<ClassSchedule> newSchedules) {
+        if (newSchedules.isEmpty()) {
+            return;
+        }
+
+        // Find all other classes using this room (exclude archived and current class)
+        List<ClassSchedule> otherRoomSchedules = classScheduleRepository.findAll().stream()
+                .filter(cs -> {
+                    Clazz otherClass = cs.getClazz();
+                    return otherClass != null
+                            && otherClass.getRoom() != null
+                            && room.getId().equals(otherClass.getRoom().getId())
+                            && !otherClass.getId().equals(clazz.getId())
+                            && otherClass.getStatus() != ClassStatus.ARCHIVED;
+                })
+                .toList();
+
+        if (otherRoomSchedules.isEmpty()) {
+            return;
+        }
+
+        LocalDate thisStart = clazz.getStartDate();
+        LocalDate thisEnd = clazz.getEndDate();
+
+        for (ClassSchedule newSchedule : newSchedules) {
+            int newDow = newSchedule.getDayOfWeek();
+            Long newSlotId = newSchedule.getTimeSlot().getId();
+
+            for (ClassSchedule otherSchedule : otherRoomSchedules) {
+                Clazz otherClass = otherSchedule.getClazz();
+                int otherDow = otherSchedule.getDayOfWeek();
+                Long otherSlotId = otherSchedule.getTimeSlot().getId();
+
+                if (newDow == otherDow && newSlotId.equals(otherSlotId)) {
+                    LocalDate otherStart = otherClass.getStartDate();
+                    LocalDate otherEnd = otherClass.getEndDate();
+                    boolean dateOverlap = !(thisEnd.isBefore(otherStart) || thisStart.isAfter(otherEnd));
+
+                    if (dateOverlap) {
+                        String dayName = getDayName(newDow);
+                        String slotTime = newSchedule.getTimeSlot().getStartTime() + " - " + newSchedule.getTimeSlot().getEndTime();
+                        throw new IllegalStateException(
+                                "Phòng " + room.getName() + " đã có lớp \"" + otherClass.getName()
+                                + "\" vào " + dayName + " (" + slotTime + "). "
+                                + "Vui lòng chọn slot khác."
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Validate that the new schedule doesn't have teacher conflicts. Used when
+     * updating class schedule (not teacher).
+     */
+    private void validateScheduleTeacherConflict(Clazz clazz, Teacher teacher, List<ClassSchedule> newSchedules) {
+        if (newSchedules.isEmpty()) {
+            return;
+        }
+
+        // Find all other classes taught by this teacher (exclude archived and current class)
+        List<ClassSchedule> otherTeacherSchedules = classScheduleRepository.findAll().stream()
+                .filter(cs -> {
+                    Clazz otherClass = cs.getClazz();
+                    return otherClass != null
+                            && otherClass.getTeacher() != null
+                            && teacher.getId().equals(otherClass.getTeacher().getId())
+                            && !otherClass.getId().equals(clazz.getId())
+                            && otherClass.getStatus() != ClassStatus.ARCHIVED;
+                })
+                .toList();
+
+        if (otherTeacherSchedules.isEmpty()) {
+            return;
+        }
+
+        LocalDate thisStart = clazz.getStartDate();
+        LocalDate thisEnd = clazz.getEndDate();
+
+        for (ClassSchedule newSchedule : newSchedules) {
+            int newDow = newSchedule.getDayOfWeek();
+            Long newSlotId = newSchedule.getTimeSlot().getId();
+
+            for (ClassSchedule otherSchedule : otherTeacherSchedules) {
+                Clazz otherClass = otherSchedule.getClazz();
+                int otherDow = otherSchedule.getDayOfWeek();
+                Long otherSlotId = otherSchedule.getTimeSlot().getId();
+
+                if (newDow == otherDow && newSlotId.equals(otherSlotId)) {
+                    LocalDate otherStart = otherClass.getStartDate();
+                    LocalDate otherEnd = otherClass.getEndDate();
+                    boolean dateOverlap = !(thisEnd.isBefore(otherStart) || thisStart.isAfter(otherEnd));
+
+                    if (dateOverlap) {
+                        String dayName = getDayName(newDow);
+                        String slotTime = newSchedule.getTimeSlot().getStartTime() + " - " + newSchedule.getTimeSlot().getEndTime();
+                        throw new IllegalStateException(
+                                "Giáo viên " + teacher.getUser().getFullName() + " đã có lớp \"" + otherClass.getName()
+                                + "\" vào " + dayName + " (" + slotTime + "). "
+                                + "Vui lòng chọn slot khác."
                         );
                     }
                 }

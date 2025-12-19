@@ -15,7 +15,10 @@ import fpt.capstone.edu360managementsystem.dto.response.UserResponse;
 import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.enums.ERole;
 import fpt.capstone.edu360managementsystem.mapper.UserMapper;
+import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.ParentRepository;
+import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 
@@ -34,8 +37,19 @@ public class UserService {
     @Autowired
     private TeacherRepository teacherRepository;
 
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private ParentRepository parentRepository;
+
+    @Autowired
+    private ClassEnrollmentRepository classEnrollmentRepository;
+
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
+        // Trả về tất cả users (kể cả inactive) để Admin có thể quản lý
+        // Việc filter active được xử lý ở nơi cần thiết (Dashboard, Report)
         return userRepository.findAll().stream()
                 .map(userMapper::toResponse)
                 .collect(Collectors.toList());
@@ -105,18 +119,33 @@ public class UserService {
             }
         }
 
-        // Check if user is a student and is in use
+        // Check if user is a student and is enrolled in active classes
         boolean isStudent = user.getRoles().stream().anyMatch(r -> r.getName().name().equals("STUDENT"));
         if (isStudent && Boolean.FALSE.equals(active)) {
-            // TODO: Check if student is enrolled in any active class (implement if needed)
-            // For now, just allow
+            var student = studentRepository.findByUser_Id(user.getId());
+            if (student.isPresent()) {
+                long cnt = classEnrollmentRepository.countByStudent_Id(student.get().getId());
+                if (cnt > 0) {
+                    throw new RuntimeException("Không thể vô hiệu hóa học viên: đang tham gia " + cnt + " lớp học");
+                }
+            }
         }
 
-        // Check if user is a parent and is in use
+        // Check if user is a parent and has children enrolled in classes
         boolean isParent = user.getRoles().stream().anyMatch(r -> r.getName().name().equals("PARENT"));
         if (isParent && Boolean.FALSE.equals(active)) {
-            // TODO: Check if parent has any children enrolled in active classes (implement if needed)
-            // For now, just allow
+            var parent = parentRepository.findByUserId(user.getId());
+            if (parent.isPresent()) {
+                // Sử dụng query trực tiếp thay vì lazy loading để tránh vấn đề session
+                var children = studentRepository.findByParentId(parent.get().getId());
+                for (var child : children) {
+                    long cnt = classEnrollmentRepository.countByStudent_Id(child.getId());
+                    if (cnt > 0) {
+                        String childName = child.getUser() != null ? child.getUser().getFullName() : "học sinh";
+                        throw new RuntimeException("Không thể vô hiệu hóa phụ huynh: con (" + childName + ") đang tham gia " + cnt + " lớp học");
+                    }
+                }
+            }
         }
 
         user.setActive(active);

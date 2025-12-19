@@ -17,12 +17,28 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long>, JpaSpec
 
     boolean existsByUserId(Long userId);
 
+    /**
+     * Đếm số giáo viên đang hoạt động (user.active = true)
+     */
+    @Query("SELECT COUNT(t) FROM Teacher t WHERE t.user.active = true")
+    long countActive();
+
+    /**
+     * Lấy tất cả giáo viên đang hoạt động (user.active = true)
+     */
+    @Query("SELECT t FROM Teacher t WHERE t.user.active = true")
+    List<Teacher> findAllActive();
+
+    /**
+     * Lấy giáo viên đang hoạt động theo môn học
+     */
+    @Query("SELECT DISTINCT t FROM Teacher t LEFT JOIN t.subjects s WHERE t.user.active = true AND (t.subject.id = :subjectId OR s.id = :subjectId)")
+    List<Teacher> findActiveByAnySubject(@Param("subjectId") Long subjectId);
 
     @Query("select distinct t from Teacher t left join t.subjects s where t.subject.id = :subjectId or s.id = :subjectId")
     List<Teacher> findByAnySubject(@Param("subjectId") Long subjectId);
 
     java.util.Optional<Teacher> findByUserId(Long userId);
-
 
     @Query("""
         SELECT DISTINCT t FROM Teacher t
