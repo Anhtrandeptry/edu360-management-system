@@ -24,6 +24,7 @@ import fpt.capstone.edu360managementsystem.entity.TeacherCertificate;
 import fpt.capstone.edu360managementsystem.entity.TeacherEducation;
 import fpt.capstone.edu360managementsystem.entity.TeacherExperience;
 import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherCertificateRepository;
@@ -60,6 +61,9 @@ public class TeacherService {
 
     @Autowired
     private SubjectRepository subjectRepository;
+
+    @Autowired
+    private ClassEnrollmentRepository classEnrollmentRepository;
 
     /**
      * Get all teachers, optionally filtered by subject.
@@ -163,11 +167,27 @@ public class TeacherService {
         }
 
         long count;
+        long studentCount;
         try {
             count = clazzRepository.countActiveByTeacherUser(teacher.getUser().getId());
         } catch (Exception ex) {
             count = 0L; // Defensive fallback
         }
+        try {
+            Integer students = classEnrollmentRepository.countStudentsByTeacherId(teacher.getId());
+            studentCount = students != null ? students : 0L;
+        } catch (Exception ex) {
+            studentCount = 0L;
+        }
+
+        // Load first item from each category for card display
+        TeacherCertificateRequest firstCertificate = certificateRepository.findByTeacherId(teacher.getId())
+                .stream().findFirst().map(this::mapCertificateToDto).orElse(null);
+        TeacherExperienceRequest firstExperience = experienceRepository.findByTeacherId(teacher.getId())
+                .stream().findFirst().map(this::mapExperienceToDto).orElse(null);
+        TeacherEducationRequest firstEducation = educationRepository.findByTeacherId(teacher.getId())
+                .stream().findFirst().map(this::mapEducationToDto).orElse(null);
+
         return TeacherResponse.builder()
                 .id(teacher.getId())
                 .userId(teacher.getUser().getId())
@@ -188,6 +208,10 @@ public class TeacherService {
                 .workplace(teacher.getWorkplace())
                 .active(teacher.getUser().getActive())
                 .classCount(count)
+                .studentCount(studentCount)
+                .firstCertificate(firstCertificate)
+                .firstExperience(firstExperience)
+                .firstEducation(firstEducation)
                 .build();
     }
 
@@ -227,8 +251,15 @@ public class TeacherService {
         }
 
         long classCount = 0;
+        long studentCount = 0;
         try {
             classCount = clazzRepository.countActiveByTeacherUser(userId);
+        } catch (Exception ex) {
+            // ignore
+        }
+        try {
+            Integer students = classEnrollmentRepository.countStudentsByTeacherId(teacher.getId());
+            studentCount = students != null ? students : 0L;
         } catch (Exception ex) {
             // ignore
         }
@@ -266,7 +297,7 @@ public class TeacherService {
                 .facebookUrl(teacher.getFacebookUrl())
                 .bio(teacher.getBio())
                 .classCount((int) classCount)
-                .studentCount(0) // Can be calculated if needed
+                .studentCount((int) studentCount)
                 .yearsOfExperience(teacher.getYearsOfExperience())
                 .rating(teacher.getRating())
                 .certificates(certificates)

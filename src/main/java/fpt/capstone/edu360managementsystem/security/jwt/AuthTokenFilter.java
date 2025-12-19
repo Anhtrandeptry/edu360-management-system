@@ -93,12 +93,6 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     try {
       // Try to get JWT from Authorization header first, then from cookie
       String jwt = getJwtFromRequest(request);
-    logger.info("JWT from request: {} | method={} path={} authHeader={}", 
-        jwt != null ? "present" : "null",
-        request.getMethod(),
-        request.getRequestURI(),
-        request.getHeader("Authorization") != null ? "present" : "absent");
-
       if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
         String username = jwtUtils.getUserNameFromJwtToken(jwt);
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);

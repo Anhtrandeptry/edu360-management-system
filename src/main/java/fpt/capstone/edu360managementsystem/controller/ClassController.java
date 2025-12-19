@@ -77,6 +77,8 @@ public class ClassController {
      * @param status        status filter
      * @param online        online/offline filter
      * @param teacherUserId optional teacher filter
+     * @param minPrice      minimum price filter
+     * @param maxPrice      maximum price filter
      * @param page          page number
      * @param size          page size
      * @param sortBy        sort field
@@ -89,13 +91,15 @@ public class ClassController {
             @RequestParam(required = false, defaultValue = "ALL") String status,
             @RequestParam(required = false, defaultValue = "ALL") String online,
             @RequestParam(required = false) Long teacherUserId,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String order
     ) {
         return ResponseEntity.ok(classService.getClassesWithPagination(
-                search, status, online, teacherUserId, page, size, sortBy, order
+                search, status, online, teacherUserId, minPrice, maxPrice, page, size, sortBy, order
         ));
     }
 

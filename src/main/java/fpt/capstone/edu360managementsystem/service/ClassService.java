@@ -467,6 +467,8 @@ public class ClassService {
             String status,
             String online,
             Long teacherUserId,
+            Double minPrice,
+            Double maxPrice,
             int page,
             int size,
             String sortBy,
@@ -499,7 +501,7 @@ public class ClassService {
 
         // Query với pagination
         Page<Clazz> classPage = clazzRepository.findBySearchAndFilters(
-                search, statusEnum, onlineBool, teacherUserId, pageable
+                search, statusEnum, onlineBool, teacherUserId, minPrice, maxPrice, pageable
         );
 
         // Load ALL schedules for these classes để tránh N+1

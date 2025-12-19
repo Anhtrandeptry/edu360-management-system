@@ -120,8 +120,45 @@ public class EnrollmentController {
             enrollmentService.selfEnroll(classId, user.getId());
             return ResponseEntity.ok("Enrolled");
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+            String internalMsg = e.getMessage();
+            String safeMessage = getSafeEnrollmentErrorMessage(internalMsg);
+            
+            // Return 402 Payment Required if payment is needed
+            if (internalMsg != null && (internalMsg.contains("chưa thanh toán") || internalMsg.contains("payment"))) {
+                return ResponseEntity.status(402).body(java.util.Map.of("message", safeMessage));
+            }
+            
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", safeMessage));
         }
+    }
+    
+    /**
+     * Maps internal error messages to safe, user-facing messages.
+     */
+    private String getSafeEnrollmentErrorMessage(String internalMessage) {
+        if (internalMessage == null) return "Không thể đăng ký lớp học. Vui lòng thử lại.";
+        
+        if (internalMessage.contains("chưa thanh toán") || internalMessage.contains("payment")) {
+            return "Bạn chưa thanh toán học phí cho lớp này.";
+        }
+        if (internalMessage.contains("full") || internalMessage.contains("đầy")) {
+            return "Lớp học đã đủ số lượng học sinh.";
+        }
+        if (internalMessage.contains("already enrolled") || internalMessage.contains("đã đăng ký")) {
+            return "Bạn đã đăng ký lớp học này rồi.";
+        }
+        if (internalMessage.contains("PUBLIC") || internalMessage.contains("chưa được mở")) {
+            return "Lớp học chưa được mở đăng ký.";
+        }
+        if (internalMessage.contains("conflict") || internalMessage.contains("trùng lịch")) {
+            return "Lịch học bị trùng với lớp khác bạn đã đăng ký.";
+        }
+        if (internalMessage.contains("not found")) {
+            return "Không tìm thấy thông tin. Vui lòng thử lại.";
+        }
+        
+        // Default safe message
+        return "Không thể đăng ký lớp học. Vui lòng thử lại.";
     }
 
 }

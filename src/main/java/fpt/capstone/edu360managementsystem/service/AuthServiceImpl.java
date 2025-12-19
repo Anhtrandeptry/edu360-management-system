@@ -280,10 +280,12 @@ public class AuthServiceImpl implements AuthService {
         String text = String.format(
                 "Xin chào %s,\n\n"
                 + "Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản trên hệ thống Edu360.\n\n"
-                + "Mật khẩu mới của bạn là: %s\n\n"
+                + "Thông tin đăng nhập của bạn:\n"
+                + "- Tên đăng nhập: %s\n"
+                + "- Mật khẩu mới: %s\n\n"
                 + "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập để đảm bảo an toàn.\n\n"
                 + "Trân trọng,\nĐội ngũ Edu360",
-                user.getFullName(), newPlainPassword
+                user.getFullName(), user.getUsername(), newPlainPassword
         );
 
         try {

@@ -170,12 +170,16 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
              (:isOnline = true AND c.meetingLink IS NOT NULL AND c.meetingLink <> '') OR
              (:isOnline = false AND (c.meetingLink IS NULL OR c.meetingLink = '')))
         AND (:teacherUserId IS NULL OR tu.id = :teacherUserId)
+        AND (:minPrice IS NULL OR c.pricePerSession >= :minPrice)
+        AND (:maxPrice IS NULL OR c.pricePerSession <= :maxPrice)
         """)
     Page<Clazz> findBySearchAndFilters(
             @Param("search") String search,
             @Param("status") ClassStatus status,
             @Param("isOnline") Boolean isOnline,
             @Param("teacherUserId") Long teacherUserId,
+            @Param("minPrice") Double minPrice,
+            @Param("maxPrice") Double maxPrice,
             Pageable pageable
     );
 

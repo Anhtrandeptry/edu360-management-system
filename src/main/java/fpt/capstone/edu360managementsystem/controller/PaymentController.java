@@ -33,6 +33,9 @@ public class PaymentController {
     @Autowired
     private PaymentService paymentService;
 
+    @org.springframework.beans.factory.annotation.Value("${payment.casso.webhookToken:}")
+    private String cassoWebhookToken;
+
     /**
      * Creates a payment and generates QR code for class enrollment.
      *
@@ -62,24 +65,41 @@ public class PaymentController {
             paymentService.handleVietQrCallback(body);
             return ResponseEntity.ok(new MessageResponse("Payment verified and student enrolled"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(new MessageResponse(ex.getMessage()));
+            // Log internally but don't expose details to client
+            System.err.println("VietQR callback error: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(new MessageResponse("Payment verification failed"));
         }
     }
 
     /**
      * Handles Casso payment webhook.
-     *
+     * Casso will send transaction data when bank account has new transactions.
+     * 
+     * @param authHeader the Authorization header containing secure token
      * @param body the webhook request data
      * @return acknowledgement message
      */
     @PostMapping("/casso/webhook")
-    public ResponseEntity<?> cassoWebhook(@RequestBody CassoWebhookRequest body) {
+    public ResponseEntity<?> cassoWebhook(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody CassoWebhookRequest body
+    ) {
+        // Verify secure token if configured
+        if (cassoWebhookToken != null && !cassoWebhookToken.isEmpty()) {
+            String expectedToken = "Apikey " + cassoWebhookToken;
+            if (authHeader == null || !authHeader.equals(expectedToken)) {
+                System.err.println("Casso webhook: Invalid or missing Authorization token");
+                return ResponseEntity.status(401).body(new MessageResponse("Unauthorized"));
+            }
+        }
+        
         try {
             paymentService.handleCassoWebhook(body);
             return ResponseEntity.ok(new MessageResponse("OK"));
         } catch (Exception ex) {
+            // Log internally but don't expose details to external webhook caller
             System.err.println("Casso webhook error: " + ex.getMessage());
-            return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
+            return ResponseEntity.ok(new MessageResponse("Processed"));
         }
     }
 

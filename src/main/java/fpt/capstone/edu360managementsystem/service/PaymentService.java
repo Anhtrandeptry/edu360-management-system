@@ -9,6 +9,7 @@ import fpt.capstone.edu360managementsystem.entity.Payment;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.enums.PaymentStatus;
+import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.PaymentRepository;
@@ -58,6 +59,9 @@ public class PaymentService {
     private ClassSessionRepository classSessionRepository;
 
     @Autowired
+    private ClassEnrollmentRepository classEnrollmentRepository;
+
+    @Autowired
     private EnrollmentService enrollmentService;
 
     @Autowired
@@ -74,6 +78,15 @@ public class PaymentService {
 
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
+
+        // Kiểm tra capacity trước khi cho phép tạo payment
+        int currentEnrolled = classEnrollmentRepository.countByClazz_Id(classId);
+        boolean alreadyEnrolled = classEnrollmentRepository.existsByClazz_IdAndStudent_Id(classId, student.getId());
+        
+        // Nếu chưa enroll và lớp đã full -> không cho tạo payment
+        if (!alreadyEnrolled && currentEnrolled >= clazz.getMaxStudents()) {
+            throw new RuntimeException("Lớp học đã đủ số lượng học sinh. Không thể đăng ký thêm.");
+        }
 
         long sessionsCount = classSessionRepository.countByClazz_Id(classId);
         if (sessionsCount <= 0) {

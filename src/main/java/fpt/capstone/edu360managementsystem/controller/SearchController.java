@@ -56,11 +56,29 @@ public class SearchController {
         Map<String, Object> results = new HashMap<>();
         results.put("query", searchTerm);
 
-        results.put("classes", List.of());
-        results.put("teachers", List.of());
-        results.put("subjects", List.of());
+        // Search classes - only PUBLIC classes, include currentStudents and maxStudents
+        // Pass null for minPrice and maxPrice to not filter by price
+        Page<ClassResponse> classResults = classService.getClassesWithPagination(
+                searchTerm, "PUBLIC", null, null, null, null, 0, limit, "id", "desc"
+        );
+        results.put("classes", classResults.getContent());
 
-        results.put("totalResults", 0);
+        // Search teachers
+        Page<TeacherResponse> teacherResults = teacherService.getTeachersWithPagination(
+                searchTerm, null, 0, limit, "id", "desc"
+        );
+        results.put("teachers", teacherResults.getContent());
+
+        // Search subjects
+        Page<SubjectResponse> subjectResults = subjectService.getSubjectsWithPagination(
+                searchTerm, "ACTIVE", 0, limit, "id", "desc"
+        );
+        results.put("subjects", subjectResults.getContent());
+
+        int totalResults = classResults.getContent().size() 
+                + teacherResults.getContent().size() 
+                + subjectResults.getContent().size();
+        results.put("totalResults", totalResults);
 
         return ResponseEntity.ok(results);
     }

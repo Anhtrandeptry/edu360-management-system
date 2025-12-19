@@ -1,5 +1,8 @@
 package fpt.capstone.edu360managementsystem.dto.response;
 
+import fpt.capstone.edu360managementsystem.dto.request.TeacherCertificateRequest;
+import fpt.capstone.edu360managementsystem.dto.request.TeacherEducationRequest;
+import fpt.capstone.edu360managementsystem.dto.request.TeacherExperienceRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,5 +39,11 @@ public class TeacherResponse {
     private String workplace;
     private Boolean active;
     private long classCount;
+    private long studentCount;
+    
+    // First item from each category for card display
+    private TeacherCertificateRequest firstCertificate;
+    private TeacherExperienceRequest firstExperience;
+    private TeacherEducationRequest firstEducation;
 
 }
