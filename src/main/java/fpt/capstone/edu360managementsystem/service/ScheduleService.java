@@ -58,24 +58,24 @@ public class ScheduleService {
         LocalDateTime to = parseIsoDateTime(toStr);
 
         // Find all class schedules where this teacher is teaching
-        // Only include classes that are active (not COMPLETE)
+        // Only include classes that are active (exclude ARCHIVED)
         List<ClassSchedule> schedules = classScheduleRepository.findAll().stream()
                 .filter(cs -> {
                     Clazz clazz = cs.getClazz();
                     return clazz != null
                             && clazz.getTeacher() != null
                             && teacher.getId().equals(clazz.getTeacher().getId())
-                            && clazz.getStatus() != ClassStatus.COMPLETE;
+                            && clazz.getStatus() != ClassStatus.ARCHIVED;
                 })
                 .toList();
 
-        System.out.println("🔍 Teacher ID: " + teacher.getId() + " | Found " + schedules.size() + " active schedules");
+        System.out.println("Teacher ID: " + teacher.getId() + " | Found " + schedules.size() + " active schedules");
 
         List<BusySlotResponse> busySlots = expandSchedulesToSlots(schedules, from, to);
 
-        System.out.println("📅 Expanded to " + busySlots.size() + " busy slots");
+        System.out.println("Expanded to " + busySlots.size() + " busy slots");
         if (!busySlots.isEmpty()) {
-            System.out.println("📍 First slot: " + busySlots.get(0).getStart() + " -> " + busySlots.get(0).getEnd());
+            System.out.println("First slot: " + busySlots.get(0).getStart() + " -> " + busySlots.get(0).getEnd());
         }
 
         return busySlots;
@@ -94,14 +94,14 @@ public class ScheduleService {
         LocalDateTime to = parseIsoDateTime(toStr);
 
         // Find all class schedules using this room
-        // Only include classes that are active (not COMPLETE)
+        // Only include classes that are active (exclude ARCHIVED)
         List<ClassSchedule> schedules = classScheduleRepository.findAll().stream()
                 .filter(cs -> {
                     Clazz clazz = cs.getClazz();
                     return clazz != null
                             && clazz.getRoom() != null
                             && roomId.equals(clazz.getRoom().getId())
-                            && clazz.getStatus() != ClassStatus.COMPLETE;
+                            && clazz.getStatus() != ClassStatus.ARCHIVED;
                 })
                 .toList();
 
@@ -144,7 +144,7 @@ public class ScheduleService {
 
             // Validate range before creating DayOfWeek
             if (isoDay < 1 || isoDay > 7) {
-                System.err.println("⚠️ Invalid dayOfWeek: " + dbDay + " for class: " + clazz.getName());
+                System.err.println("Invalid dayOfWeek: " + dbDay + " for class: " + clazz.getName());
                 continue;
             }
 

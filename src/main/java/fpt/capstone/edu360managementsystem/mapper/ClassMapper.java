@@ -15,6 +15,10 @@ public interface ClassMapper {
     ClassMapper INSTANCE = Mappers.getMapper(ClassMapper.class);
 
     default ClassResponse toResponse(Clazz entity, List<ClassSchedule> schedules, int sessionsGenerated) {
+        return toResponse(entity, schedules, sessionsGenerated, 0);
+    }
+
+    default ClassResponse toResponse(Clazz entity, List<ClassSchedule> schedules, int sessionsGenerated, int completedSessions) {
         ClassResponse resp = ClassResponse.builder()
                 .id(entity.getId())
                 .name(entity.getName())
@@ -28,8 +32,12 @@ public interface ClassMapper {
                 .description(entity.getDescription())
                 .status(entity.getStatus())
                 .sessionsGenerated(sessionsGenerated)
+                .pricePerSession(entity.getPricePerSession())
+                .totalSessions(sessionsGenerated)
+                .completedSessions(completedSessions)
                 .subjectName(entity.getSubject().getName())
                 .teacherFullName(entity.getTeacher().getUser().getFullName())
+                .teacherAvatarUrl(entity.getTeacher().getAvatarUrl())
                 .teacherUserId(entity.getTeacher().getUser().getId())
                 .roomName(entity.getRoom() != null ? entity.getRoom().getName() : null)
                 .online(entity.getMeetingLink() != null && !entity.getMeetingLink().isBlank())
@@ -42,15 +50,14 @@ public interface ClassMapper {
             resp.setSchedule(
                     schedules.stream()
                             .map(s -> new ClassResponse.ScheduleItemView(
-                                    s.getDayOfWeek(),
-                                    s.getTimeSlot().getId(),
-                                    s.getTimeSlot().getStartTime().toString(),
-                                    s.getTimeSlot().getEndTime().toString()
-                            ))
+                            s.getDayOfWeek(),
+                            s.getTimeSlot().getId(),
+                            s.getTimeSlot().getStartTime().toString(),
+                            s.getTimeSlot().getEndTime().toString()
+                    ))
                             .toList()
             );
         }
         return resp;
     }
 }
-

@@ -17,10 +17,15 @@ public class StudentClassResponse {
     private String className;
     private String subjectName;
     private String teacherName;
+    private String teacherAvatarUrl;
     private String roomName;
     private String semesterName;
 
     private LocalDate startDate;
     private LocalDate endDate;
     private ClassStatus status;
+
+
+    private Long courseId;
+    private String courseTitle;
 }

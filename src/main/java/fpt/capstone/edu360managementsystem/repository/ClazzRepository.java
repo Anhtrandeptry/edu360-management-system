@@ -2,18 +2,23 @@ package fpt.capstone.edu360managementsystem.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.enums.ClassStatus;
 
 @Repository
-public interface ClazzRepository extends JpaRepository<Clazz, Long> {
+public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecificationExecutor<Clazz> {
 
     boolean existsByNameAndSubject_IdAndSemester_Id(String name, Long subjectId, Long semesterId);
 
-    // Trùng lịch giáo viên (cùng học kỳ, trùng (dayOfWeek, timeSlot))
+
     @Query("""
         select distinct c from Clazz c
         where c.teacher.id = :teacherId
@@ -29,7 +34,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Trùng lịch phòng
+
     @Query("""
         select distinct c from Clazz c
         where c.room.id = :roomId
@@ -45,7 +50,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Trùng lịch giáo viên (theo khoảng thời gian startDate-endDate)
+
     @Query("""
         select distinct c from Clazz c
         where c.teacher.id = :teacherId
@@ -62,7 +67,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Trùng lịch phòng (theo khoảng thời gian startDate-endDate)
+
     @Query("""
         select distinct c from Clazz c
         where c.room.id = :roomId
@@ -79,7 +84,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-    // Lấy danh sách lớp kèm schedules để filter theo giáo viên (userId) và timeslot
+
     @Query("""
     select distinct c from Clazz c
     left join fetch c.teacher t
@@ -91,7 +96,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
   """)
     List<Clazz> findAllWithFilters(Long teacherUserId);
 
-    // Get all classes with schedules eagerly loaded for schedule management
+
     @Query("""
     select distinct c from Clazz c
     left join fetch c.teacher t
@@ -102,36 +107,105 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long> {
   """)
     List<Clazz> findAllWithSchedules();
 
-    // Đếm số lớp (chưa COMPLETE) đang dùng subject
+
     @Query("""
         select count(c) from Clazz c
         where c.subject.id = :subjectId
-          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveBySubject(Long subjectId);
 
-    // Đếm số lớp (chưa COMPLETE) đang dùng room
+
     @Query("""
         select count(c) from Clazz c
         where c.room.id = :roomId
-          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByRoom(Long roomId);
 
-    // Đếm số lớp (chưa COMPLETE) đang dạy bởi teacher (userId)
+
     @Query("""
         select count(c) from Clazz c
         join c.teacher t
         where t.user.id = :teacherUserId
-          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByTeacherUser(Long teacherUserId);
 
-    // ✅ THÊM: Query theo teacher.id để so sánh
+
     @Query("""
         select count(c) from Clazz c
         where c.teacher.id = :teacherId
-          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.COMPLETE
+          and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByTeacherId(Long teacherId);
+
+
+    @Query("""
+      select c from Clazz c
+      where c.teacher.id = :teacherId
+        and c.subject.id = :subjectId
+        and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
+    """)
+    java.util.List<Clazz> findActiveByTeacherAndSubject(Long teacherId, Long subjectId);
+
+
+    List<Clazz> findByCourse_Id(Long courseId);
+
+
+    List<Clazz> findByTeacher_Id(Long teacherId);
+
+
+    @Query("""
+        SELECT DISTINCT c FROM Clazz c
+        LEFT JOIN c.teacher t
+        LEFT JOIN t.user tu
+        LEFT JOIN c.subject s
+        WHERE (:search IS NULL OR :search = '' OR 
+               LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(tu.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+        AND (:status IS NULL OR c.status = :status)
+        AND (:isOnline IS NULL OR 
+             (:isOnline = true AND c.meetingLink IS NOT NULL AND c.meetingLink <> '') OR
+             (:isOnline = false AND (c.meetingLink IS NULL OR c.meetingLink = '')))
+        AND (:teacherUserId IS NULL OR tu.id = :teacherUserId)
+        """)
+    Page<Clazz> findBySearchAndFilters(
+            @Param("search") String search,
+            @Param("status") ClassStatus status,
+            @Param("isOnline") Boolean isOnline,
+            @Param("teacherUserId") Long teacherUserId,
+            Pageable pageable
+    );
+
+    /**
+     * Lấy danh sách lớp DRAFT có startDate trong khoảng từ ngày A đến ngày B
+     * Dùng để nhắc nhở admin về các lớp DRAFT sắp đến ngày bắt đầu
+     */
+    @Query("""
+      SELECT c FROM Clazz c
+      WHERE c.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.DRAFT
+      AND c.startDate BETWEEN :fromDate AND :toDate
+      """)
+    java.util.List<Clazz> findDraftClassesWithStartDateBetween(
+            @Param("fromDate") java.time.LocalDate fromDate,
+            @Param("toDate") java.time.LocalDate toDate
+    );
+
+    // ==================== REPORT QUERIES ====================
+    // Đếm lớp theo status
+    Long countByStatus(ClassStatus status);
+
+    // Đếm lớp theo giáo viên và status
+    @Query("SELECT COUNT(c) FROM Clazz c WHERE c.teacher.id = :teacherId AND c.status = :status")
+    Integer countByTeacherIdAndStatus(@Param("teacherId") Long teacherId, @Param("status") ClassStatus status);
+
+    // Đếm lớp theo môn học và status
+    @Query("SELECT COUNT(c) FROM Clazz c WHERE c.subject.id = :subjectId AND c.status = :status")
+    Integer countBySubjectIdAndStatus(@Param("subjectId") Long subjectId, @Param("status") ClassStatus status);
+
+    // Đếm số giáo viên có lớp PUBLIC
+    @Query("SELECT COUNT(DISTINCT c.teacher.id) FROM Clazz c WHERE c.status = 'PUBLIC'")
+    Long countDistinctTeachersWithPublicClasses();
 }

@@ -8,6 +8,9 @@ import java.util.List;
 
 @Repository
 public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, Long> {
+
     List<ClassSchedule> findByClazz_Id(Long classId);
+
+    List<ClassSchedule> findByClazz_IdIn(List<Long> classIds);
 
 }

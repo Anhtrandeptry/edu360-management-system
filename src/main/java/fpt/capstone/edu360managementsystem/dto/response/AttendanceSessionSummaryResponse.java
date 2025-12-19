@@ -9,7 +9,7 @@ public class AttendanceSessionSummaryResponse {
     private String className;
     private String subjectName;
     private String roomName;
-    private String timeStart;     // "HH:mm:ss"
-    private String timeEnd;       // "HH:mm:ss"
-    private boolean marked;       // đã có bản ghi != UNMARKED cho ít nhất 1 HS
+    private String timeStart;
+    private String timeEnd;
+    private boolean marked;
 }

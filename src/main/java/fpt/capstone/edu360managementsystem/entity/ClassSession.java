@@ -34,10 +34,13 @@ public class ClassSession {
     private TimeSlot timeSlot;
 
     @ManyToOne(optional = true)
-    @JoinColumn(name = "room_id", nullable = true)  // nullable for online classes
+    @JoinColumn(name = "room_id", nullable = true)
     private Room room;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SessionStatus status = SessionStatus.PLANNED;
+
+    @Column(columnDefinition = "TEXT")
+    private String lessonContent;
 }

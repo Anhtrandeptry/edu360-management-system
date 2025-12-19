@@ -26,7 +26,7 @@ public class Subject {
     @Enumerated(EnumType.STRING)
     private SubjectStatus status = SubjectStatus.AVAILABLE;
 
-    // ManyToMany ngược lại với Teacher.subjects
+
     @ManyToMany(mappedBy = "subjects")
     private Set<Teacher> teachers = new HashSet<>();
 

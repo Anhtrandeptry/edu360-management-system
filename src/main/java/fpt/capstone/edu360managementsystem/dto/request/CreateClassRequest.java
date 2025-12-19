@@ -14,20 +14,19 @@ public class CreateClassRequest {
 
     @NotBlank
     private String name;
-    private String code; // optional
+    private String code;
 
-    private Long semesterId; // optional - tự tính theo startDate/endDate
+    private Long semesterId;
     @NotNull
     private Long subjectId;
 
-    private Long courseId; // course thuộc subject
+
+    private Long courseId;
 
     @NotNull
     private Long teacherId;
 
-    private Long roomId; // nullable for online classes
-
-
+    private Long roomId;
 
     @NotNull
     @Size(min = 1, message = "Select at least one schedule item")
@@ -38,12 +37,16 @@ public class CreateClassRequest {
     private Integer totalSessions;
 
     @Min(1)
-    private Integer maxStudents; // nếu null => lấy room.capacity
+    private Integer maxStudents;
     private String description;
-    private String meetingLink; // optional, for online classes
+    private String meetingLink;
+
+
+    @Min(0)
+    private Long pricePerSession;
 
     @NotNull
-    private LocalDate startDate; // required
+    private LocalDate startDate;
     @NotNull
-    private LocalDate endDate; // required //Fix to fit with service
+    private LocalDate endDate;
 }

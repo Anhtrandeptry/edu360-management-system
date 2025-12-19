@@ -1,19 +1,37 @@
 package fpt.capstone.edu360managementsystem.service;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import fpt.capstone.edu360managementsystem.dto.request.ChapterCreateRequest;
 import fpt.capstone.edu360managementsystem.dto.request.CourseCreateRequest;
+import fpt.capstone.edu360managementsystem.dto.request.CourseUpdateRequest;
 import fpt.capstone.edu360managementsystem.dto.request.LessonCreateRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ChapterResponse;
 import fpt.capstone.edu360managementsystem.dto.response.CourseResponse;
 import fpt.capstone.edu360managementsystem.dto.response.LessonResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
+import fpt.capstone.edu360managementsystem.entity.Course;
+import fpt.capstone.edu360managementsystem.entity.CourseChapter;
+import fpt.capstone.edu360managementsystem.entity.CourseLesson;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.enums.CourseStatus;
-import fpt.capstone.edu360managementsystem.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
+import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
 
 @Service
 public class CourseService {
@@ -30,6 +48,10 @@ public class CourseService {
     private CourseChapterRepository chapterRepository;
     @Autowired
     private CourseLessonRepository lessonRepository;
+    @Autowired
+    private SessionLessonRepository sessionLessonRepository;
+    @Autowired
+    private SessionChapterRepository sessionChapterRepository;
 
     @Transactional
     public CourseResponse createCourse(Long currentUserId, boolean isAdmin, CourseCreateRequest req) {
@@ -76,6 +98,68 @@ public class CourseService {
                 .toList();
     }
 
+    /**
+     * Lấy danh sách courses với phân trang và filter
+     *
+     * @param search từ khóa tìm kiếm (title, description, teacherName)
+     * @param status filter theo CourseStatus (DRAFT, PENDING, APPROVED,
+     * ARCHIVED)
+     * @param subjectId filter theo môn học
+     * @param teacherUserId filter theo giáo viên tạo
+     * @param page số trang (bắt đầu từ 0)
+     * @param size số phần tử mỗi trang
+     * @param sortBy trường để sắp xếp
+     * @param order thứ tự sắp xếp (asc, desc)
+     * @return Page<CourseResponse>
+     */
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesWithPagination(
+            String search,
+            String status,
+            Long subjectId,
+            Long teacherUserId,
+            int page,
+            int size,
+            String sortBy,
+            String order
+    ) {
+        // Xử lý sort
+        Sort sort = Sort.by(sortBy != null ? sortBy : "id");
+        if ("desc".equalsIgnoreCase(order)) {
+            sort = sort.descending();
+        } else {
+            sort = sort.ascending();
+        }
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Xử lý status filter
+        CourseStatus statusEnum = null;
+        if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+            try {
+                statusEnum = CourseStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid status, ignore filter
+            }
+        }
+
+        // Query với pagination
+        Page<Course> coursePage = courseRepository.findBySearchAndFilters(
+                search, statusEnum, subjectId, teacherUserId, pageable
+        );
+
+        // Map to response
+        return coursePage.map(c -> mapCourse(c, null));
+    }
+
+    public List<CourseResponse> listCoursesOfTeacher(Long userId) {
+        Teacher teacher = teacherRepository.findByUserId(userId).orElse(null);
+        if (teacher == null) {
+            return List.of();
+        }
+        List<Course> courses = courseRepository.findByOwnerTeacher_Id(teacher.getId());
+        return courses.stream().map(c -> mapCourse(c, null)).toList();
+    }
+
     public CourseResponse getCourseDetail(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course not found"));
@@ -92,8 +176,38 @@ public class CourseService {
         courseRepository.save(course);
     }
 
-    // --- Chapter & Lesson ---
+    @Transactional
+    public void rejectCourse(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        course.setStatus(CourseStatus.REJECTED);
+        courseRepository.save(course);
+    }
 
+    @Transactional
+    public void updateCourse(Long courseId, CourseUpdateRequest req) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        // Update fields if provided
+        if (req.getTitle() != null && !req.getTitle().isBlank()) {
+            course.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            course.setDescription(req.getDescription());
+        }
+        if (req.getSubjectId() != null) {
+            Subject subject = subjectRepository.findById(req.getSubjectId())
+                    .orElseThrow(() -> new RuntimeException("Subject not found"));
+            course.setSubject(subject);
+        }
+
+        // Giữ nguyên trạng thái hiện tại sau khi chỉnh sửa trong module cá nhân
+        // Nghiệp vụ mới: KHÔNG reset về PENDING
+        courseRepository.save(course);
+    }
+
+    // --- Chapter & Lesson ---
     @Transactional
     public ChapterResponse createChapter(ChapterCreateRequest req) {
         Course course = courseRepository.findById(req.getCourseId())
@@ -106,6 +220,23 @@ public class CourseService {
                 .build();
         chapter = chapterRepository.save(chapter);
         return mapChapter(chapter, List.of());
+    }
+
+    @Transactional
+    public ChapterResponse updateChapter(Long chapterId, ChapterCreateRequest req) {
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Chapter not found"));
+        if (req.getTitle() != null) {
+            chapter.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            chapter.setDescription(req.getDescription());
+        }
+        if (req.getOrderIndex() != null) {
+            chapter.setOrderIndex(req.getOrderIndex());
+        }
+        chapter = chapterRepository.save(chapter);
+        return mapChapter(chapter, null);
     }
 
     @Transactional
@@ -122,8 +253,54 @@ public class CourseService {
         return mapLesson(lesson);
     }
 
-    // --- Mapping helpers ---
+    @Transactional
+    public LessonResponse updateLesson(Long lessonId, LessonCreateRequest req) {
+        CourseLesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        if (req.getTitle() != null) {
+            lesson.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            lesson.setDescription(req.getDescription());
+        }
+        if (req.getOrderIndex() != null) {
+            lesson.setOrderIndex(req.getOrderIndex());
+        }
+        lesson = lessonRepository.save(lesson);
+        return mapLesson(lesson);
+    }
 
+    // Xóa toàn bộ bài học trong chương rồi xóa chương
+    @Transactional
+    public void removeChapter(Long chapterId) {
+        CourseChapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new RuntimeException("Chapter not found"));
+
+        // Xóa liên kết session_chapters trước
+        sessionChapterRepository.deleteByChapter_Id(chapterId);
+
+        List<CourseLesson> lessons = lessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapterId);
+        if (lessons != null && !lessons.isEmpty()) {
+            for (CourseLesson l : lessons) {
+                // Xóa liên kết session_lessons trước
+                sessionLessonRepository.deleteByLesson_Id(l.getId());
+                lessonRepository.delete(l);
+            }
+        }
+        chapterRepository.delete(chapter);
+    }
+
+    // Xóa một bài học
+    @Transactional
+    public void removeLesson(Long lessonId) {
+        CourseLesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Lesson not found"));
+        // Xóa liên kết session_lessons trước
+        sessionLessonRepository.deleteByLesson_Id(lessonId);
+        lessonRepository.delete(lesson);
+    }
+
+    // --- Mapping helpers ---
     private CourseResponse mapCourse(Course c, List<CourseChapter> chaptersOpt) {
         List<ChapterResponse> chapterResponses = null;
         List<CourseChapter> chapters = chaptersOpt;
@@ -147,13 +324,14 @@ public class CourseService {
                 .createdByName(c.getCreatedBy().getFullName())
                 .ownerTeacherId(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getId() : null)
                 .ownerTeacherName(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getUser().getFullName() : null)
+                .createdAt(c.getCreatedAt())
                 .chapters(chapterResponses)
                 .build();
     }
 
     private ChapterResponse mapChapter(CourseChapter ch, List<CourseLesson> lessonsOpt) {
-        List<CourseLesson> lessons = lessonsOpt != null ? lessonsOpt :
-                lessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
+        List<CourseLesson> lessons = lessonsOpt != null ? lessonsOpt
+                : lessonRepository.findByChapter_IdOrderByOrderIndexAsc(ch.getId());
 
         return ChapterResponse.builder()
                 .id(ch.getId())

@@ -14,6 +14,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller for class enrollment management.
+ * Provides endpoints for enrolling students in classes.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/classes/{classId}/enrollments")
 public class EnrollmentController {
@@ -25,7 +32,13 @@ public class EnrollmentController {
         return user.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 
-    /** Danh sách học sinh trong lớp */
+    /**
+     * Lists all enrolled students for a class.
+     *
+     * @param user    the authenticated user
+     * @param classId the class ID
+     * @return list of enrolled students
+     */
     @GetMapping
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<List<EnrolledStudentResponse>> list(
@@ -36,7 +49,14 @@ public class EnrollmentController {
         );
     }
 
-    /** Thêm 1 học sinh vào lớp */
+    /**
+     * Enrolls a single student in a class.
+     *
+     * @param user    the authenticated user
+     * @param classId the class ID
+     * @param req     enrollment request data
+     * @return success message
+     */
     @PostMapping
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<?> enrollOne(
@@ -47,7 +67,14 @@ public class EnrollmentController {
         return ResponseEntity.ok("Enrolled");
     }
 
-    /** Thêm nhiều học sinh vào lớp */
+    /**
+     * Enrolls multiple students in a class.
+     *
+     * @param user    the authenticated user
+     * @param classId the class ID
+     * @param req     bulk enrollment request data
+     * @return map of student IDs to enrollment status
+     */
     @PostMapping("/bulk")
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<Map<Long, String>> enrollBulk(
@@ -59,7 +86,14 @@ public class EnrollmentController {
         );
     }
 
-    /** Gỡ 1 học sinh khỏi lớp */
+    /**
+     * Removes a student from a class.
+     *
+     * @param user      the authenticated user
+     * @param classId   the class ID
+     * @param studentId the student ID to remove
+     * @return success message
+     */
     @DeleteMapping("/{studentId}")
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<?> remove(
@@ -70,14 +104,24 @@ public class EnrollmentController {
         return ResponseEntity.ok("Removed");
     }
 
-    /** Học sinh tự đăng ký vào lớp (self-enroll) */
+    /**
+     * Allows a student to self-enroll in a class.
+     *
+     * @param user    the authenticated student
+     * @param classId the class ID
+     * @return success message or error
+     */
     @PostMapping("/self")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<?> selfEnroll(
             @AuthenticationPrincipal UserDetailsImpl user,
             @PathVariable Long classId) {
-        enrollmentService.selfEnroll(classId, user.getId());
-        return ResponseEntity.ok("Enrolled");
+        try {
+            enrollmentService.selfEnroll(classId, user.getId());
+            return ResponseEntity.ok("Enrolled");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
     }
 
 }

@@ -9,9 +9,9 @@ import lombok.Data;
 public class ScheduleItemRequest {
 
     @NotNull
-    @Min(0)
-    @Max(6)
-    private Integer dayOfWeek;    // 0..6
+    @Min(1)
+    @Max(7)
+    private Integer dayOfWeek;
     @NotNull
-    private Long timeSlotId;      // tham chiếu TimeSlot
+    private Long timeSlotId;
 }

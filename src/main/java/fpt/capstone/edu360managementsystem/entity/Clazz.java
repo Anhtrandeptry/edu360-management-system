@@ -33,7 +33,7 @@ public class Clazz {
     private Long id;
 
     @Column(nullable = false)
-    private String name;  // ví dụ: "Toán 12A" (code đã loại bỏ)
+    private String name;
 
     @ManyToOne(optional = true)
     @JoinColumn(name = "semester_id", nullable = true)
@@ -47,7 +47,7 @@ public class Clazz {
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
-    @ManyToOne(optional = true)  // nullable for online classes
+    @ManyToOne(optional = true)
     @JoinColumn(name = "room_id", nullable = true)
     private Room room;
 
@@ -63,14 +63,19 @@ public class Clazz {
     private String description;
 
     @Column(length = 500)
-    private String meetingLink; // For online classes
+    private String meetingLink;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private ClassStatus status = ClassStatus.AVAILABLE;
+    private ClassStatus status = ClassStatus.DRAFT;
 
     @ManyToOne(optional = true)
     @JoinColumn(name = "course_id")
     private Course course;
+
+
+    @Column(nullable = false)
+    private Long pricePerSession;
+
 }

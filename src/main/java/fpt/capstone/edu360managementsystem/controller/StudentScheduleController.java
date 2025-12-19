@@ -13,6 +13,13 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * REST controller for student schedule management.
+ * Provides endpoints for students to view their class schedules.
+ *
+ * @author 360edu
+ * @version 1.0
+ */
 @RestController
 @RequestMapping("/api/my-schedule")
 public class StudentScheduleController {
@@ -21,14 +28,28 @@ public class StudentScheduleController {
     private StudentScheduleService studentScheduleService;
 
     /**
-     * Lịch theo NGÀY.
-     * Nếu không truyền ?date= thì mặc định là hôm nay.
-     * Ví dụ:
-     * GET /api/my-schedule/day
-     * GET /api/my-schedule/day?date=2025-11-20
+     * Test endpoint to verify authentication.
+     *
+     * @param user the authenticated user
+     * @return test message with user info
+     */
+    @GetMapping("/test")
+    public ResponseEntity<String> test(@AuthenticationPrincipal UserDetailsImpl user) {
+        if (user == null) {
+            return ResponseEntity.ok("Test endpoint works - No user authenticated");
+        }
+        return ResponseEntity.ok("Test endpoint works - User: " + user.getUsername() + ", Roles: " + user.getAuthorities());
+    }
+
+    /**
+     * Retrieves the student's schedule for a specific day.
+     *
+     * @param user the authenticated student
+     * @param date the date to get schedule for (defaults to today)
+     * @return list of schedule items for the day
      */
     @GetMapping("/day")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<StudentScheduleItemResponse>> getDaySchedule(
             @AuthenticationPrincipal UserDetailsImpl user,
             @RequestParam(value = "date", required = false)
@@ -37,20 +58,19 @@ public class StudentScheduleController {
         if (date == null) {
             date = LocalDate.now();
         }
-        return ResponseEntity.ok(
-                studentScheduleService.getScheduleByDate(user.getId(), date)
-        );
+        List<StudentScheduleItemResponse> result = studentScheduleService.getScheduleByDate(user.getId(), date);
+        return ResponseEntity.ok(result);
     }
 
     /**
-     * Lịch theo TUẦN.
-     * Nếu không truyền ?weekStart= thì mặc định lấy tuần hiện tại (bắt đầu từ Monday).
-     * Ví dụ:
-     * GET /api/my-schedule/week
-     * GET /api/my-schedule/week?weekStart=2025-11-17
+     * Retrieves the student's schedule for a week.
+     *
+     * @param user      the authenticated student
+     * @param weekStart the start date of the week (defaults to current week)
+     * @return list of schedule items for the week
      */
     @GetMapping("/week")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<StudentScheduleItemResponse>> getWeekSchedule(
             @AuthenticationPrincipal UserDetailsImpl user,
             @RequestParam(value = "weekStart", required = false)
@@ -59,8 +79,7 @@ public class StudentScheduleController {
         if (weekStart == null) {
             weekStart = studentScheduleService.getCurrentWeekStart(LocalDate.now());
         }
-        return ResponseEntity.ok(
-                studentScheduleService.getScheduleByWeek(user.getId(), weekStart)
-        );
+        List<StudentScheduleItemResponse> result = studentScheduleService.getScheduleByWeek(user.getId(), weekStart);
+        return ResponseEntity.ok(result);
     }
 }

@@ -68,8 +68,6 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                                 .requestMatchers("/api/test/**").permitAll()
-                // Swagger UI endpoints
-                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 // Allow Spring Boot error endpoint so 404 won't be masked as 401
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/rooms/**").permitAll()

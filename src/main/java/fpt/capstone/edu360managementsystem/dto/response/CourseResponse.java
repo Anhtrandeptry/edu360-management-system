@@ -4,6 +4,7 @@ import fpt.capstone.edu360managementsystem.enums.CourseStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -20,7 +21,7 @@ public class CourseResponse {
     private String createdByName;
     private Long ownerTeacherId;
     private String ownerTeacherName;
+    private LocalDateTime createdAt;
 
-    // Cây nội dung
     private List<ChapterResponse> chapters;
 }
