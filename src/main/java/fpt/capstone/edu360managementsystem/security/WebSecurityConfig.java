@@ -3,7 +3,7 @@ package fpt.capstone.edu360managementsystem.security;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -14,7 +14,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfigurationSource;
 
 import fpt.capstone.edu360managementsystem.security.jwt.AuthEntryPointJwt;
 import fpt.capstone.edu360managementsystem.security.jwt.AuthTokenFilter;
@@ -23,7 +22,6 @@ import fpt.capstone.edu360managementsystem.service.UserDetailsServiceImpl;
 @Configuration
 //@EnableWebSecurity
 @EnableMethodSecurity
-@Profile("!test")  // Only active when NOT in test profile
 //(securedEnabled = true,
 //jsr250Enabled = true,
 //prePostEnabled = true) // by default
@@ -34,9 +32,6 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
 
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler;
-
-    @Autowired
-    private CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
@@ -66,17 +61,15 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> {})
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                // Allow Swagger UI and API docs - MUST be first
-                .requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml", "/swagger-ui/**", "/swagger-ui.html", "/swagger-resources/**", "/webjars/**").permitAll()
-                // Allow root path
-                .requestMatchers("/").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/auth/**", "/auth/**").permitAll()
+                                .requestMatchers("/api/test/**").permitAll()
+                // Swagger UI endpoints
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 // Allow Spring Boot error endpoint so 404 won't be masked as 401
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/rooms/**").permitAll()
@@ -86,6 +79,16 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/classes/**").permitAll()
                 // Temporary: allow teacher endpoints until role rules are finalized
                 .requestMatchers("/api/teachers/**").permitAll()
+                // Allow news endpoints for public access (GET only)
+                .requestMatchers("/api/news/**").permitAll()
+                // Allow course detail view for all users (students viewing enrolled courses)
+                .requestMatchers(HttpMethod.GET, "/api/courses/{id}").permitAll()
+                // Allow file upload endpoints
+                .requestMatchers("/api/upload/**").permitAll()
+                // Allow serving uploaded files
+                .requestMatchers("/uploads/**").permitAll()
+                // Student profile endpoints (require STUDENT role - handled by @PreAuthorize)
+                .requestMatchers("/api/students/profile/**").authenticated()
                 .anyRequest().authenticated()
                 );
 

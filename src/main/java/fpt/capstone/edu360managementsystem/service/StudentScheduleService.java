@@ -1,5 +1,12 @@
 package fpt.capstone.edu360managementsystem.service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import fpt.capstone.edu360managementsystem.dto.response.StudentScheduleItemResponse;
 import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
@@ -7,12 +14,6 @@ import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.StudentRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.util.List;
 
 @Service
 public class StudentScheduleService {
@@ -53,7 +54,7 @@ public class StudentScheduleService {
                         .className(s.getClazz().getName())
                         .subjectName(s.getClazz().getSubject().getName())
                         .teacherName(s.getClazz().getTeacher().getUser().getFullName())
-                        .roomName(s.getRoom().getName())
+                        .roomName(s.getRoom() != null ? s.getRoom().getName() : "Chưa phân phòng")
                         .date(s.getDate())
                         .timeStart(s.getTimeSlot().getStartTime().toString())
                         .timeEnd(s.getTimeSlot().getEndTime().toString())
@@ -91,7 +92,7 @@ public class StudentScheduleService {
                         .className(s.getClazz().getName())
                         .subjectName(s.getClazz().getSubject().getName())
                         .teacherName(s.getClazz().getTeacher().getUser().getFullName())
-                        .roomName(s.getRoom().getName())
+                        .roomName(s.getRoom() != null ? s.getRoom().getName() : "Chưa phân phòng")
                         .date(s.getDate())
                         .timeStart(s.getTimeSlot().getStartTime().toString())
                         .timeEnd(s.getTimeSlot().getEndTime().toString())
