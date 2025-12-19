@@ -14,4 +14,5 @@ public class SubjectResponse {
     private String name;
     private SubjectStatus status;
     private long classCount;
+    private long courseCount;  // Số lượng khóa học của môn học
 }

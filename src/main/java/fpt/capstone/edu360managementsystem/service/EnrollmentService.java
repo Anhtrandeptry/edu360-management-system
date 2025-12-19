@@ -244,9 +244,22 @@ public class EnrollmentService {
             }
         }
 
+        // 5. Save enrollment
         classEnrollmentRepository.save(
                 ClassEnrollment.builder().clazz(clazz).student(student).build()
         );
+        
+        // 6. Gửi thông báo bell notification cho student
+        try {
+            notificationService.notifyEnrolledNewClass(
+                    student.getUser().getId(),
+                    clazz.getName(),
+                    clazz.getId()
+            );
+        } catch (Exception e) {
+            // Không throw lỗi nếu gửi notification thất bại
+            System.err.println("Failed to send enrollment notification: " + e.getMessage());
+        }
     }
 
     /**

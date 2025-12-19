@@ -1,9 +1,11 @@
 package fpt.capstone.edu360managementsystem.service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -15,6 +17,7 @@ import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.enums.SubjectStatus;
 import fpt.capstone.edu360managementsystem.mapper.SubjectMapper;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.util.VietnameseUtils;
 
 @Service
 public class SubjectService {
@@ -28,9 +31,11 @@ public class SubjectService {
     public List<SubjectResponse> getAllSubjects() {
         return subjectRepository.findAll().stream()
                 .map(s -> {
-                    long cnt = clazzRepository.countActiveBySubject(s.getId());
+                    long classCount = clazzRepository.countActiveBySubject(s.getId());
+                    long courseCount = courseRepository.countApprovedBySubjectId(s.getId());
                     SubjectResponse resp = subjectMapper.toResponse(s);
-                    resp.setClassCount(cnt);
+                    resp.setClassCount(classCount);
+                    resp.setCourseCount(courseCount);
                     return resp;
                 })
                 .toList();
@@ -62,7 +67,6 @@ public class SubjectService {
         } else {
             sort = sort.ascending();
         }
-        Pageable pageable = PageRequest.of(page, size, sort);
 
         // Xử lý status filter
         SubjectStatus statusEnum = null;
@@ -74,14 +78,63 @@ public class SubjectService {
             }
         }
 
-        // Query với pagination
-        Page<Subject> subjectPage = subjectRepository.findBySearchAndStatus(search, statusEnum, pageable);
+        // Nếu có search term, sử dụng Vietnamese-aware filtering
+        if (search != null && !search.trim().isEmpty()) {
+            // Lấy tất cả subjects (có filter status nếu có)
+            List<Subject> allSubjects;
+            if (statusEnum != null) {
+                allSubjects = subjectRepository.findByStatus(statusEnum);
+            } else {
+                allSubjects = subjectRepository.findAll();
+            }
 
-        // Map to response with classCount
+            // Filter bằng VietnameseUtils
+            String searchTerm = search.trim();
+            List<Subject> filteredSubjects = allSubjects.stream()
+                    .filter(subject -> {
+                        // Check name with Vietnamese diacritics support
+                        if (subject.getName() != null && 
+                            VietnameseUtils.containsIgnoreDiacritics(subject.getName(), searchTerm)) {
+                            return true;
+                        }
+                        return false;
+                    })
+                    .collect(Collectors.toList());
+
+            // Apply pagination manually
+            int start = page * size;
+            int end = Math.min(start + size, filteredSubjects.size());
+            
+            List<SubjectResponse> pagedContent;
+            if (start >= filteredSubjects.size()) {
+                pagedContent = List.of();
+            } else {
+                pagedContent = filteredSubjects.subList(start, end).stream()
+                        .map(s -> {
+                            long classCount = clazzRepository.countActiveBySubject(s.getId());
+                            long courseCount = courseRepository.countApprovedBySubjectId(s.getId());
+                            SubjectResponse resp = subjectMapper.toResponse(s);
+                            resp.setClassCount(classCount);
+                            resp.setCourseCount(courseCount);
+                            return resp;
+                        })
+                        .collect(Collectors.toList());
+            }
+
+            return new PageImpl<>(pagedContent, PageRequest.of(page, size, sort), filteredSubjects.size());
+        }
+
+        // Không có search term - sử dụng query gốc
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<Subject> subjectPage = subjectRepository.findBySearchAndStatus(null, statusEnum, pageable);
+
+        // Map to response with classCount and courseCount
         return subjectPage.map(s -> {
-            long cnt = clazzRepository.countActiveBySubject(s.getId());
+            long classCount = clazzRepository.countActiveBySubject(s.getId());
+            long courseCount = courseRepository.countApprovedBySubjectId(s.getId());
             SubjectResponse resp = subjectMapper.toResponse(s);
-            resp.setClassCount(cnt);
+            resp.setClassCount(classCount);
+            resp.setCourseCount(courseCount);
             return resp;
         });
     }
@@ -91,6 +144,7 @@ public class SubjectService {
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
         SubjectResponse resp = subjectMapper.toResponse(subject);
         resp.setClassCount(clazzRepository.countActiveBySubject(subject.getId()));
+        resp.setCourseCount(courseRepository.countApprovedBySubjectId(subject.getId()));
         return resp;
     }
 
@@ -134,13 +188,15 @@ public class SubjectService {
         return subjectRepository.findByStatus(SubjectStatus.AVAILABLE);
     }
 
-    // New: list AVAILABLE subjects as SubjectResponse with classCount
+    // New: list AVAILABLE subjects as SubjectResponse with classCount and courseCount
     public List<SubjectResponse> getAvailableSubjectResponses() {
         return subjectRepository.findByStatus(SubjectStatus.AVAILABLE).stream()
                 .map(s -> {
-                    long cnt = clazzRepository.countActiveBySubject(s.getId());
+                    long classCount = clazzRepository.countActiveBySubject(s.getId());
+                    long courseCount = courseRepository.countApprovedBySubjectId(s.getId());
                     SubjectResponse resp = subjectMapper.toResponse(s);
-                    resp.setClassCount(cnt);
+                    resp.setClassCount(classCount);
+                    resp.setCourseCount(courseCount);
                     return resp;
                 })
                 .toList();
@@ -148,4 +204,7 @@ public class SubjectService {
 
     @Autowired
     private fpt.capstone.edu360managementsystem.repository.ClazzRepository clazzRepository;
+    
+    @Autowired
+    private fpt.capstone.edu360managementsystem.repository.CourseRepository courseRepository;
 }
