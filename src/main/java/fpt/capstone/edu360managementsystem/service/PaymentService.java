@@ -340,7 +340,7 @@ public class PaymentService {
      */
     public Page<PaymentResponse> getPayments(
             PaymentStatus status,
-            String studentName,
+            String search,
             Long classId,
             LocalDateTime from,
             LocalDateTime to,
@@ -348,7 +348,7 @@ public class PaymentService {
             int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Payment> payments = paymentRepository.findAllWithFilters(status, studentName, classId, from, to, pageable);
+        Page<Payment> payments = paymentRepository.findAllWithFilters(status, search, classId, from, to, pageable);
         return payments.map(this::mapToResponse);
     }
 

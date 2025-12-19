@@ -12,15 +12,17 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeacherListForAttendanceResponse {
+
     private Long teacherId;
     private Long userId;
     private String fullName;
     private String email;
     private String phone;
+    private String avatar;
     private List<String> subjectNames;
     private String degree;
     private String specialization;
-    
+
     // Quick stats
     private Integer assignedClasses;
     private Integer completedSlotsThisMonth;

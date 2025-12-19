@@ -39,6 +39,10 @@ public class ParentEmailNotification {
     private Long id;
 
     @ManyToOne(optional = false)
+    @JoinColumn(name = "parent_id")
+    private Parent parent;
+
+    @ManyToOne(optional = false)
     @JoinColumn(name = "student_id")
     private Student student;
 
@@ -48,7 +52,19 @@ public class ParentEmailNotification {
     @Column(name = "parent_email", nullable = false)
     private String parentEmail;
 
-    @Column(name = "sent_at", nullable = false)
+    @Column(nullable = false)
+    private String subject;
+
+    @Column(columnDefinition = "TEXT")
+    private String body;
+
+    @Column(name = "is_read", nullable = false)
+    private boolean read = false;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "sent_at")
     private LocalDateTime sentAt;
 
     @Column(columnDefinition = "TEXT")

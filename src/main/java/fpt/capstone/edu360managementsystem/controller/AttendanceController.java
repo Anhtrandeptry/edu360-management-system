@@ -1,6 +1,7 @@
 package fpt.capstone.edu360managementsystem.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +23,8 @@ import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
 /**
- * REST controller for attendance management.
- * Provides endpoints for teachers to take and manage student attendance.
+ * REST controller for attendance management. Provides endpoints for teachers to
+ * take and manage student attendance.
  *
  * @author 360edu
  * @version 1.0
@@ -55,7 +56,7 @@ public class AttendanceController {
     /**
      * Retrieves attendance details for a specific session.
      *
-     * @param user      the authenticated teacher
+     * @param user the authenticated teacher
      * @param sessionId the session ID
      * @return session attendance details
      */
@@ -72,9 +73,9 @@ public class AttendanceController {
     /**
      * Creates or updates attendance records for a session.
      *
-     * @param user      the authenticated teacher
+     * @param user the authenticated teacher
      * @param sessionId the session ID
-     * @param body      attendance data
+     * @param body attendance data
      * @return success message
      */
     @PostMapping("/session/{sessionId}")
@@ -90,11 +91,11 @@ public class AttendanceController {
     /**
      * Creates or updates attendance by class and date.
      *
-     * @param user    the authenticated teacher
+     * @param user the authenticated teacher
      * @param classId the class ID
-     * @param date    the date string
-     * @param slotId  optional time slot ID
-     * @param body    attendance data
+     * @param date the date string
+     * @param slotId optional time slot ID
+     * @param body attendance data
      * @return success message
      */
     @PostMapping("/class/{classId}")
@@ -112,10 +113,10 @@ public class AttendanceController {
     /**
      * Retrieves attendance details by class and date.
      *
-     * @param user    the authenticated teacher
+     * @param user the authenticated teacher
      * @param classId the class ID
-     * @param date    the date string
-     * @param slotId  optional time slot ID
+     * @param date the date string
+     * @param slotId optional time slot ID
      * @return session attendance details
      */
     @GetMapping("/class/{classId}")
@@ -134,8 +135,8 @@ public class AttendanceController {
      * Admin endpoint to view attendance by class and date.
      *
      * @param classId the class ID
-     * @param date    the date string
-     * @param slotId  optional time slot ID
+     * @param date the date string
+     * @param slotId optional time slot ID
      * @return session attendance details
      */
     @GetMapping("/admin/class/{classId}")
@@ -147,5 +148,21 @@ public class AttendanceController {
         return ResponseEntity.ok(
                 attendanceService.getSessionDetailByClassAndDateForAdmin(classId, date, slotId)
         );
+    }
+
+    /**
+     * Check attendance status for multiple sessions (by class ID, date, and
+     * slot). Returns a map of "classId-date-slotId" -> boolean (true if has
+     * attendance)
+     *
+     * @param sessions list of session identifiers in format
+     * "classId-date-slotId"
+     * @return map of session identifier to attendance status
+     */
+    @PostMapping("/check-status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT')")
+    public ResponseEntity<Map<String, Boolean>> checkAttendanceStatus(
+            @RequestBody List<String> sessions) {
+        return ResponseEntity.ok(attendanceService.checkAttendanceStatus(sessions));
     }
 }

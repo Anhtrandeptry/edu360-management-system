@@ -20,15 +20,11 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
 
     List<Course> findByStatus(CourseStatus status);
 
-
     List<Course> findByOwnerTeacher_Id(Long teacherId);
-
 
     List<Course> findByOwnerTeacher_IdAndSubject_IdAndStatus(Long teacherId, Long subjectId, CourseStatus status);
 
-
     List<Course> findByOwnerTeacher_IdAndTitle(Long teacherId, String title);
-
 
     @Query("""
         SELECT DISTINCT c FROM Course c

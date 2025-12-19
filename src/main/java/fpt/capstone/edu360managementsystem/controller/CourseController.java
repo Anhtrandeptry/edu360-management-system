@@ -31,8 +31,8 @@ import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
 /**
- * REST controller for course management.
- * Provides endpoints for CRUD operations on courses, chapters, and lessons.
+ * REST controller for course management. Provides endpoints for CRUD operations
+ * on courses, chapters, and lessons.
  *
  * @author 360edu
  * @version 1.0
@@ -48,7 +48,7 @@ public class CourseController {
      * Creates a new course.
      *
      * @param user the authenticated user
-     * @param req  the course creation data
+     * @param req the course creation data
      * @return created course response
      */
     @PostMapping
@@ -67,7 +67,7 @@ public class CourseController {
      * Lists all courses with optional filters.
      *
      * @param subjectId optional subject filter
-     * @param status    optional status filter
+     * @param status optional status filter
      * @return list of courses
      */
     @GetMapping
@@ -85,14 +85,14 @@ public class CourseController {
     /**
      * Retrieves paginated courses with filters and sorting.
      *
-     * @param search        optional search term
-     * @param status        status filter
-     * @param subjectId     optional subject filter
+     * @param search optional search term
+     * @param status status filter
+     * @param subjectId optional subject filter
      * @param teacherUserId optional teacher filter
-     * @param page          page number
-     * @param size          page size
-     * @param sortBy        sort field
-     * @param order         sort order
+     * @param page page number
+     * @param size page size
+     * @param sortBy sort field
+     * @param order sort order
      * @return paginated course list
      */
     @GetMapping("/paginated")
@@ -171,10 +171,10 @@ public class CourseController {
     }
 
     /**
-     * Updates an existing course.
-     * Course status will be reset to PENDING after update.
+     * Updates an existing course. Course status will be reset to PENDING after
+     * update.
      *
-     * @param id  the course ID
+     * @param id the course ID
      * @param req the update data
      * @return success message
      */
@@ -205,7 +205,7 @@ public class CourseController {
     /**
      * Updates an existing chapter.
      *
-     * @param id  the chapter ID
+     * @param id the chapter ID
      * @param req the update data
      * @return updated chapter response
      */
@@ -235,7 +235,7 @@ public class CourseController {
     /**
      * Updates an existing lesson.
      *
-     * @param id  the lesson ID
+     * @param id the lesson ID
      * @param req the update data
      * @return updated lesson response
      */

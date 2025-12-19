@@ -1,10 +1,10 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.request.NewsRequest;
-import fpt.capstone.edu360managementsystem.dto.response.NewsResponse;
-import fpt.capstone.edu360managementsystem.entity.News;
-import fpt.capstone.edu360managementsystem.repository.NewsRepository;
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,10 +12,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
+import fpt.capstone.edu360managementsystem.dto.request.NewsRequest;
+import fpt.capstone.edu360managementsystem.dto.response.NewsResponse;
+import fpt.capstone.edu360managementsystem.entity.News;
+import fpt.capstone.edu360managementsystem.enums.NewsStatus;
+import fpt.capstone.edu360managementsystem.repository.NewsRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -31,18 +33,29 @@ public class NewsService {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<News> newsPage;
-        
+
+        // Parse status thành enum nếu có
+        NewsStatus newsStatus = null;
+        if (status != null && !status.trim().isEmpty()) {
+            try {
+                newsStatus = NewsStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid status, ignore filter
+            }
+        }
+
         if (search != null && !search.trim().isEmpty()) {
-            if (status != null && !status.trim().isEmpty()) {
+            if (newsStatus != null) {
                 // Search + filter by status
+                final NewsStatus filterStatus = newsStatus;
                 newsPage = newsRepository.searchNews(search, pageable)
-                        .map(news -> news.getStatus().equalsIgnoreCase(status) ? news : null)
+                        .map(news -> news.getStatus() == filterStatus ? news : null)
                         .map(news -> news);
             } else {
                 newsPage = newsRepository.searchNews(search, pageable);
             }
-        } else if (status != null && !status.trim().isEmpty()) {
-            newsPage = newsRepository.findByStatus(status.toUpperCase(), pageable);
+        } else if (newsStatus != null) {
+            newsPage = newsRepository.findByStatus(newsStatus, pageable);
         } else {
             newsPage = newsRepository.findAll(pageable);
         }
@@ -55,7 +68,7 @@ public class NewsService {
      */
     public Page<NewsResponse> getPublishedNews(String search, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        
+
         Page<News> newsPage;
         if (search != null && !search.trim().isEmpty()) {
             newsPage = newsRepository.searchPublishedNews(search, pageable);
@@ -77,23 +90,34 @@ public class NewsService {
 
     /**
      * Tạo tin tức mới
+     *
+     * @param request thông tin tin tức
+     * @param authorUsername username của người dùng đang đăng nhập (tác giả)
      */
     @Transactional
-    public NewsResponse createNews(NewsRequest request) {
+    public NewsResponse createNews(NewsRequest request, String authorUsername) {
+        // Kiểm tra nếu request có author và khác với user đang đăng nhập
+        if (request.getAuthor() != null && !request.getAuthor().trim().isEmpty()
+                && !request.getAuthor().equalsIgnoreCase(authorUsername)) {
+            throw new IllegalArgumentException(
+                    "Bạn không thể đặt author là người khác. Chỉ được phép sử dụng tài khoản của bạn: " + authorUsername);
+        }
+
         News news = new News();
         news.setTitle(request.getTitle());
         news.setExcerpt(request.getExcerpt());
         news.setContent(request.getContent());
         news.setImageUrl(request.getImageUrl());
-        news.setAuthor(request.getAuthor());
-        news.setStatus(request.getStatus().toUpperCase());
+        // Author được lấy từ user đang đăng nhập, không cho phép sửa từ request
+        news.setAuthor(authorUsername);
+        news.setStatus(request.getStatus());
         news.setViews(0);
-        
+
         if (request.getTags() != null) {
             news.setTags(String.join(",", request.getTags()));
         }
 
-        if ("PUBLISHED".equalsIgnoreCase(request.getStatus())) {
+        if (NewsStatus.PUBLISHED == request.getStatus()) {
             news.setPublishedAt(LocalDateTime.now());
         }
 
@@ -103,26 +127,39 @@ public class NewsService {
 
     /**
      * Cập nhật tin tức
+     *
+     * @param id ID của tin tức cần cập nhật
+     * @param request thông tin cập nhật
+     * @param authorUsername username của người dùng đang đăng nhập (không thay
+     * đổi author gốc)
      */
     @Transactional
-    public NewsResponse updateNews(Long id, NewsRequest request) {
+    public NewsResponse updateNews(Long id, NewsRequest request, String authorUsername) {
         News news = newsRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("News not found with id: " + id));
+
+        // Kiểm tra nếu request có author và khác với author hiện tại (không cho phép thay đổi)
+        if (request.getAuthor() != null && !request.getAuthor().trim().isEmpty()
+                && !request.getAuthor().equalsIgnoreCase(news.getAuthor())) {
+            throw new IllegalArgumentException(
+                    "Bạn không thể sửa author thành người khác. Author gốc: " + news.getAuthor());
+        }
 
         news.setTitle(request.getTitle());
         news.setExcerpt(request.getExcerpt());
         news.setContent(request.getContent());
         news.setImageUrl(request.getImageUrl());
-        news.setAuthor(request.getAuthor());
-        
+        // Giữ nguyên author gốc khi cập nhật, không cho phép thay đổi từ request
+        // Author đã được set khi tạo tin tức và không thay đổi khi edit
+
         // Nếu chuyển từ DRAFT sang PUBLISHED, set publishedAt
-        if ("PUBLISHED".equalsIgnoreCase(request.getStatus()) && 
-            !"PUBLISHED".equalsIgnoreCase(news.getStatus())) {
+        if (NewsStatus.PUBLISHED == request.getStatus()
+                && NewsStatus.PUBLISHED != news.getStatus()) {
             news.setPublishedAt(LocalDateTime.now());
         }
-        
-        news.setStatus(request.getStatus().toUpperCase());
-        
+
+        news.setStatus(request.getStatus());
+
         if (request.getTags() != null) {
             news.setTags(String.join(",", request.getTags()));
         }
@@ -160,14 +197,38 @@ public class NewsService {
         News news = newsRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("News not found with id: " + id));
 
-        if ("PUBLISHED".equalsIgnoreCase(status) && 
-            !"PUBLISHED".equalsIgnoreCase(news.getStatus())) {
+        // Validate và convert status sang enum
+        NewsStatus newsStatus;
+        try {
+            newsStatus = NewsStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Trạng thái không hợp lệ: '" + status + "'. Chỉ chấp nhận: DRAFT hoặc PUBLISHED");
+        }
+
+        if (NewsStatus.PUBLISHED == newsStatus
+                && NewsStatus.PUBLISHED != news.getStatus()) {
             news.setPublishedAt(LocalDateTime.now());
         }
 
-        news.setStatus(status.toUpperCase());
+        news.setStatus(newsStatus);
         News updatedNews = newsRepository.save(news);
         return toResponse(updatedNews);
+    }
+
+    /**
+     * Lấy thống kê số lượng tin tức theo trạng thái
+     */
+    public java.util.Map<String, Long> getNewsStats() {
+        long total = newsRepository.count();
+        long published = newsRepository.countByStatus(NewsStatus.PUBLISHED);
+        long draft = newsRepository.countByStatus(NewsStatus.DRAFT);
+
+        java.util.Map<String, Long> stats = new java.util.HashMap<>();
+        stats.put("total", total);
+        stats.put("published", published);
+        stats.put("draft", draft);
+        return stats;
     }
 
     /**
@@ -188,7 +249,7 @@ public class NewsService {
                 .content(news.getContent())
                 .imageUrl(news.getImageUrl())
                 .author(news.getAuthor())
-                .status(news.getStatus())
+                .status(news.getStatus().name())
                 .views(news.getViews())
                 .tags(tags)
                 .createdAt(news.getCreatedAt())

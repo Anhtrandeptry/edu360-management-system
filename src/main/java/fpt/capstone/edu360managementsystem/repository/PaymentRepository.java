@@ -30,7 +30,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
         JOIN s.user u
         JOIN p.clazz c
         WHERE (:status IS NULL OR p.status = :status)
-          AND (:studentName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :studentName, '%')))
+          AND (:search IS NULL OR :search = '' 
+               OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')))
           AND (:classId IS NULL OR c.id = :classId)
           AND (:from IS NULL OR p.createdAt >= :from)
           AND (:to IS NULL OR p.createdAt <= :to)
@@ -38,7 +40,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     """)
     Page<Payment> findAllWithFilters(
             @Param("status") PaymentStatus status,
-            @Param("studentName") String studentName,
+            @Param("search") String search,
             @Param("classId") Long classId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,

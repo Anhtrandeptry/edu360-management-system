@@ -1,28 +1,30 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.response.LessonMaterialResponse;
-import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
-import fpt.capstone.edu360managementsystem.entity.Course;
-import fpt.capstone.edu360managementsystem.entity.CourseLesson;
-import fpt.capstone.edu360managementsystem.entity.LessonMaterial;
-import fpt.capstone.edu360managementsystem.entity.User;
-import fpt.capstone.edu360managementsystem.entity.Clazz;
-import fpt.capstone.edu360managementsystem.enums.NotificationType;
-import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
-import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
-import fpt.capstone.edu360managementsystem.repository.LessonMaterialRepository;
-import fpt.capstone.edu360managementsystem.repository.UserRepository;
-import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
-import fpt.capstone.edu360managementsystem.repository.CourseRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
+import fpt.capstone.edu360managementsystem.dto.response.LessonMaterialResponse;
+import fpt.capstone.edu360managementsystem.entity.ClassEnrollment;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.CourseLesson;
+import fpt.capstone.edu360managementsystem.entity.LessonMaterial;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.NotificationType;
+import fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.LessonMaterialRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -206,7 +208,7 @@ public class LessonMaterialService {
                     Long studentUserId = enrollment.getStudent().getUser().getId();
                     if (!notifiedUserIds.contains(studentUserId)) {
                         notifiedUserIds.add(studentUserId);
-                        String link = "/home/student/courses/" + courseId;
+                        String link = "/home/courses/" + courseId;
                         notificationService.createNotification(
                                 studentUserId,
                                 title,

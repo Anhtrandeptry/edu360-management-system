@@ -12,27 +12,28 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeacherWorkSummaryResponse {
+
     private Long teacherId;
     private String teacherName;
     private String email;
     private String phone;
+    private String avatar;
     private List<String> subjectNames;
-    
 
     private Integer totalAssignedClasses;
     private Integer totalScheduledSlots;
     private Integer totalCompletedSlots;
     private Integer totalPendingSlots;
     private Double attendanceRate;
-    
 
     private List<ClassWorkDetail> classDetails;
-    
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ClassWorkDetail {
+
         private Long classId;
         private String className;
         private String subjectName;
