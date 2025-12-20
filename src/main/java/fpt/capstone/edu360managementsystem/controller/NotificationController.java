@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * REST controller for notification management.
- * Provides endpoints for retrieving and managing user notifications.
+ * REST controller for notification management. Provides endpoints for
+ * retrieving and managing user notifications.
  *
  * @author 360edu
  * @version 1.0
@@ -35,8 +35,8 @@ public class NotificationController {
      * Retrieves paginated notifications for the authenticated user.
      *
      * @param userDetails the authenticated user
-     * @param page        page number
-     * @param size        page size
+     * @param page page number
+     * @param size page size
      * @return paginated notifications
      */
     @GetMapping
@@ -83,7 +83,7 @@ public class NotificationController {
     /**
      * Marks a notification as read.
      *
-     * @param id          the notification ID
+     * @param id the notification ID
      * @param userDetails the authenticated user
      * @return success message
      */
@@ -118,7 +118,7 @@ public class NotificationController {
     /**
      * Deletes a notification.
      *
-     * @param id          the notification ID
+     * @param id the notification ID
      * @param userDetails the authenticated user
      * @return success message
      */

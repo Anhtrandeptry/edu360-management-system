@@ -18,18 +18,30 @@ import java.util.stream.Collectors;
 @Service
 public class EnrollmentService {
 
-    @Autowired private ClazzRepository clazzRepository;
-    @Autowired private StudentRepository studentRepository;
-    @Autowired private ClassEnrollmentRepository classEnrollmentRepository;
-    @Autowired private ClassScheduleRepository classScheduleRepository;
-    @Autowired private ClassSessionRepository classSessionRepository;
-    @Autowired private TeacherRepository teacherRepository;
-    @Autowired private PaymentRepository paymentRepository;
-    @Autowired private NotificationService notificationService;
+    @Autowired
+    private ClazzRepository clazzRepository;
+    @Autowired
+    private StudentRepository studentRepository;
+    @Autowired
+    private ClassEnrollmentRepository classEnrollmentRepository;
+    @Autowired
+    private ClassScheduleRepository classScheduleRepository;
+    @Autowired
+    private ClassSessionRepository classSessionRepository;
+    @Autowired
+    private TeacherRepository teacherRepository;
+    @Autowired
+    private PaymentRepository paymentRepository;
+    @Autowired
+    private NotificationService notificationService;
 
-    /** Chỉ ADMIN hoặc giáo viên chủ lớp được thao tác */
+    /**
+     * Chỉ ADMIN hoặc giáo viên chủ lớp được thao tác
+     */
     private void ensureOwnerOrAdmin(Long userId, Clazz clazz, boolean isAdmin) {
-        if (isAdmin) return;
+        if (isAdmin) {
+            return;
+        }
         if (!clazz.getTeacher().getUser().getId().equals(userId)) {
             throw new RuntimeException("Forbidden: not class owner");
         }
@@ -42,11 +54,11 @@ public class EnrollmentService {
 
         return classEnrollmentRepository.findByClazz_Id(classId).stream()
                 .map(en -> new EnrolledStudentResponse(
-                        en.getStudent().getId(),
-                        en.getStudent().getUser().getFullName(),
-                        en.getStudent().getUser().getEmail(),
-                        en.getStudent().getUser().getPhoneNumber()
-                ))
+                en.getStudent().getId(),
+                en.getStudent().getUser().getFullName(),
+                en.getStudent().getUser().getEmail(),
+                en.getStudent().getUser().getPhoneNumber()
+        ))
                 .toList();
     }
 
@@ -146,7 +158,6 @@ public class EnrollmentService {
         classEnrollmentRepository.deleteByClazz_IdAndStudent_Id(classId, studentId);
     }
 
-
 //    @Transactional
 //    public void selfEnroll(Long classId, Long userId) {
 //        Clazz clazz = clazzRepository.findById(classId)
@@ -186,7 +197,6 @@ public class EnrollmentService {
 //                ClassEnrollment.builder().clazz(clazz).student(student).build()
 //        );
 //    }
-
     @Transactional
     public void selfEnroll(Long classId, Long userId) {
         // Sử dụng Pessimistic Lock để tránh race condition khi nhiều người enroll cùng lúc
@@ -207,9 +217,9 @@ public class EnrollmentService {
         long sessionsCount = classSessionRepository.countByClazz_Id(classId);
         long unitPrice = clazz.getPricePerSession() == null ? 0L : clazz.getPricePerSession();
         long totalFee = unitPrice * sessionsCount;
-        
+
         System.out.println("🔍 [selfEnroll] classId=" + classId + ", sessionsCount=" + sessionsCount + ", pricePerSession=" + unitPrice + ", totalFee=" + totalFee);
-        
+
         if (totalFee > 0) {
             boolean paid = paymentRepository.existsByClazz_IdAndStudent_IdAndStatus(
                     classId, student.getId(), PaymentStatus.PAID
@@ -252,7 +262,7 @@ public class EnrollmentService {
         classEnrollmentRepository.save(
                 ClassEnrollment.builder().clazz(clazz).student(student).build()
         );
-        
+
         // 6. Gửi thông báo bell notification cho student
         try {
             notificationService.notifyEnrolledNewClass(
@@ -267,9 +277,9 @@ public class EnrollmentService {
     }
 
     /**
-     * Enroll học sinh vào lớp sau khi đã thanh toán thành công.
-     * Được gọi bởi PaymentService sau khi admin xác nhận hoặc webhook callback.
-     * Bỏ qua kiểm tra payment vì đã xác nhận rồi.
+     * Enroll học sinh vào lớp sau khi đã thanh toán thành công. Được gọi bởi
+     * PaymentService sau khi admin xác nhận hoặc webhook callback. Bỏ qua kiểm
+     * tra payment vì đã xác nhận rồi.
      */
     @Transactional
     public void enrollAfterPayment(Long classId, Long studentId) {
@@ -325,6 +335,5 @@ public class EnrollmentService {
             System.err.println("Failed to send enrollment notification: " + e.getMessage());
         }
     }
-
 
 }

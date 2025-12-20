@@ -53,16 +53,16 @@ public class NotificationService {
     @Transactional
     public void createNotificationForUsers(List<Long> userIds, String title, String message, NotificationType type, String link) {
         List<User> users = userRepository.findAllById(userIds);
-        
+
         List<Notification> notifications = users.stream()
                 .map(user -> Notification.builder()
-                        .user(user)
-                        .title(title)
-                        .message(message)
-                        .type(type)
-                        .link(link)
-                        .isRead(false)
-                        .build())
+                .user(user)
+                .title(title)
+                .message(message)
+                .type(type)
+                .link(link)
+                .isRead(false)
+                .build())
                 .collect(Collectors.toList());
 
         notificationRepository.saveAll(notifications);
@@ -115,11 +115,11 @@ public class NotificationService {
     public void deleteNotification(Long notificationId, Long userId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found"));
-        
+
         if (!notification.getUser().getId().equals(userId)) {
             throw new RuntimeException("Cannot delete other user's notification");
         }
-        
+
         notificationRepository.delete(notification);
     }
 
@@ -134,7 +134,6 @@ public class NotificationService {
     }
 
     // ===================== HELPER METHODS FOR OTHER SERVICES =====================
-
     /**
      * Gửi thông báo khi student được thêm vào lớp mới
      */

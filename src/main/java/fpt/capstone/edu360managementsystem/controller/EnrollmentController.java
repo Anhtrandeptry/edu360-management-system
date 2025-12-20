@@ -1,22 +1,29 @@
 package fpt.capstone.edu360managementsystem.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import fpt.capstone.edu360managementsystem.dto.request.BulkEnrollRequest;
 import fpt.capstone.edu360managementsystem.dto.request.EnrollStudentRequest;
 import fpt.capstone.edu360managementsystem.dto.response.EnrolledStudentResponse;
 import fpt.capstone.edu360managementsystem.service.EnrollmentService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 /**
- * REST controller for class enrollment management.
- * Provides endpoints for enrolling students in classes.
+ * REST controller for class enrollment management. Provides endpoints for
+ * enrolling students in classes.
  *
  * @author 360edu
  * @version 1.0
@@ -35,7 +42,7 @@ public class EnrollmentController {
     /**
      * Lists all enrolled students for a class.
      *
-     * @param user    the authenticated user
+     * @param user the authenticated user
      * @param classId the class ID
      * @return list of enrolled students
      */
@@ -52,9 +59,9 @@ public class EnrollmentController {
     /**
      * Enrolls a single student in a class.
      *
-     * @param user    the authenticated user
+     * @param user the authenticated user
      * @param classId the class ID
-     * @param req     enrollment request data
+     * @param req enrollment request data
      * @return success message
      */
     @PostMapping
@@ -70,9 +77,9 @@ public class EnrollmentController {
     /**
      * Enrolls multiple students in a class.
      *
-     * @param user    the authenticated user
+     * @param user the authenticated user
      * @param classId the class ID
-     * @param req     bulk enrollment request data
+     * @param req bulk enrollment request data
      * @return map of student IDs to enrollment status
      */
     @PostMapping("/bulk")
@@ -89,8 +96,8 @@ public class EnrollmentController {
     /**
      * Removes a student from a class.
      *
-     * @param user      the authenticated user
-     * @param classId   the class ID
+     * @param user the authenticated user
+     * @param classId the class ID
      * @param studentId the student ID to remove
      * @return success message
      */
@@ -107,7 +114,7 @@ public class EnrollmentController {
     /**
      * Allows a student to self-enroll in a class.
      *
-     * @param user    the authenticated student
+     * @param user the authenticated student
      * @param classId the class ID
      * @return success message or error
      */

@@ -16,30 +16,23 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-
     Page<Notification> findByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
-
 
     List<Notification> findByUser_IdAndIsReadFalseOrderByCreatedAtDesc(Long userId);
 
-
     long countByUser_IdAndIsReadFalse(Long userId);
-
 
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE n.user.id = :userId AND n.isRead = false")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
-
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE n.id = :id AND n.user.id = :userId")
     int markAsRead(@Param("id") Long id, @Param("userId") Long userId, @Param("now") LocalDateTime now);
 
-
     @Modifying
     @Query("DELETE FROM Notification n WHERE n.createdAt < :before")
     int deleteOlderThan(@Param("before") LocalDateTime before);
-
 
     Page<Notification> findByUser_IdAndTypeOrderByCreatedAtDesc(Long userId, NotificationType type, Pageable pageable);
 }
