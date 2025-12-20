@@ -86,7 +86,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -123,7 +123,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(true); // Already enrolled
@@ -144,7 +144,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -174,7 +174,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
 
         Clazz conflictingClass = TestDataBuilder.clazz().id(2L).name("Conflict Class").build();
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -204,7 +204,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -236,7 +236,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -261,7 +261,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 999L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.empty());
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> enrollmentService.enrollAfterPayment(classId, studentId))
@@ -278,7 +278,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 999L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.empty());
 
         // When & Then
@@ -296,7 +296,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -324,7 +324,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
         when(classEnrollmentRepository.existsByClazzAndStudent(testClass, testStudent))
                 .thenReturn(false);
@@ -356,7 +356,7 @@ class EnrollmentServiceEnrollAfterPaymentTest {
         Long classId = 1L;
         Long studentId = 1L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(testStudent));
 
         // First call: not enrolled

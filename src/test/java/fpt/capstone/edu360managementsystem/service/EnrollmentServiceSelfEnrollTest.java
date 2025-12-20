@@ -100,7 +100,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(5);
@@ -124,7 +124,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(0L); // No sessions
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(5);
@@ -148,7 +148,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(5);
@@ -173,7 +173,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L); // totalFee = 1,000,000
         when(paymentRepository.existsByClazz_IdAndStudent_IdAndStatus(classId, testStudent.getId(), PaymentStatus.PAID))
@@ -198,7 +198,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(paymentRepository.existsByClazz_IdAndStudent_IdAndStatus(classId, testStudent.getId(), PaymentStatus.PAID))
@@ -222,7 +222,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
 
         // When & Then
         assertThatThrownBy(() -> enrollmentService.selfEnroll(classId, userId))
@@ -239,7 +239,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 999L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.empty());
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> enrollmentService.selfEnroll(classId, userId))
@@ -256,7 +256,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 999L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.empty());
 
         // When & Then
@@ -276,7 +276,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(30); // Full!
@@ -298,7 +298,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(29); // 1 spot left
@@ -323,7 +323,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(10);
@@ -356,7 +356,7 @@ class EnrollmentServiceSelfEnrollTest {
                 .timeSlot(timeSlot)
                 .build();
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(10);
@@ -387,7 +387,7 @@ class EnrollmentServiceSelfEnrollTest {
         Long classId = 1L;
         Long userId = 10L;
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(10);
@@ -419,7 +419,7 @@ class EnrollmentServiceSelfEnrollTest {
                 .timeSlot(timeSlot)
                 .build();
 
-        when(clazzRepository.findById(classId)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(classId)).thenReturn(Optional.of(testClass));
         when(studentRepository.findByUser_Id(userId)).thenReturn(Optional.of(testStudent));
         when(classSessionRepository.countByClazz_Id(classId)).thenReturn(10L);
         when(classEnrollmentRepository.countByClazz_Id(classId)).thenReturn(10);

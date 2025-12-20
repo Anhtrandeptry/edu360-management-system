@@ -1,24 +1,34 @@
 package fpt.capstone.edu360managementsystem.service;
 
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 import fpt.capstone.edu360managementsystem.dto.request.SubjectRequest;
 import fpt.capstone.edu360managementsystem.dto.response.SubjectResponse;
 import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.enums.SubjectStatus;
 import fpt.capstone.edu360managementsystem.mapper.SubjectMapper;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-import java.util.*;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -26,6 +36,7 @@ class SubjectServiceTest {
     @Mock private SubjectRepository subjectRepository;
     @Mock private SubjectMapper subjectMapper;
     @Mock private ClazzRepository clazzRepository;
+    @Mock private CourseRepository courseRepository;
     @InjectMocks private SubjectService subjectService;
 
     private Subject subject;
@@ -42,7 +53,7 @@ class SubjectServiceTest {
         subjectRequest = new SubjectRequest();
         subjectRequest.setName("Math");
 
-        subjectResponse = new SubjectResponse(1L, "Math", SubjectStatus.AVAILABLE, 0L);
+        subjectResponse = new SubjectResponse(1L, "Math", SubjectStatus.AVAILABLE, 0L, 0L);
     }
 
     // getAllSubjects - 5 cases
@@ -55,6 +66,7 @@ class SubjectServiceTest {
         when(subjectRepository.findAll()).thenReturn(List.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(1L)).thenReturn(5L);
+        when(courseRepository.countApprovedBySubjectId(1L)).thenReturn(2L);
         List<SubjectResponse> result = subjectService.getAllSubjects();
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getClassCount()).isEqualTo(5L);
@@ -64,6 +76,7 @@ class SubjectServiceTest {
         when(subjectRepository.findAll()).thenReturn(List.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(1L)).thenReturn(3L);
+        when(courseRepository.countApprovedBySubjectId(anyLong())).thenReturn(0L);
         subjectService.getAllSubjects();
         verify(clazzRepository).countActiveBySubject(1L);
     }
@@ -72,6 +85,7 @@ class SubjectServiceTest {
         when(subjectRepository.findAll()).thenReturn(List.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(anyLong())).thenReturn(0L);
+        when(courseRepository.countApprovedBySubjectId(anyLong())).thenReturn(0L);
         subjectService.getAllSubjects();
         verify(subjectMapper).toResponse(subject);
     }
@@ -79,11 +93,12 @@ class SubjectServiceTest {
     @Test void test05_getAllSubjects_multiple() {
         Subject subject2 = new Subject();
         subject2.setId(2L);
-        SubjectResponse resp2 = new SubjectResponse(2L, "Physics", SubjectStatus.AVAILABLE, 0L);
+        SubjectResponse resp2 = new SubjectResponse(2L, "Physics", SubjectStatus.AVAILABLE, 0L, 0L);
         when(subjectRepository.findAll()).thenReturn(List.of(subject, subject2));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(subjectMapper.toResponse(subject2)).thenReturn(resp2);
         when(clazzRepository.countActiveBySubject(anyLong())).thenReturn(0L);
+        when(courseRepository.countApprovedBySubjectId(anyLong())).thenReturn(0L);
         assertThat(subjectService.getAllSubjects()).hasSize(2);
     }
 
@@ -98,6 +113,7 @@ class SubjectServiceTest {
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(1L)).thenReturn(0L);
+        when(courseRepository.countApprovedBySubjectId(1L)).thenReturn(0L);
         SubjectResponse result = subjectService.getSubjectById(1L);
         assertThat(result).isNotNull();
     }
@@ -106,6 +122,7 @@ class SubjectServiceTest {
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(1L)).thenReturn(7L);
+        when(courseRepository.countApprovedBySubjectId(1L)).thenReturn(0L);
         SubjectResponse result = subjectService.getSubjectById(1L);
         assertThat(result.getClassCount()).isEqualTo(7L);
     }
@@ -114,6 +131,7 @@ class SubjectServiceTest {
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(anyLong())).thenReturn(0L);
+        when(courseRepository.countApprovedBySubjectId(anyLong())).thenReturn(0L);
         subjectService.getSubjectById(1L);
         verify(subjectMapper).toResponse(subject);
     }
@@ -122,6 +140,7 @@ class SubjectServiceTest {
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(subjectMapper.toResponse(subject)).thenReturn(subjectResponse);
         when(clazzRepository.countActiveBySubject(anyLong())).thenReturn(0L);
+        when(courseRepository.countApprovedBySubjectId(anyLong())).thenReturn(0L);
         SubjectResponse result = subjectService.getSubjectById(1L);
         assertThat(result.getName()).isEqualTo("Math");
     }

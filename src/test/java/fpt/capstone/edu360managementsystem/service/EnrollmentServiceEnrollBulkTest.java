@@ -95,7 +95,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(Arrays.asList(1L, 2L, 3L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         
@@ -124,7 +124,7 @@ class EnrollmentServiceEnrollBulkTest {
     void enrollBulk_ClassNotFound_ShouldThrowException() {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(List.of(1L));
-        when(clazzRepository.findById(999L)).thenReturn(Optional.empty());
+        when(clazzRepository.findByIdWithPessimisticLock(999L)).thenReturn(Optional.empty());
 
         // When/Then
         assertThatThrownBy(() -> enrollmentService.enrollBulk(999L, request, 1L, true))
@@ -137,7 +137,7 @@ class EnrollmentServiceEnrollBulkTest {
     void enrollBulk_NotOwnerNotAdmin_ShouldThrowException() {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(List.of(1L));
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
 
         // When/Then - userId 999 is not the teacher's userId (1L) and isAdmin=false
         assertThatThrownBy(() -> enrollmentService.enrollBulk(1L, request, 999L, false))
@@ -151,7 +151,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given - class has capacity 3, already has 2 students
         BulkEnrollRequest request = createBulkEnrollRequest(Arrays.asList(1L, 2L, 3L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(2); // 2 already enrolled
         
@@ -180,7 +180,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(Arrays.asList(1L, 999L, 2L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         
@@ -210,7 +210,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(Arrays.asList(1L, 2L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         
@@ -241,7 +241,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(Arrays.asList(1L, 2L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         
@@ -277,7 +277,7 @@ class EnrollmentServiceEnrollBulkTest {
         
         Student student4 = TestDataBuilder.student().id(4L).build();
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(1); // 1 already enrolled, capacity 3
         
@@ -326,7 +326,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(Arrays.asList(3L, 1L, 2L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         
@@ -354,7 +354,7 @@ class EnrollmentServiceEnrollBulkTest {
         // Given
         BulkEnrollRequest request = createBulkEnrollRequest(List.of(1L));
         
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(testClass));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(testClass));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(List.of(schedule1));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student1));

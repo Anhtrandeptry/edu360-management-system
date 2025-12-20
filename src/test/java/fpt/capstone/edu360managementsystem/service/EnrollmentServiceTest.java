@@ -119,7 +119,7 @@ class EnrollmentServiceTest {
     // ========== enrollOne() - 18 cases ==========
 
     @Test void test01_enrollOne_classNotFound() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.empty());
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.empty());
         EnrollStudentRequest req = new EnrollStudentRequest();
         req.setStudentId(1L);
         assertThatThrownBy(() -> enrollmentService.enrollOne(1L, req, 1L, false))
@@ -127,7 +127,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test02_enrollOne_studentNotFound() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.empty());
         EnrollStudentRequest req = new EnrollStudentRequest();
         req.setStudentId(1L);
@@ -136,7 +136,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test03_enrollOne_notOwner() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         EnrollStudentRequest req = new EnrollStudentRequest();
         req.setStudentId(1L);
         assertThatThrownBy(() -> enrollmentService.enrollOne(1L, req, 999L, false))
@@ -144,7 +144,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test04_enrollOne_adminAllowed() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -159,7 +159,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test05_enrollOne_classFull() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(30);
         EnrollStudentRequest req = new EnrollStudentRequest();
@@ -169,7 +169,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test06_enrollOne_alreadyEnrolled() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(true);
@@ -180,7 +180,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test07_enrollOne_scheduleConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -194,7 +194,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test08_enrollOne_noConflict_success() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -209,7 +209,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test09_enrollOne_capacityCheck() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(29);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -224,7 +224,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test10_enrollOne_duplicateCheck() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -241,7 +241,7 @@ class EnrollmentServiceTest {
     @Test void test11_enrollOne_semesterNull_skipConflictCheck() {
         // Service không handle semester null -> NPE. Test này document issue
         // Thay đổi: sử dụng semester hợp lệ
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -254,7 +254,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test12_enrollOne_differentSemester_noConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -269,7 +269,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test13_enrollOne_sameSemester_conflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -283,7 +283,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test14_enrollOne_sameSemester_noConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -298,7 +298,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test15_enrollOne_transactionCommit() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -313,7 +313,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test16_enrollOne_enrollmentSaved() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -330,7 +330,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test17_enrollOne_allValidationsPass() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -345,7 +345,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test18_enrollOne_ownerSuccess() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -362,7 +362,7 @@ class EnrollmentServiceTest {
     // ========== enrollBulk() - 18 cases ==========
 
     @Test void test19_enrollBulk_classNotFound() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.empty());
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.empty());
         BulkEnrollRequest req = new BulkEnrollRequest();
         req.setStudentIds(Arrays.asList(1L));
         assertThatThrownBy(() -> enrollmentService.enrollBulk(1L, req, 1L, false))
@@ -370,7 +370,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test20_enrollBulk_notOwner() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         BulkEnrollRequest req = new BulkEnrollRequest();
         req.setStudentIds(Arrays.asList(1L));
         assertThatThrownBy(() -> enrollmentService.enrollBulk(1L, req, 999L, false))
@@ -378,7 +378,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test21_enrollBulk_adminAllowed() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
@@ -393,7 +393,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test22_enrollBulk_emptyList() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         BulkEnrollRequest req = new BulkEnrollRequest();
@@ -403,7 +403,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test23_enrollBulk_allValid() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(anyLong())).thenReturn(Optional.of(student));
@@ -420,7 +420,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test24_enrollBulk_someInvalid() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
@@ -437,7 +437,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test25_enrollBulk_classFull() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(30);
         BulkEnrollRequest req = new BulkEnrollRequest();
@@ -448,7 +448,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test26_enrollBulk_studentNotFound() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.empty());
@@ -459,7 +459,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test27_enrollBulk_alreadyEnrolled() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
@@ -471,7 +471,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test28_enrollBulk_scheduleConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
@@ -485,7 +485,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test29_enrollBulk_mixedResults() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         Student s1 = new Student(); s1.setId(1L);
@@ -508,7 +508,7 @@ class EnrollmentServiceTest {
 
     @Test void test30_enrollBulk_capacityDecrements() {
         clazz.setMaxStudents(1); // Only 1 spot available
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         Student s1 = new Student(); s1.setId(1L);
@@ -526,7 +526,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test31_enrollBulk_resultMapFormat() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
@@ -542,7 +542,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test32_enrollBulk_multipleConflicts() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         Student s1 = new Student(); s1.setId(1L);
@@ -560,7 +560,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test33_enrollBulk_noConflicts() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(anyLong())).thenReturn(Optional.of(student));
@@ -575,7 +575,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test34_enrollBulk_partialSuccess() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         Student s1 = new Student(); s1.setId(1L);
@@ -593,7 +593,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test35_enrollBulk_orderPreserved() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(anyLong())).thenReturn(Optional.of(student));
@@ -609,7 +609,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test36_enrollBulk_transactionHandling() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(classScheduleRepository.findByClazz_Id(1L)).thenReturn(Arrays.asList(schedule));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
@@ -710,20 +710,20 @@ class EnrollmentServiceTest {
     // ========== selfEnroll() - 12 cases ==========
 
     @Test void test49_selfEnroll_classNotFound() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.empty());
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> enrollmentService.selfEnroll(1L, 2L))
             .hasMessageContaining("Class not found");
     }
 
     @Test void test50_selfEnroll_studentProfileNotFound() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> enrollmentService.selfEnroll(1L, 2L))
             .hasMessageContaining("Student profile not found");
     }
 
     @Test void test51_selfEnroll_classFull() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(30);
         assertThatThrownBy(() -> enrollmentService.selfEnroll(1L, 2L))
@@ -731,7 +731,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test52_selfEnroll_alreadyEnrolled() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(true);
@@ -740,7 +740,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test53_selfEnroll_scheduleConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -752,7 +752,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test54_selfEnroll_noConflict_success() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -766,7 +766,7 @@ class EnrollmentServiceTest {
 
     @Test void test55_selfEnroll_semesterNull_skipConflictCheck() {
         clazz.setSemester(null);
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -776,7 +776,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test56_selfEnroll_differentSemester_noConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -789,7 +789,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test57_selfEnroll_sameSemester_conflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -801,7 +801,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test58_selfEnroll_sameSemester_noConflict() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -814,7 +814,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test59_selfEnroll_transactionCommit() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
@@ -827,7 +827,7 @@ class EnrollmentServiceTest {
     }
 
     @Test void test60_selfEnroll_enrollmentSaved() {
-        when(clazzRepository.findById(1L)).thenReturn(Optional.of(clazz));
+        when(clazzRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(clazz));
         when(studentRepository.findByUser_Id(2L)).thenReturn(Optional.of(student));
         when(classEnrollmentRepository.countByClazz_Id(1L)).thenReturn(0);
         when(classEnrollmentRepository.existsByClazzAndStudent(clazz, student)).thenReturn(false);
