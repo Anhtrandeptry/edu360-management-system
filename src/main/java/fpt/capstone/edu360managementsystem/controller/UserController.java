@@ -20,8 +20,8 @@ import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.service.UserService;
 
 /**
- * REST controller for user management.
- * Provides endpoints for user CRUD operations and status management.
+ * REST controller for user management. Provides endpoints for user CRUD
+ * operations and status management.
  *
  * @author 360edu
  * @version 1.0
@@ -51,11 +51,11 @@ public class UserController {
      * Retrieves users with pagination and filtering.
      *
      * @param search optional search term
-     * @param role   role filter (ALL or specific role)
-     * @param page   page number
-     * @param size   page size
+     * @param role role filter (ALL or specific role)
+     * @param page page number
+     * @param size page size
      * @param sortBy sort field
-     * @param order  sort order (asc/desc)
+     * @param order sort order (asc/desc)
      * @return paginated list of users
      */
     @GetMapping("/paginated")
@@ -74,10 +74,11 @@ public class UserController {
     /**
      * Updates the active status of a user.
      *
-     * @param id   the user ID
+     * @param id the user ID
      * @param body request body containing active status
      * @return empty response on success
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<Void> updateUserStatus(
             @PathVariable Long id,

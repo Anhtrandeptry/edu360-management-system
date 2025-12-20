@@ -171,21 +171,23 @@ public class CourseController {
     }
 
     /**
-     * Updates an existing course. Course status will be reset to PENDING after
-     * update.
+     * Updates an existing course. Only the owner teacher can update their
+     * course.
      *
+     * @param user the authenticated user
      * @param id the course ID
      * @param req the update data
      * @return success message
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<?> updateCourse(
+            @AuthenticationPrincipal UserDetailsImpl user,
             @PathVariable Long id,
             @RequestBody CourseUpdateRequest req
     ) {
-        courseService.updateCourse(id, req);
-        return ResponseEntity.ok("Course updated and reset to PENDING");
+        courseService.updateCourse(user.getId(), id, req);
+        return ResponseEntity.ok("Course updated successfully");
     }
 
     /**

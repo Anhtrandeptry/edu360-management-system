@@ -101,6 +101,14 @@ public class RoomService {
             throw new RuntimeException("Tên phòng học không được để trống");
         }
 
+        // Validate capacity
+        if (request.getCapacity() == null || request.getCapacity() <= 0) {
+            throw new RuntimeException("Sức chứa phải lớn hơn 0");
+        }
+        if (request.getCapacity() > 60) {
+            throw new RuntimeException("Sức chứa tối đa là 60 người");
+        }
+
         // Check duplicate (case-insensitive)
         if (roomRepository.existsByNameIgnoreCase(trimmedName)) {
             throw new RuntimeException("Tên phòng học '" + trimmedName + "' đã tồn tại");
@@ -122,6 +130,14 @@ public class RoomService {
         // Validate name is not empty
         if (trimmedName == null || trimmedName.isEmpty()) {
             throw new RuntimeException("Tên phòng học không được để trống");
+        }
+
+        // Validate capacity
+        if (request.getCapacity() == null || request.getCapacity() <= 0) {
+            throw new RuntimeException("Sức chứa phải lớn hơn 0");
+        }
+        if (request.getCapacity() > 60) {
+            throw new RuntimeException("Sức chứa tối đa là 60 người");
         }
 
         // Set trimmed name back to request

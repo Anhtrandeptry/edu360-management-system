@@ -34,13 +34,15 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
         SELECT DISTINCT c FROM Course c
         LEFT JOIN c.createdBy cb
         LEFT JOIN c.subject s
-        WHERE (:search IS NULL OR :search = '' OR 
+        LEFT JOIN c.ownerTeacher ot
+        WHERE c.ownerTeacher IS NOT NULL
+        AND (:search IS NULL OR :search = '' OR 
                LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(c.description) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(cb.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
         AND (:status IS NULL OR c.status = :status)
         AND (:subjectId IS NULL OR s.id = :subjectId)
-        AND (:teacherUserId IS NULL OR cb.id = :teacherUserId)
+        AND (:teacherUserId IS NULL OR ot.user.id = :teacherUserId)
         """)
     Page<Course> findBySearchAndFilters(
             @Param("search") String search,

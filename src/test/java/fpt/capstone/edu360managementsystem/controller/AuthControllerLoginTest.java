@@ -11,6 +11,7 @@ import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.security.jwt.JwtUtils;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,19 +39,12 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for AuthController login functionality
- * 
- * Tests cover:
- * - Successful login with JWT cookie generation
- * - User info response with roles and avatar
- * - Student avatar retrieval
- * - Teacher avatar retrieval
- * - User without avatar
- * - Authentication failure handling
- * - Security context setup
- * - JWT cookie configuration
- * - Multiple roles handling
- * - Logout functionality
- * - /me endpoint for current user info
+ *
+ * Tests cover: - Successful login with JWT cookie generation - User info
+ * response with roles and avatar - Student avatar retrieval - Teacher avatar
+ * retrieval - User without avatar - Authentication failure handling - Security
+ * context setup - JWT cookie configuration - Multiple roles handling - Logout
+ * functionality - /me endpoint for current user info
  */
 @ExtendWith(MockitoExtension.class)
 class AuthControllerLoginTest {
@@ -76,6 +70,9 @@ class AuthControllerLoginTest {
     @Mock
     private SecurityContext securityContext;
 
+    @Mock
+    private HttpServletRequest httpServletRequest;
+
     @InjectMocks
     private AuthController authController;
 
@@ -90,7 +87,7 @@ class AuthControllerLoginTest {
         userDetails = createUserDetails();
         user = createUser();
         jwtCookie = createJwtCookie();
-        
+
         // Setup SecurityContextHolder mock
         SecurityContextHolder.setContext(securityContext);
     }
@@ -99,7 +96,7 @@ class AuthControllerLoginTest {
     void authenticateUser_ValidCredentials_ShouldReturnUserInfoWithJwtCookie() {
         // Given
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtUtils.generateJwtCookie(userDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.of(user));
@@ -107,13 +104,14 @@ class AuthControllerLoginTest {
         when(teacherRepository.findByUserId(userDetails.getId())).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).contains(jwtCookie.toString());
-        
+
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getId()).isEqualTo(userDetails.getId());
         assertThat(userInfo.getUsername()).isEqualTo(userDetails.getUsername());
         assertThat(userInfo.getEmail()).isEqualTo(userDetails.getEmail());
@@ -123,7 +121,7 @@ class AuthControllerLoginTest {
 
         // Verify security context was set
         verify(securityContext).setAuthentication(authentication);
-        
+
         // Verify JWT cookie generation
         verify(jwtUtils).generateJwtCookie(userDetails);
     }
@@ -132,21 +130,22 @@ class AuthControllerLoginTest {
     void authenticateUser_StudentWithAvatar_ShouldReturnAvatarUrl() {
         // Given
         Student student = createStudentWithAvatar();
-        
+
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtUtils.generateJwtCookie(userDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.of(user));
         when(studentRepository.findByUser_Id(userDetails.getId())).thenReturn(Optional.of(student));
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        
+
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getAvatarUrl()).isEqualTo("http://example.com/student-avatar.jpg");
     }
 
@@ -154,9 +153,9 @@ class AuthControllerLoginTest {
     void authenticateUser_TeacherWithAvatar_ShouldReturnAvatarUrl() {
         // Given
         Teacher teacher = createTeacherWithAvatar();
-        
+
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtUtils.generateJwtCookie(userDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.of(user));
@@ -164,12 +163,13 @@ class AuthControllerLoginTest {
         when(teacherRepository.findByUserId(userDetails.getId())).thenReturn(Optional.of(teacher));
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        
+
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getAvatarUrl()).isEqualTo("http://example.com/teacher-avatar.jpg");
     }
 
@@ -177,10 +177,9 @@ class AuthControllerLoginTest {
     void authenticateUser_StudentAvatarTakesPrecedenceOverTeacher_ShouldReturnStudentAvatar() {
         // Given - User is both student and teacher (edge case)
         Student student = createStudentWithAvatar();
-        Teacher teacher = createTeacherWithAvatar();
-        
+
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtUtils.generateJwtCookie(userDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.of(user));
@@ -188,12 +187,13 @@ class AuthControllerLoginTest {
         // Teacher repository should not be called since student avatar is found first
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getAvatarUrl()).isEqualTo("http://example.com/student-avatar.jpg");
-        
+
         // Student avatar takes precedence, so teacher repository should not be called
     }
 
@@ -201,11 +201,11 @@ class AuthControllerLoginTest {
     void authenticateUser_InvalidCredentials_ShouldThrowBadCredentialsException() {
         // Given
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenThrow(new BadCredentialsException("Invalid credentials"));
+                .thenThrow(new BadCredentialsException("Invalid credentials"));
 
         // When & Then
         try {
-            authController.authenticateUser(validLoginRequest);
+            authController.authenticateUser(validLoginRequest, httpServletRequest);
         } catch (BadCredentialsException e) {
             assertThat(e.getMessage()).isEqualTo("Invalid credentials");
         }
@@ -219,21 +219,22 @@ class AuthControllerLoginTest {
     void authenticateUser_UserNotFoundInDatabase_ShouldReturnNullFullNameAndAvatar() {
         // Given
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtUtils.generateJwtCookie(userDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        
+
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getFullName()).isNull();
         assertThat(userInfo.getAvatarUrl()).isNull();
-        
+
         // Verify student/teacher repositories were not called
         verify(studentRepository, never()).findByUser_Id(any());
         verify(teacherRepository, never()).findByUserId(any());
@@ -243,9 +244,9 @@ class AuthControllerLoginTest {
     void authenticateUser_MultipleRoles_ShouldReturnAllRoles() {
         // Given
         UserDetailsImpl multiRoleUserDetails = createMultiRoleUserDetails();
-        
+
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(multiRoleUserDetails);
         when(jwtUtils.generateJwtCookie(multiRoleUserDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(multiRoleUserDetails.getId())).thenReturn(Optional.of(user));
@@ -253,10 +254,11 @@ class AuthControllerLoginTest {
         when(teacherRepository.findByUserId(multiRoleUserDetails.getId())).thenReturn(Optional.empty());
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getRoles()).containsExactlyInAnyOrder("ROLE_ADMIN", "ROLE_TEACHER");
     }
 
@@ -264,10 +266,10 @@ class AuthControllerLoginTest {
     void logoutUser_ShouldReturnCleanCookieAndSuccessMessage() {
         // Given
         ResponseCookie cleanCookie = ResponseCookie.from("jwt", "")
-            .httpOnly(true)
-            .path("/")
-            .maxAge(0)
-            .build();
+                .httpOnly(true)
+                .path("/")
+                .maxAge(0)
+                .build();
         when(jwtUtils.getCleanJwtCookie()).thenReturn(cleanCookie);
 
         // When
@@ -276,10 +278,11 @@ class AuthControllerLoginTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).contains(cleanCookie.toString());
-        
+
         MessageResponse messageResponse = (MessageResponse) response.getBody();
+        assertThat(messageResponse).isNotNull();
         assertThat(messageResponse.getMessage()).isEqualTo("You've been signed out!");
-        
+
         verify(jwtUtils).getCleanJwtCookie();
     }
 
@@ -295,8 +298,9 @@ class AuthControllerLoginTest {
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        
+
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getId()).isEqualTo(userDetails.getId());
         assertThat(userInfo.getUsername()).isEqualTo(userDetails.getUsername());
         assertThat(userInfo.getEmail()).isEqualTo(userDetails.getEmail());
@@ -313,7 +317,7 @@ class AuthControllerLoginTest {
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        
+
         // Verify no database calls
         verify(userRepository, never()).findById(any());
         verify(studentRepository, never()).findByUser_Id(any());
@@ -324,7 +328,7 @@ class AuthControllerLoginTest {
     void me_StudentWithAvatar_ShouldReturnAvatarUrl() {
         // Given
         Student student = createStudentWithAvatar();
-        
+
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.of(user));
         when(studentRepository.findByUser_Id(userDetails.getId())).thenReturn(Optional.of(student));
 
@@ -333,6 +337,7 @@ class AuthControllerLoginTest {
 
         // Then
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getAvatarUrl()).isEqualTo("http://example.com/student-avatar.jpg");
     }
 
@@ -341,11 +346,11 @@ class AuthControllerLoginTest {
         // Given
         Student studentWithoutAvatar = new Student();
         studentWithoutAvatar.setAvatarUrl(null);
-        
+
         Teacher teacher = createTeacherWithAvatar();
-        
+
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-            .thenReturn(authentication);
+                .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtUtils.generateJwtCookie(userDetails)).thenReturn(jwtCookie);
         when(userRepository.findById(userDetails.getId())).thenReturn(Optional.of(user));
@@ -353,12 +358,13 @@ class AuthControllerLoginTest {
         when(teacherRepository.findByUserId(userDetails.getId())).thenReturn(Optional.of(teacher));
 
         // When
-        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest);
+        ResponseEntity<?> response = authController.authenticateUser(validLoginRequest, httpServletRequest);
 
         // Then
         UserInfoResponse userInfo = (UserInfoResponse) response.getBody();
+        assertThat(userInfo).isNotNull();
         assertThat(userInfo.getAvatarUrl()).isEqualTo("http://example.com/teacher-avatar.jpg");
-        
+
         // Verify both repositories were called
         verify(studentRepository).findByUser_Id(userDetails.getId());
         verify(teacherRepository).findByUserId(userDetails.getId());
@@ -374,46 +380,36 @@ class AuthControllerLoginTest {
 
     private UserDetailsImpl createUserDetails() {
         return new UserDetailsImpl(
-            1L,
-            "testuser",
-            "test@example.com",
-            "encoded_password",
-            true,
-            Arrays.asList(new SimpleGrantedAuthority("ROLE_STUDENT"))
+                1L,
+                "testuser",
+                "test@example.com",
+                "encoded_password",
+                true,
+                Arrays.asList(new SimpleGrantedAuthority("ROLE_STUDENT"))
         );
     }
 
     private UserDetailsImpl createMultiRoleUserDetails() {
         return new UserDetailsImpl(
-            1L,
-            "testuser",
-            "test@example.com",
-            "encoded_password",
-            true,
-            Arrays.asList(
-                new SimpleGrantedAuthority("ROLE_ADMIN"),
-                new SimpleGrantedAuthority("ROLE_TEACHER")
-            )
+                1L,
+                "testuser",
+                "test@example.com",
+                "encoded_password",
+                true,
+                Arrays.asList(
+                        new SimpleGrantedAuthority("ROLE_ADMIN"),
+                        new SimpleGrantedAuthority("ROLE_TEACHER")
+                )
         );
     }
 
-    private User createUserForUserDetails() {
-        User user = new User();
-        user.setId(1L);
-        user.setUsername("testuser");
-        user.setEmail("test@example.com");
-        user.setPassword("encoded_password");
-        user.setFullName("Test User");
-        return user;
-    }
-
     private User createUser() {
-        User user = new User();
-        user.setId(1L);
-        user.setUsername("testuser");
-        user.setEmail("test@example.com");
-        user.setFullName("Test User");
-        return user;
+        User newUser = new User();
+        newUser.setId(1L);
+        newUser.setUsername("testuser");
+        newUser.setEmail("test@example.com");
+        newUser.setFullName("Test User");
+        return newUser;
     }
 
     private Student createStudentWithAvatar() {
@@ -430,9 +426,9 @@ class AuthControllerLoginTest {
 
     private ResponseCookie createJwtCookie() {
         return ResponseCookie.from("jwt", "jwt-token-value")
-            .httpOnly(true)
-            .path("/")
-            .maxAge(86400)
-            .build();
+                .httpOnly(true)
+                .path("/")
+                .maxAge(86400)
+                .build();
     }
 }

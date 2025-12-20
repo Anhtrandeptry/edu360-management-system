@@ -145,7 +145,8 @@ public class ParentService {
         Parent parent = getParentByUserId(userId);
         validateChildBelongsToParent(parent, childId);
 
-        Student student = studentRepository.findById(childId)
+        // Validate student exists
+        studentRepository.findById(childId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy học sinh"));
 
         YearMonth yearMonth = YearMonth.of(year, month);
@@ -668,7 +669,8 @@ public class ParentService {
 
     // Helper methods
     private Parent getParentByUserId(Long userId) {
-        User user = userRepository.findById(userId)
+        // Validate user exists
+        userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         return parentRepository.findByUserId(userId)

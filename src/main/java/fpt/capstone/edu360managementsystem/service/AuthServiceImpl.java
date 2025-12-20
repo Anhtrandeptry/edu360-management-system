@@ -2,10 +2,13 @@ package fpt.capstone.edu360managementsystem.service;
 
 import java.security.SecureRandom;
 import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
+import fpt.capstone.edu360managementsystem.dto.request.ResetPasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.entity.Parent;
+import fpt.capstone.edu360managementsystem.entity.PasswordResetToken;
 import fpt.capstone.edu360managementsystem.entity.Role;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Subject;
@@ -24,6 +29,7 @@ import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.enums.ERole;
 import fpt.capstone.edu360managementsystem.repository.ParentRepository;
+import fpt.capstone.edu360managementsystem.repository.PasswordResetTokenRepository;
 import fpt.capstone.edu360managementsystem.repository.RoleRepository;
 import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
@@ -52,10 +58,19 @@ public class AuthServiceImpl implements AuthService {
     SubjectRepository subjectRepository;
 
     @Autowired
+    PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Autowired
     PasswordEncoder encoder;
 
     @Autowired
     EmailService emailService;
+
+    @Value("${app.frontend.url:http://localhost:8386}")
+    private String frontendUrl;
+
+    // Token expiry time: 15 minutes
+    private static final int TOKEN_EXPIRY_MINUTES = 15;
 
     private static final String PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final Random RANDOM = new SecureRandom();
@@ -252,50 +267,99 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<?> forgotPassword(ForgotPasswordRequest request) {
-        // Có thể cho tìm theo email unique
+        String email = request.getEmail().toLowerCase().trim();
+
+        // Tìm user theo email
         User user = userRepository.findAll().stream()
-                .filter(u -> request.getEmail().equalsIgnoreCase(u.getEmail()))
+                .filter(u -> email.equalsIgnoreCase(u.getEmail()))
                 .findFirst()
                 .orElse(null);
 
-        // Vì lý do bảo mật, có thể trả message chung kể cả khi không tìm được user
+        // Vì lý do bảo mật, trả message chung kể cả khi không tìm được user
         if (user == null) {
-            // Lựa chọn 1: message chung
             return ResponseEntity.ok(new MessageResponse(
-                    "Nếu email tồn tại trong hệ thống, mật khẩu mới đã được gửi."));
-            // Lựa chọn 2: báo lỗi rõ (nếu bạn muốn):
-            // return ResponseEntity.badRequest().body(new MessageResponse("Không tìm thấy tài khoản với email này."));
+                    "Nếu email tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi."));
         }
 
-        // 1. Sinh mật khẩu mới
-        String newPlainPassword = generateRandomPassword(10);
-        String encoded = encoder.encode(newPlainPassword);
+        // Vô hiệu hóa tất cả token cũ của user này
+        passwordResetTokenRepository.invalidateAllTokensForUser(user);
 
-        // 2. Lưu vào DB
-        user.setPassword(encoded);
-        userRepository.save(user);
+        // Tạo token mới
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(TOKEN_EXPIRY_MINUTES))
+                .build();
+        passwordResetTokenRepository.save(resetToken);
 
-        // 3. Gửi email mật khẩu mới
-        String subject = "Mật khẩu mới cho tài khoản Edu360";
+        // Tạo link reset password
+        String resetLink = frontendUrl + "/home/reset-password?token=" + token;
+
+        // Gửi email với link reset
+        String subject = "Đặt lại mật khẩu tài khoản Edu360";
         String text = String.format(
                 "Xin chào %s,\n\n"
                 + "Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản trên hệ thống Edu360.\n\n"
-                + "Mật khẩu mới của bạn là: %s\n\n"
-                + "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập để đảm bảo an toàn.\n\n"
+                + "Vui lòng click vào link sau để đặt lại mật khẩu:\n%s\n\n"
+                + "Link này sẽ hết hạn sau %d phút.\n\n"
+                + "Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.\n\n"
                 + "Trân trọng,\nĐội ngũ Edu360",
-                user.getFullName(), newPlainPassword
+                user.getFullName(), resetLink, TOKEN_EXPIRY_MINUTES
         );
 
         try {
             emailService.sendSimpleMessage(user.getEmail(), subject, text);
         } catch (MailException ex) {
-            // Có thể chọn rollback hoặc không, ở đây giữ mật khẩu mới và báo lỗi gửi mail
-            return ResponseEntity.ok(new MessageResponse(
-                    "Mật khẩu đã được reset nhưng gửi email thất bại: " + ex.getMessage()));
+            return ResponseEntity.internalServerError().body(new MessageResponse(
+                    "Không thể gửi email. Vui lòng thử lại sau."));
         }
 
         return ResponseEntity.ok(new MessageResponse(
-                "Mật khẩu mới đã được gửi tới email của bạn (nếu email tồn tại trong hệ thống)."));
+                "Nếu email tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư."));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> resetPassword(ResetPasswordRequest request) {
+        // Tìm token
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElse(null);
+
+        if (resetToken == null) {
+            return ResponseEntity.badRequest().body(new MessageResponse(
+                    "Link đặt lại mật khẩu không hợp lệ."));
+        }
+
+        // Kiểm tra token còn hiệu lực không
+        if (!resetToken.isValid()) {
+            String message = resetToken.isUsed()
+                    ? "Link đặt lại mật khẩu đã được sử dụng."
+                    : "Link đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu link mới.";
+            return ResponseEntity.badRequest().body(new MessageResponse(message));
+        }
+
+        // Cập nhật mật khẩu
+        User user = resetToken.getUser();
+        user.setPassword(encoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Đánh dấu token đã sử dụng
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        // Vô hiệu hóa tất cả token khác của user (nếu có)
+        passwordResetTokenRepository.invalidateAllTokensForUser(user);
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới."));
+    }
+
+    @Override
+    public boolean validateResetToken(String token) {
+        return passwordResetTokenRepository.findByToken(token)
+                .map(PasswordResetToken::isValid)
+                .orElse(false);
     }
 
     // --- helper methods ---

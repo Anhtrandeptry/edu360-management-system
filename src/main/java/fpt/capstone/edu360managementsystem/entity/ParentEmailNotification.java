@@ -19,7 +19,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-
 @Entity
 @Table(name = "parent_email_notifications",
         uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "notification_date"}),
@@ -58,6 +57,7 @@ public class ParentEmailNotification {
     @Column(columnDefinition = "TEXT")
     private String body;
 
+    @Builder.Default
     @Column(name = "is_read", nullable = false)
     private boolean read = false;
 
