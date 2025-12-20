@@ -93,6 +93,8 @@ public class PaymentController {
      * @param to      optional end date filter
      * @param page    page number
      * @param size    page size
+     * @param sortBy  sort field (createdAt or paidAt)
+     * @param sortDir sort direction (asc or desc)
      * @return paginated payment list
      */
     @GetMapping
@@ -104,9 +106,11 @@ public class PaymentController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        Page<PaymentResponse> result = paymentService.getPayments(status, search, classId, from, to, page, size);
+        Page<PaymentResponse> result = paymentService.getPayments(status, search, classId, from, to, page, size, sortBy, sortDir);
         return ResponseEntity.ok(result);
     }
 

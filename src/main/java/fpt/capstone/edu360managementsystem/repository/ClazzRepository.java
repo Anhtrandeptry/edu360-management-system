@@ -1,17 +1,20 @@
 package fpt.capstone.edu360managementsystem.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.enums.ClassStatus;
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecificationExecutor<Clazz> {
@@ -214,4 +217,14 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     // Đếm số giáo viên có lớp PUBLIC
     @Query("SELECT COUNT(DISTINCT c.teacher.id) FROM Clazz c WHERE c.status = 'PUBLIC'")
     Long countDistinctTeachersWithPublicClasses();
+
+    // ==================== PESSIMISTIC LOCK FOR ENROLLMENT ====================
+    /**
+     * Lấy Clazz với Pessimistic Write Lock để tránh race condition khi enroll.
+     * Khi một transaction đang giữ lock, các transaction khác sẽ phải chờ.
+     * Điều này đảm bảo capacity check và enrollment insert là atomic.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Clazz c WHERE c.id = :id")
+    Optional<Clazz> findByIdWithPessimisticLock(@Param("id") Long id);
 }

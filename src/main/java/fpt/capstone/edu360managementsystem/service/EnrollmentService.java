@@ -52,7 +52,8 @@ public class EnrollmentService {
 
     @Transactional
     public void enrollOne(Long classId, EnrollStudentRequest req, Long userId, boolean isAdmin) {
-        Clazz clazz = clazzRepository.findById(classId)
+        // Sử dụng Pessimistic Lock để đảm bảo atomic capacity check
+        Clazz clazz = clazzRepository.findByIdWithPessimisticLock(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
         ensureOwnerOrAdmin(userId, clazz, isAdmin);
 
@@ -89,7 +90,8 @@ public class EnrollmentService {
 
     @Transactional
     public Map<Long, String> enrollBulk(Long classId, BulkEnrollRequest req, Long userId, boolean isAdmin) {
-        Clazz clazz = clazzRepository.findById(classId)
+        // Sử dụng Pessimistic Lock để đảm bảo atomic capacity check cho bulk enrollment
+        Clazz clazz = clazzRepository.findByIdWithPessimisticLock(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
         ensureOwnerOrAdmin(userId, clazz, isAdmin);
 
@@ -187,7 +189,9 @@ public class EnrollmentService {
 
     @Transactional
     public void selfEnroll(Long classId, Long userId) {
-        Clazz clazz = clazzRepository.findById(classId)
+        // Sử dụng Pessimistic Lock để tránh race condition khi nhiều người enroll cùng lúc
+        // Lock sẽ giữ cho đến khi transaction kết thúc, đảm bảo capacity check và insert là atomic
+        Clazz clazz = clazzRepository.findByIdWithPessimisticLock(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
 
         // Chỉ cho phép self-enroll khi lớp ở trạng thái PUBLIC
@@ -269,7 +273,9 @@ public class EnrollmentService {
      */
     @Transactional
     public void enrollAfterPayment(Long classId, Long studentId) {
-        Clazz clazz = clazzRepository.findById(classId)
+        // Sử dụng Pessimistic Lock để tránh race condition khi nhiều webhook cùng trigger
+        // VD: 5 người thanh toán cùng lúc, tất cả đều phải chờ lock theo thứ tự
+        Clazz clazz = clazzRepository.findByIdWithPessimisticLock(classId)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
 
         Student student = studentRepository.findById(studentId)
