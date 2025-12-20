@@ -23,7 +23,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByOrderCode(String orderCode);
 
+    // Tìm các payment PENDING đã quá thời gian (để scheduler hủy)
+    @Query("SELECT p FROM Payment p WHERE p.status = 'PENDING' AND p.createdAt < :expiryThreshold")
+    List<Payment> findExpiredPendingPayments(@Param("expiryThreshold") LocalDateTime expiryThreshold);
+
     // Admin: list all with optional filters
+    // Note: Không dùng ORDER BY trong query để Pageable có thể điều khiển sort động
     @Query("""
         SELECT p FROM Payment p
         JOIN p.student s
@@ -36,7 +41,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
           AND (:classId IS NULL OR c.id = :classId)
           AND (:from IS NULL OR p.createdAt >= :from)
           AND (:to IS NULL OR p.createdAt <= :to)
-        ORDER BY p.createdAt DESC
     """)
     Page<Payment> findAllWithFilters(
             @Param("status") PaymentStatus status,
