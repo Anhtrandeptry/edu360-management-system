@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -31,6 +32,7 @@ import fpt.capstone.edu360managementsystem.repository.TeacherEducationRepository
 import fpt.capstone.edu360managementsystem.repository.TeacherExperienceRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import fpt.capstone.edu360managementsystem.util.VietnameseUtils;
 import jakarta.persistence.EntityNotFoundException;
 
 /**
@@ -109,12 +111,62 @@ public class TeacherService {
         } else {
             sort = sort.ascending();
         }
+
+        // Nếu có search term, sử dụng Vietnamese-aware filtering
+        if (search != null && !search.trim().isEmpty()) {
+            // Lấy tất cả teachers (có filter subjectId nếu có)
+            List<Teacher> allTeachers;
+            if (subjectId != null) {
+                allTeachers = teacherRepository.findByAnySubject(subjectId);
+            } else {
+                allTeachers = teacherRepository.findAll();
+            }
+
+            // Filter bằng VietnameseUtils
+            String searchTerm = search.trim();
+            List<Teacher> filteredTeachers = allTeachers.stream()
+                    .filter(teacher -> {
+                        User user = teacher.getUser();
+                        if (user == null) return false;
+                        
+                        // Check fullName with Vietnamese diacritics support
+                        if (user.getFullName() != null && 
+                            VietnameseUtils.containsIgnoreDiacritics(user.getFullName(), searchTerm)) {
+                            return true;
+                        }
+                        // Check email
+                        if (user.getEmail() != null && 
+                            user.getEmail().toLowerCase().contains(searchTerm.toLowerCase())) {
+                            return true;
+                        }
+                        // Check phone
+                        if (user.getPhoneNumber() != null && 
+                            user.getPhoneNumber().contains(searchTerm)) {
+                            return true;
+                        }
+                        return false;
+                    })
+                    .collect(Collectors.toList());
+
+            // Apply pagination manually
+            int start = page * size;
+            int end = Math.min(start + size, filteredTeachers.size());
+            
+            List<TeacherResponse> pagedContent;
+            if (start >= filteredTeachers.size()) {
+                pagedContent = List.of();
+            } else {
+                pagedContent = filteredTeachers.subList(start, end).stream()
+                        .map(this::mapToResponse)
+                        .collect(Collectors.toList());
+            }
+
+            return new PageImpl<>(pagedContent, PageRequest.of(page, size, sort), filteredTeachers.size());
+        }
+
+        // Không có search term - sử dụng query gốc
         Pageable pageable = PageRequest.of(page, size, sort);
-
-        // Query với pagination
-        Page<Teacher> teacherPage = teacherRepository.findBySearchAndSubject(search, subjectId, pageable);
-
-        // Map to response
+        Page<Teacher> teacherPage = teacherRepository.findBySearchAndSubject(null, subjectId, pageable);
         return teacherPage.map(this::mapToResponse);
     }
 

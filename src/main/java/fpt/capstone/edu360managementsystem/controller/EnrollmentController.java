@@ -120,7 +120,12 @@ public class EnrollmentController {
             enrollmentService.selfEnroll(classId, user.getId());
             return ResponseEntity.ok("Enrolled");
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+            String msg = e.getMessage();
+            // Nếu là lỗi chưa thanh toán, trả về 402 Payment Required
+            if (msg != null && msg.toLowerCase().contains("thanh toán")) {
+                return ResponseEntity.status(402).body(java.util.Map.of("message", msg));
+            }
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", msg));
         }
     }
 

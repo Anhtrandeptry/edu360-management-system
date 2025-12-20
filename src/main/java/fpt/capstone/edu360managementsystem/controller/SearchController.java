@@ -56,11 +56,28 @@ public class SearchController {
         Map<String, Object> results = new HashMap<>();
         results.put("query", searchTerm);
 
-        results.put("classes", List.of());
-        results.put("teachers", List.of());
-        results.put("subjects", List.of());
+        // Search classes - only PUBLIC classes, include currentStudents and maxStudents
+        Page<ClassResponse> classResults = classService.getClassesWithPagination(
+                searchTerm, "PUBLIC", null, null, null, null, null, 0, limit, "id", "desc"
+        );
+        results.put("classes", classResults.getContent());
 
-        results.put("totalResults", 0);
+        // Search teachers
+        Page<TeacherResponse> teacherResults = teacherService.getTeachersWithPagination(
+                searchTerm, null, 0, limit, "id", "desc"
+        );
+        results.put("teachers", teacherResults.getContent());
+
+        // Search subjects - only ACTIVE subjects
+        Page<SubjectResponse> subjectResults = subjectService.getSubjectsWithPagination(
+                searchTerm, "ACTIVE", 0, limit, "id", "desc"
+        );
+        results.put("subjects", subjectResults.getContent());
+
+        int totalResults = classResults.getContent().size()
+                + teacherResults.getContent().size()
+                + subjectResults.getContent().size();
+        results.put("totalResults", totalResults);
 
         return ResponseEntity.ok(results);
     }
@@ -79,7 +96,10 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ResponseEntity.ok(Page.empty());
+        Page<ClassResponse> results = classService.getClassesWithPagination(
+                q, "PUBLIC", null, null, null, null, null, page, size, "id", "desc"
+        );
+        return ResponseEntity.ok(results);
     }
 
     /**
@@ -96,7 +116,10 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ResponseEntity.ok(Page.empty());
+        Page<TeacherResponse> results = teacherService.getTeachersWithPagination(
+                q, null, page, size, "id", "desc"
+        );
+        return ResponseEntity.ok(results);
     }
 
     /**
@@ -113,6 +136,9 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ResponseEntity.ok(Page.empty());
+        Page<SubjectResponse> results = subjectService.getSubjectsWithPagination(
+                q, "ACTIVE", page, size, "id", "desc"
+        );
+        return ResponseEntity.ok(results);
     }
 }

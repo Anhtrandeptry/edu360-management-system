@@ -37,6 +37,14 @@ public class ClassResponse {
     private Long pricePerSession;   // Giá mỗi buổi (VND)
     private Integer totalSessions;  // Tổng số buổi của lớp
     private Integer completedSessions; // Số buổi đã hoàn thành (status = DONE)
+    
+    // Tổng học phí = pricePerSession * totalSessions
+    public Long getPrice() {
+        if (pricePerSession == null || totalSessions == null) {
+            return 0L;
+        }
+        return pricePerSession * totalSessions;
+    }
 
     private Long courseId;
     private String courseTitle;

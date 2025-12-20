@@ -16,6 +16,10 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
 
     List<Course> findBySubject_IdAndStatus(Long subjectId, CourseStatus status);
 
+    // Đếm số khóa học theo subjectId (trạng thái APPROVED)
+    @Query("SELECT COUNT(c) FROM Course c WHERE c.subject.id = :subjectId AND c.status = 'APPROVED'")
+    long countApprovedBySubjectId(@Param("subjectId") Long subjectId);
+
     List<Course> findByCreatedBy_Id(Long userId);
 
     List<Course> findByStatus(CourseStatus status);

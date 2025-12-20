@@ -345,9 +345,21 @@ public class PaymentService {
             LocalDateTime from,
             LocalDateTime to,
             int page,
-            int size
+            int size,
+            String sortBy,
+            String sortDir
     ) {
-        Pageable pageable = PageRequest.of(page, size);
+        // Validate sort field - chỉ cho phép createdAt hoặc paidAt
+        if (sortBy == null || (!sortBy.equals("createdAt") && !sortBy.equals("paidAt"))) {
+            sortBy = "createdAt";
+        }
+        
+        // Tạo Sort object
+        org.springframework.data.domain.Sort sort = sortDir != null && sortDir.equalsIgnoreCase("asc")
+                ? org.springframework.data.domain.Sort.by(sortBy).ascending()
+                : org.springframework.data.domain.Sort.by(sortBy).descending();
+        
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<Payment> payments = paymentRepository.findAllWithFilters(status, search, classId, from, to, pageable);
         return payments.map(this::mapToResponse);
     }

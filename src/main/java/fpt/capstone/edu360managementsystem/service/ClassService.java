@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -46,6 +47,7 @@ import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
+import fpt.capstone.edu360managementsystem.util.VietnameseUtils;
 
 @Service
 public class ClassService {
@@ -467,6 +469,9 @@ public class ClassService {
             String status,
             String online,
             Long teacherUserId,
+            Long subjectId,
+            Long minPrice,
+            Long maxPrice,
             int page,
             int size,
             String sortBy,
@@ -497,9 +502,9 @@ public class ClassService {
             onlineBool = Boolean.parseBoolean(online);
         }
 
-        // Query với pagination
+        // Query với pagination - bao gồm subjectId và price filter
         Page<Clazz> classPage = clazzRepository.findBySearchAndFilters(
-                search, statusEnum, onlineBool, teacherUserId, pageable
+                search, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, pageable
         );
 
         // Load ALL schedules for these classes để tránh N+1
