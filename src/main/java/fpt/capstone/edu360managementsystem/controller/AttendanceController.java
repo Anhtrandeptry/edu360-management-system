@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import fpt.capstone.edu360managementsystem.dto.request.AttendanceUpsertRequest;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionDetailResponse;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionSummaryResponse;
+import fpt.capstone.edu360managementsystem.dto.response.StudentAttendanceResponse;
 import fpt.capstone.edu360managementsystem.service.AttendanceService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -164,5 +165,22 @@ public class AttendanceController {
     public ResponseEntity<Map<String, Boolean>> checkAttendanceStatus(
             @RequestBody List<String> sessions) {
         return ResponseEntity.ok(attendanceService.checkAttendanceStatus(sessions));
+    }
+
+    /**
+     * Student endpoint to view their own attendance for a specific class.
+     *
+     * @param user the authenticated student
+     * @param classId the class ID
+     * @return student's attendance details for the class
+     */
+    @GetMapping("/my-attendance/class/{classId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<StudentAttendanceResponse> getMyAttendanceForClass(
+            @AuthenticationPrincipal UserDetailsImpl user,
+            @PathVariable Long classId) {
+        return ResponseEntity.ok(
+                attendanceService.getMyAttendanceForClass(user.getId(), classId)
+        );
     }
 }

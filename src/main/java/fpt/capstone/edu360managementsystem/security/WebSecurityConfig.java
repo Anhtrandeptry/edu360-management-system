@@ -61,30 +61,37 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .cors(cors -> {})
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> {
+                })
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/auth/**").permitAll()
-                                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/test/**").permitAll()
                 // Allow Spring Boot error endpoint so 404 won't be masked as 401
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/rooms/**").permitAll()
                 .requestMatchers("/api/subjects/**").permitAll()
                 .requestMatchers("/api/semesters/**").permitAll()
                 .requestMatchers("/api/timeslots/**").permitAll()
-                .requestMatchers("/api/classes/**").permitAll()
-                // Temporary: allow teacher endpoints until role rules are finalized
-                .requestMatchers("/api/teachers/**").permitAll()
-                // Allow news endpoints for public access (GET only)
-                .requestMatchers("/api/news/**").permitAll()
+                // Classes: only allow GET for public viewing, other methods require auth
+                .requestMatchers(HttpMethod.GET, "/api/classes/**").permitAll()
+                .requestMatchers("/api/classes/**").authenticated()
+                // Teachers: only allow GET for public viewing (list, detail), other methods require auth
+                .requestMatchers(HttpMethod.GET, "/api/teachers").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/teachers/{id}").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/teachers/{id}/free-busy").permitAll()
+                .requestMatchers("/api/teachers/**").authenticated()
+                // News: only allow GET for public access, POST/PUT/DELETE require auth
+                .requestMatchers(HttpMethod.GET, "/api/news/**").permitAll()
+                .requestMatchers("/api/news/**").authenticated()
                 // Allow course detail view for all users (students viewing enrolled courses)
                 .requestMatchers(HttpMethod.GET, "/api/courses/{id}").permitAll()
-                // Allow file upload endpoints
-                .requestMatchers("/api/upload/**").permitAll()
-                // Allow serving uploaded files
-                .requestMatchers("/uploads/**").permitAll()
+                // File upload endpoints require authentication (prevent DoS/abuse)
+                .requestMatchers("/api/upload/**").authenticated()
+                // Allow serving uploaded files (read-only)
+                .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                 // Student profile endpoints (require STUDENT role - handled by @PreAuthorize)
                 .requestMatchers("/api/students/profile/**").authenticated()
                 .anyRequest().authenticated()

@@ -22,8 +22,8 @@ import fpt.capstone.edu360managementsystem.service.ClassService;
 import jakarta.validation.Valid;
 
 /**
- * REST controller for class management.
- * Provides endpoints for CRUD operations on classes including publish/draft workflows.
+ * REST controller for class management. Provides endpoints for CRUD operations
+ * on classes including publish/draft workflows.
  *
  * @author 360edu
  * @version 1.0
@@ -59,7 +59,7 @@ public class ClassController {
      * Lists all classes with optional filters.
      *
      * @param teacherUserId optional teacher filter
-     * @param timeSlotId    optional time slot filter
+     * @param timeSlotId optional time slot filter
      * @return list of classes
      */
     @GetMapping
@@ -73,15 +73,15 @@ public class ClassController {
     /**
      * Retrieves paginated classes with filters and sorting.
      *
-     * @param search        optional search term
-     * @param status        status filter
-     * @param online        online/offline filter
+     * @param search optional search term
+     * @param status status filter
+     * @param online online/offline filter
      * @param teacherUserId optional teacher filter
-     * @param subjectId     optional subject filter
-     * @param page          page number
-     * @param size          page size
-     * @param sortBy        sort field
-     * @param order         sort order
+     * @param subjectId optional subject filter
+     * @param page page number
+     * @param size page size
+     * @param sortBy sort field
+     * @param order sort order
      * @return paginated class list
      */
     @GetMapping("/paginated")
@@ -131,6 +131,7 @@ public class ClassController {
      * @param id the class ID
      * @return success or error response
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/publish")
     public ResponseEntity<?> publishClass(@PathVariable Long id) {
         try {
@@ -149,6 +150,7 @@ public class ClassController {
      * @param id the class ID
      * @return success or error response
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/revert-draft")
     public ResponseEntity<?> revertToDraft(@PathVariable Long id) {
         try {
@@ -164,7 +166,7 @@ public class ClassController {
     /**
      * Updates an existing class.
      *
-     * @param id  the class ID
+     * @param id the class ID
      * @param req the update data
      * @return updated class response
      */
@@ -182,9 +184,9 @@ public class ClassController {
     }
 
     /**
-     * Deletes a DRAFT class permanently.
-     * Only classes with status DRAFT can be deleted.
-     * All related data (schedules, sessions, enrollments) will be removed.
+     * Deletes a DRAFT class permanently. Only classes with status DRAFT can be
+     * deleted. All related data (schedules, sessions, enrollments) will be
+     * removed.
      *
      * @param id the class ID
      * @return success or error response

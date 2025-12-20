@@ -29,6 +29,7 @@ import fpt.capstone.edu360managementsystem.dto.request.GoogleRegisterRequest;
 import fpt.capstone.edu360managementsystem.dto.request.LoginRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
+import fpt.capstone.edu360managementsystem.dto.request.ResetPasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.response.GoogleAuthResponse;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
@@ -90,54 +91,130 @@ public class AuthController {
     private static final int FORGOT_PASSWORD_MAX_ATTEMPTS = 3;
     private static final long FORGOT_PASSWORD_WINDOW_MS = 5 * 60 * 1000; // 5 phút
 
+    // Rate limit config cho register: 3 lần/IP trong 1 giờ
+    private static final int REGISTER_MAX_ATTEMPTS = 3;
+    private static final long REGISTER_WINDOW_MS = 60 * 60 * 1000; // 1 giờ
+
     /**
      * Authenticates user with username and password. Sets JWT token in
-     * HTTP-only cookie upon successful authentication.
+     * HTTP-only cookie upon successful authentication. Rate limited: 5 failed
+     * attempts triggers progressive lockout.
      *
      * @param loginRequest the login credentials
+     * @param request HTTP request for IP extraction
      * @return user info with roles and JWT cookie
      */
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(
+            @Valid @RequestBody LoginRequest loginRequest,
+            jakarta.servlet.http.HttpServletRequest request) {
 
-        Authentication authentication = authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+        String username = loginRequest.getUsername();
+        String clientIp = getClientIp(request);
+        String rateLimitKeyByUsername = "login:user:" + username;
+        String rateLimitKeyByIp = "login:ip:" + clientIp;
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-
-        ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
-
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
-
-        String fullName = null;
-        String avatarUrl = null;
-
-        User user = userRepository.findById(userDetails.getId()).orElse(null);
-        if (user != null) {
-            fullName = user.getFullName();
-
-            Student student = studentRepository.findByUser_Id(userDetails.getId()).orElse(null);
-            if (student != null && student.getAvatarUrl() != null) {
-                avatarUrl = student.getAvatarUrl();
-            } else {
-                Teacher teacher = teacherRepository.findByUserId(userDetails.getId()).orElse(null);
-                if (teacher != null && teacher.getAvatarUrl() != null) {
-                    avatarUrl = teacher.getAvatarUrl();
-                }
-            }
+        // Kiểm tra lockout theo username
+        long lockoutByUsername = rateLimiterService.getLoginLockoutSeconds(rateLimitKeyByUsername);
+        if (lockoutByUsername > 0) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new MessageResponse("Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau "
+                            + formatDuration(lockoutByUsername) + "."));
         }
 
-        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                .body(new UserInfoResponse(userDetails.getId(),
-                        userDetails.getUsername(),
-                        userDetails.getEmail(),
-                        fullName,
-                        avatarUrl,
-                        roles));
+        // Kiểm tra lockout theo IP (chống brute force từ cùng IP)
+        long lockoutByIp = rateLimiterService.getLoginLockoutSeconds(rateLimitKeyByIp);
+        if (lockoutByIp > 0) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new MessageResponse("Quá nhiều lần đăng nhập thất bại từ địa chỉ IP này. Vui lòng thử lại sau "
+                            + formatDuration(lockoutByIp) + "."));
+        }
+
+        try {
+            Authentication authentication = authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword()));
+
+            // Login thành công - xóa record thất bại
+            rateLimiterService.clearLoginAttempts(rateLimitKeyByUsername);
+            rateLimiterService.clearLoginAttempts(rateLimitKeyByIp);
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+            ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
+
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
+
+            String fullName = null;
+            String avatarUrl = null;
+
+            User user = userRepository.findById(userDetails.getId()).orElse(null);
+            if (user != null) {
+                fullName = user.getFullName();
+
+                Student student = studentRepository.findByUser_Id(userDetails.getId()).orElse(null);
+                if (student != null && student.getAvatarUrl() != null) {
+                    avatarUrl = student.getAvatarUrl();
+                } else {
+                    Teacher teacher = teacherRepository.findByUserId(userDetails.getId()).orElse(null);
+                    if (teacher != null && teacher.getAvatarUrl() != null) {
+                        avatarUrl = teacher.getAvatarUrl();
+                    }
+                }
+            }
+
+            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                    .body(new UserInfoResponse(userDetails.getId(),
+                            userDetails.getUsername(),
+                            userDetails.getEmail(),
+                            fullName,
+                            avatarUrl,
+                            roles));
+
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            // Login thất bại - ghi nhận và có thể trigger lockout
+            rateLimiterService.recordFailedLoginAndGetLockoutSeconds(rateLimitKeyByUsername);
+            long nextLockout = rateLimiterService.recordFailedLoginAndGetLockoutSeconds(rateLimitKeyByIp);
+
+            String message = "Sai tên đăng nhập hoặc mật khẩu.";
+            if (nextLockout > 0) {
+                message += " Tài khoản sẽ bị khóa " + formatDuration(nextLockout) + " nếu tiếp tục nhập sai.";
+            }
+
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse(message));
+        }
+    }
+
+    /**
+     * Format duration in human readable format
+     */
+    private String formatDuration(long seconds) {
+        if (seconds < 60) {
+            return seconds + " giây";
+        }
+        if (seconds < 3600) {
+            return (seconds / 60) + " phút";
+        }
+        return (seconds / 3600) + " giờ";
+    }
+
+    /**
+     * Extract client IP from request (handle proxy)
+     */
+    private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty()) {
+            return xRealIp;
+        }
+        return request.getRemoteAddr();
     }
 
     /**
@@ -202,13 +279,29 @@ public class AuthController {
 
     /**
      * Registers a new student account with parent information. Public endpoint
-     * for student self-registration.
+     * for student self-registration. Rate limited: 3 registrations per IP per
+     * hour to prevent spam.
      *
      * @param request student and parent registration data
+     * @param httpRequest HTTP request for IP extraction
      * @return registration result
      */
     @PostMapping("/signup")
-    public ResponseEntity<?> registerStudentWithParent(@Valid @RequestBody RegisterStudentWithParentRequest request) {
+    public ResponseEntity<?> registerStudentWithParent(
+            @Valid @RequestBody RegisterStudentWithParentRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+
+        String clientIp = getClientIp(httpRequest);
+        String rateLimitKey = "register:ip:" + clientIp;
+
+        // Kiểm tra rate limit: 3 lần đăng ký/IP/giờ
+        if (!rateLimiterService.isAllowed(rateLimitKey, REGISTER_MAX_ATTEMPTS, REGISTER_WINDOW_MS)) {
+            long remainingSeconds = rateLimiterService.getRemainingCooldownSeconds(rateLimitKey, REGISTER_WINDOW_MS);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new MessageResponse("Bạn đã đăng ký quá nhiều tài khoản. Vui lòng thử lại sau "
+                            + formatDuration(remainingSeconds) + "."));
+        }
+
         return authService.registerStudentWithParent(request);
     }
 
@@ -234,6 +327,36 @@ public class AuthController {
         }
 
         return authService.forgotPassword(request);
+    }
+
+    /**
+     * Resets password with token verification. User must click the link in
+     * email to get the token.
+     *
+     * @param request contains token and new password
+     * @return operation result
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        return authService.resetPassword(request);
+    }
+
+    /**
+     * Validates a password reset token without resetting. Used by frontend to
+     * check if token is valid before showing reset form.
+     *
+     * @param token the reset token
+     * @return valid status
+     */
+    @GetMapping("/validate-reset-token")
+    public ResponseEntity<?> validateResetToken(@RequestParam String token) {
+        boolean isValid = authService.validateResetToken(token);
+        if (isValid) {
+            return ResponseEntity.ok(new MessageResponse("Token hợp lệ."));
+        } else {
+            return ResponseEntity.badRequest().body(new MessageResponse(
+                    "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+        }
     }
 
     /**

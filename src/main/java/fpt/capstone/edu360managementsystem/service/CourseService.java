@@ -185,9 +185,17 @@ public class CourseService {
     }
 
     @Transactional
-    public void updateCourse(Long courseId, CourseUpdateRequest req) {
+    public void updateCourse(Long userId, Long courseId, CourseUpdateRequest req) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        // Security check: Verify the user is the owner of the course
+        Teacher teacher = teacherRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Teacher not found"));
+
+        if (course.getOwnerTeacher() == null || !course.getOwnerTeacher().getId().equals(teacher.getId())) {
+            throw new RuntimeException("Bạn không có quyền chỉnh sửa khóa học này");
+        }
 
         // Update fields if provided
         if (req.getTitle() != null && !req.getTitle().isBlank()) {

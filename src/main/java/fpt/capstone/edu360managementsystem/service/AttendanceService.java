@@ -15,6 +15,7 @@ import fpt.capstone.edu360managementsystem.dto.request.AttendanceUpsertRequest;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionDetailResponse;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceSessionSummaryResponse;
 import fpt.capstone.edu360managementsystem.dto.response.AttendanceStudentItem;
+import fpt.capstone.edu360managementsystem.dto.response.StudentAttendanceResponse;
 import fpt.capstone.edu360managementsystem.entity.Attendance;
 import fpt.capstone.edu360managementsystem.entity.ClassSession;
 import fpt.capstone.edu360managementsystem.entity.Student;
@@ -461,5 +462,83 @@ public class AttendanceService {
         }
 
         return result;
+    }
+
+    /**
+     * Get attendance details for a student in a specific class.
+     *
+     * @param userId the user ID of the student
+     * @param classId the class ID
+     * @return attendance details response
+     */
+    public StudentAttendanceResponse getMyAttendanceForClass(Long userId, Long classId) {
+        // Find student by userId
+        Student student = studentRepository.findByUser_Id(userId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        // Verify student is enrolled in this class
+        var enrollment = classEnrollmentRepository.findByClazz_IdAndStudent_Id(classId, student.getId())
+                .orElseThrow(() -> new RuntimeException("Bạn chưa đăng ký lớp học này"));
+
+        var clazz = enrollment.getClazz();
+
+        // Get all sessions for this class
+        List<ClassSession> sessions = classSessionRepository.findByClazz_IdOrderByDateAscTimeSlot_StartTimeAsc(classId);
+
+        // Get attendance records for this student in these sessions
+        List<Long> sessionIds = sessions.stream().map(ClassSession::getId).collect(Collectors.toList());
+        Map<Long, Attendance> attendanceMap = new HashMap<>();
+        if (!sessionIds.isEmpty()) {
+            attendanceRepository.findBySession_IdInAndStudent_Id(sessionIds, student.getId())
+                    .forEach(a -> attendanceMap.put(a.getSession().getId(), a));
+        }
+
+        // Build session items
+        List<StudentAttendanceResponse.SessionAttendanceItem> sessionItems = sessions.stream()
+                .map(session -> {
+                    Attendance att = attendanceMap.get(session.getId());
+                    String status = att != null ? att.getStatus().name() : "UNMARKED";
+                    return StudentAttendanceResponse.SessionAttendanceItem.builder()
+                            .sessionId(session.getId())
+                            .date(session.getDate())
+                            .timeStart(session.getTimeSlot().getStartTime().toString())
+                            .timeEnd(session.getTimeSlot().getEndTime().toString())
+                            .roomName(session.getRoom() != null ? session.getRoom().getName() : "N/A")
+                            .status(status)
+                            .note(att != null ? att.getNote() : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // Calculate statistics
+        int totalSessions = sessions.size();
+        int attended = 0, absent = 0, late = 0, unmarked = 0;
+        for (var item : sessionItems) {
+            switch (item.getStatus()) {
+                case "PRESENT" ->
+                    attended++;
+                case "ABSENT" ->
+                    absent++;
+                case "LATE" ->
+                    late++;
+                default ->
+                    unmarked++;
+            }
+        }
+        double attendanceRate = totalSessions > 0 ? ((attended + late) * 100.0 / totalSessions) : 0;
+
+        return StudentAttendanceResponse.builder()
+                .classId(classId)
+                .className(clazz.getName())
+                .subjectName(clazz.getSubject().getName())
+                .teacherName(clazz.getTeacher().getUser().getFullName())
+                .totalSessions(totalSessions)
+                .attendedSessions(attended)
+                .absentSessions(absent)
+                .lateSessions(late)
+                .unmarkedSessions(unmarked)
+                .attendanceRate(Math.round(attendanceRate * 10.0) / 10.0)
+                .sessions(sessionItems)
+                .build();
     }
 }
