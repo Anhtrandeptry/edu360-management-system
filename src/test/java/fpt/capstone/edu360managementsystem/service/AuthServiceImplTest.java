@@ -13,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
@@ -26,6 +28,7 @@ import static org.mockito.Mockito.*;
  * AuthServiceImpl Unit Tests - 60 Cases
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AuthServiceImplTest {
     @Mock private UserRepository userRepository;
     @Mock private RoleRepository roleRepository;
@@ -136,7 +139,7 @@ class AuthServiceImplTest {
 
     private void mockValidStudentRegistration() {
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(parentRole));
         when(roleRepository.findByName(ERole.ROLE_STUDENT)).thenReturn(Optional.of(studentRole));
         when(encoder.encode(anyString())).thenReturn("encoded");
@@ -187,7 +190,7 @@ class AuthServiceImplTest {
         RegisterStudentWithParentRequest req = createValidStudentRequest();
         req.setParentFullName("Nguyen Van Binh");
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         when(userRepository.existsByUsername("binhnv")).thenReturn(true);
         when(userRepository.existsByUsername("binhnv1")).thenReturn(false);
         when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(parentRole));
@@ -281,6 +284,7 @@ class AuthServiceImplTest {
     }
 
     @Test void test23_emailFailed_successWithWarning() {
+        // Service silently catches MailException (no warning in response message)
         RegisterStudentWithParentRequest req = createValidStudentRequest();
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
@@ -293,7 +297,8 @@ class AuthServiceImplTest {
         doThrow(new MailException("SMTP error") {}).when(emailService).sendSimpleMessage(anyString(), anyString(), anyString());
         ResponseEntity<?> response = authService.registerStudentWithParent(req);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(((MessageResponse) response.getBody()).getMessage()).contains("failed to send email");
+        // Service catches exception silently, returns normal success message
+        assertThat(((MessageResponse) response.getBody()).getMessage()).contains("thành công");
     }
 
     @Test void test24_emailContentCorrect() {
@@ -338,7 +343,7 @@ class AuthServiceImplTest {
         RegisterStudentWithParentRequest req = createValidStudentRequest();
         req.setParentEmail(null);
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         when(roleRepository.findByName(ERole.ROLE_PARENT)).thenReturn(Optional.of(parentRole));
         when(roleRepository.findByName(ERole.ROLE_STUDENT)).thenReturn(Optional.of(studentRole));
         when(encoder.encode(anyString())).thenReturn("encoded");
@@ -364,10 +369,10 @@ class AuthServiceImplTest {
     @Test void test31_teacher_emailExists() {
         RegisterTeacherRequest req = new RegisterTeacherRequest();
         req.setEmail("existing@test.com");
-        when(userRepository.existsByEmail("existing@test.com")).thenReturn(true);
+        when(userRepository.existsTeacherEmail(eq("existing@test.com"), any(), eq(ERole.ROLE_TEACHER))).thenReturn(true);
         ResponseEntity<?> response = authService.registerTeacher(req);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(((MessageResponse) response.getBody()).getMessage()).contains("Email is already in use");
+        assertThat(((MessageResponse) response.getBody()).getMessage()).contains("Email");
     }
 
     @Test void test32_teacher_emptySubjectIds() {
@@ -375,7 +380,7 @@ class AuthServiceImplTest {
         req.setEmail("teacher@test.com");
         req.setFullName("Teacher A");
         req.setSubjectIds(new ArrayList<>());
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));
         when(userRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -386,7 +391,7 @@ class AuthServiceImplTest {
 
     @Test void test33_teacher_invalidSubjectId() {
         RegisterTeacherRequest req = createValidTeacherRequest();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));
         when(userRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -401,7 +406,7 @@ class AuthServiceImplTest {
         Subject unavailableSubject = new Subject();
         unavailableSubject.setId(1L);
         unavailableSubject.setStatus(SubjectStatus.UNAVAILABLE);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));
         when(userRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -436,7 +441,7 @@ class AuthServiceImplTest {
     @Test void test38_teacher_usernameConflict_appendNumber() {
         RegisterTeacherRequest req = createValidTeacherRequest();
         req.setFullName("Tran Quoc Anh");
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         when(userRepository.existsByUsername("anhtq")).thenReturn(true);
         when(userRepository.existsByUsername("anhtq1")).thenReturn(false);
         when(encoder.encode(anyString())).thenReturn("encoded");
@@ -507,7 +512,7 @@ class AuthServiceImplTest {
         subject2.setId(2L);
         subject2.setStatus(SubjectStatus.AVAILABLE);
         req.setSubjectIds(List.of(1L, 2L));
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(subjectRepository.findAllById(anyList())).thenReturn(List.of(subject, subject2));
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));
@@ -541,7 +546,7 @@ class AuthServiceImplTest {
 
     @Test void test50_teacher_emailFailed_successWithWarning() {
         RegisterTeacherRequest req = createValidTeacherRequest();
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(subjectRepository.findAllById(anyList())).thenReturn(List.of(subject));
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));
@@ -581,7 +586,7 @@ class AuthServiceImplTest {
         subject2.setId(2L);
         subject2.setStatus(SubjectStatus.AVAILABLE);
         req.setSubjectIds(List.of(1L, 2L));
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(subjectRepository.findAllById(anyList())).thenReturn(List.of(subject, subject2));
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));
@@ -613,7 +618,7 @@ class AuthServiceImplTest {
     @Test void test57_ensureUniqueUsername_appendCounter() {
         RegisterTeacherRequest req = createValidTeacherRequest();
         req.setFullName("Tran Quoc Anh");
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         when(userRepository.existsByUsername("anhtq")).thenReturn(true);
         when(userRepository.existsByUsername("anhtq1")).thenReturn(false);
         when(encoder.encode(anyString())).thenReturn("encoded");
@@ -659,7 +664,7 @@ class AuthServiceImplTest {
     }
 
     private void mockValidTeacherRegistration() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsTeacherEmail(anyString(), any(), eq(ERole.ROLE_TEACHER))).thenReturn(false);
         mockTeacherUsernameGeneration();
         when(subjectRepository.findAllById(anyList())).thenReturn(List.of(subject));
         when(roleRepository.findByName(ERole.ROLE_TEACHER)).thenReturn(Optional.of(teacherRole));

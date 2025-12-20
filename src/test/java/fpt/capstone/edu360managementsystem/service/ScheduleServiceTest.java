@@ -56,7 +56,7 @@ class ScheduleServiceTest {
         clazz.setRoom(room);
         clazz.setStartDate(LocalDate.of(2024, 12, 1));
         clazz.setEndDate(LocalDate.of(2024, 12, 31));
-        clazz.setStatus(ClassStatus.STUDYING);
+        clazz.setStatus(ClassStatus.PUBLIC);
 
         schedule = new ClassSchedule();
         schedule.setId(1L);
@@ -99,7 +99,7 @@ class ScheduleServiceTest {
         otherTeacher.setId(999L);
         Clazz otherClass = new Clazz();
         otherClass.setTeacher(otherTeacher);
-        otherClass.setStatus(ClassStatus.STUDYING);
+        otherClass.setStatus(ClassStatus.PUBLIC);
         ClassSchedule otherSchedule = new ClassSchedule();
         otherSchedule.setClazz(otherClass);
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
@@ -111,7 +111,7 @@ class ScheduleServiceTest {
     @Test void test06_teacherBusy_filterByStatus() {
         Clazz completedClass = new Clazz();
         completedClass.setTeacher(teacher);
-        completedClass.setStatus(ClassStatus.COMPLETE);
+        completedClass.setStatus(ClassStatus.ARCHIVED);
         ClassSchedule completedSchedule = new ClassSchedule();
         completedSchedule.setClazz(completedClass);
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
@@ -128,7 +128,7 @@ class ScheduleServiceTest {
     }
 
     @Test void test08_teacherBusy_excludeCompletedClasses() {
-        clazz.setStatus(ClassStatus.COMPLETE);
+        clazz.setStatus(ClassStatus.ARCHIVED);
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
         when(classScheduleRepository.findAll()).thenReturn(List.of(schedule));
         List<BusySlotResponse> result = scheduleService.getTeacherBusySlots(1L, "2024-12-01T00:00:00", "2024-12-31T23:59:59");
@@ -147,7 +147,7 @@ class ScheduleServiceTest {
     }
 
     @Test void test10_teacherBusy_noActiveClasses() {
-        clazz.setStatus(ClassStatus.COMPLETE);
+        clazz.setStatus(ClassStatus.ARCHIVED);
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
         when(classScheduleRepository.findAll()).thenReturn(List.of(schedule));
         List<BusySlotResponse> result = scheduleService.getTeacherBusySlots(1L, "2024-12-01T00:00:00", "2024-12-31T23:59:59");
@@ -242,7 +242,7 @@ class ScheduleServiceTest {
     @Test void test22_teacherBusy_mixedStatuses() {
         Clazz comingSoonClass = new Clazz();
         comingSoonClass.setTeacher(teacher);
-        comingSoonClass.setStatus(ClassStatus.COMING_SOON);
+        comingSoonClass.setStatus(ClassStatus.PUBLIC);
         comingSoonClass.setStartDate(LocalDate.of(2024, 12, 1));
         comingSoonClass.setEndDate(LocalDate.of(2024, 12, 31));
         ClassSchedule schedule2 = new ClassSchedule();
@@ -297,7 +297,7 @@ class ScheduleServiceTest {
         otherRoom.setId(999L);
         Clazz otherClass = new Clazz();
         otherClass.setRoom(otherRoom);
-        otherClass.setStatus(ClassStatus.STUDYING);
+        otherClass.setStatus(ClassStatus.PUBLIC);
         ClassSchedule otherSchedule = new ClassSchedule();
         otherSchedule.setClazz(otherClass);
         when(classScheduleRepository.findAll()).thenReturn(List.of(schedule, otherSchedule));
@@ -306,7 +306,7 @@ class ScheduleServiceTest {
     }
 
     @Test void test29_roomBusy_filterByStatus() {
-        clazz.setStatus(ClassStatus.COMPLETE);
+        clazz.setStatus(ClassStatus.ARCHIVED);
         when(classScheduleRepository.findAll()).thenReturn(List.of(schedule));
         List<BusySlotResponse> result = scheduleService.getRoomBusySlots(1L, "2024-12-01T00:00:00", "2024-12-31T23:59:59");
         assertThat(result).isEmpty();
@@ -319,7 +319,7 @@ class ScheduleServiceTest {
     }
 
     @Test void test31_roomBusy_excludeCompletedClasses() {
-        clazz.setStatus(ClassStatus.COMPLETE);
+        clazz.setStatus(ClassStatus.ARCHIVED);
         when(classScheduleRepository.findAll()).thenReturn(List.of(schedule));
         List<BusySlotResponse> result = scheduleService.getRoomBusySlots(1L, "2024-12-01T00:00:00", "2024-12-31T23:59:59");
         assertThat(result).isEmpty();
@@ -344,7 +344,7 @@ class ScheduleServiceTest {
     @Test void test34_roomBusy_mixedStatuses() {
         Clazz comingSoonClass = new Clazz();
         comingSoonClass.setRoom(room);
-        comingSoonClass.setStatus(ClassStatus.COMING_SOON);
+        comingSoonClass.setStatus(ClassStatus.PUBLIC);
         comingSoonClass.setStartDate(LocalDate.of(2024, 12, 1));
         comingSoonClass.setEndDate(LocalDate.of(2024, 12, 31));
         ClassSchedule schedule2 = new ClassSchedule();

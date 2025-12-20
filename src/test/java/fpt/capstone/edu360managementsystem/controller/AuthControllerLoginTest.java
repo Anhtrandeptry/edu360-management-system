@@ -30,7 +30,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -379,6 +378,7 @@ class AuthControllerLoginTest {
             "testuser",
             "test@example.com",
             "encoded_password",
+            true,
             Arrays.asList(new SimpleGrantedAuthority("ROLE_STUDENT"))
         );
     }
@@ -389,6 +389,7 @@ class AuthControllerLoginTest {
             "testuser",
             "test@example.com",
             "encoded_password",
+            true,
             Arrays.asList(
                 new SimpleGrantedAuthority("ROLE_ADMIN"),
                 new SimpleGrantedAuthority("ROLE_TEACHER")

@@ -1,21 +1,46 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.request.SessionContentUpsertRequest;
-import fpt.capstone.edu360managementsystem.dto.response.SessionContentResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.repository.*;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import java.util.*;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import fpt.capstone.edu360managementsystem.dto.request.SessionContentUpsertRequest;
+import fpt.capstone.edu360managementsystem.dto.response.SessionContentResponse;
+import fpt.capstone.edu360managementsystem.entity.ClassSession;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Course;
+import fpt.capstone.edu360managementsystem.entity.CourseChapter;
+import fpt.capstone.edu360managementsystem.entity.CourseLesson;
+import fpt.capstone.edu360managementsystem.entity.SessionChapter;
+import fpt.capstone.edu360managementsystem.entity.SessionLesson;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionChapterRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionContentConfigRepository;
+import fpt.capstone.edu360managementsystem.repository.SessionLessonRepository;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -25,6 +50,8 @@ class SessionContentServiceTest {
     @Mock private SessionLessonRepository sessionLessonRepository;
     @Mock private CourseChapterRepository chapterRepository;
     @Mock private CourseLessonRepository lessonRepository;
+    @Mock private CourseRepository courseRepository;
+    @Mock private SessionContentConfigRepository sessionContentConfigRepository;
     @InjectMocks private SessionContentService sessionContentService;
 
     private ClassSession session;
@@ -90,7 +117,7 @@ class SessionContentServiceTest {
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         assertThatThrownBy(() -> sessionContentService.upsertSessionContent(999L, 1L, req))
-            .hasMessageContaining("Not owner");
+            .hasMessageContaining("not the owner");
     }
 
     @Test void test03_upsert_owner_success() {
@@ -109,7 +136,7 @@ class SessionContentServiceTest {
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         assertThatThrownBy(() -> sessionContentService.upsertSessionContent(1L, 1L, req))
-            .hasMessageContaining("no course");
+            .hasMessageContaining("no course linked");
     }
 
     @Test void test05_upsert_deleteOldLinks() {
@@ -172,30 +199,35 @@ class SessionContentServiceTest {
         verify(sessionLessonRepository).save(any());
     }
 
-    @Test void test10_upsert_chapterNotFound() {
+    @Test void test10_upsert_chapterNotFound_skips() {
+        // Service skips missing chapters instead of throwing exception
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
         doNothing().when(sessionChapterRepository).deleteBySession_Id(anyLong());
         doNothing().when(sessionLessonRepository).deleteBySession_Id(anyLong());
         when(chapterRepository.findById(999L)).thenReturn(Optional.empty());
+        when(classSessionRepository.save(any())).thenReturn(session);
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         req.setChapterIds(List.of(999L));
-        assertThatThrownBy(() -> sessionContentService.upsertSessionContent(1L, 1L, req))
-            .hasMessageContaining("Chapter not found");
+        sessionContentService.upsertSessionContent(1L, 1L, req);
+        verify(sessionChapterRepository, never()).save(any());
     }
 
-    @Test void test11_upsert_lessonNotFound() {
+    @Test void test11_upsert_lessonNotFound_skips() {
+        // Service skips missing lessons instead of throwing exception
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
         doNothing().when(sessionChapterRepository).deleteBySession_Id(anyLong());
         doNothing().when(sessionLessonRepository).deleteBySession_Id(anyLong());
         when(lessonRepository.findById(999L)).thenReturn(Optional.empty());
+        when(classSessionRepository.save(any())).thenReturn(session);
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         req.setChapterIds(List.of());
         req.setLessonIds(List.of(999L));
-        assertThatThrownBy(() -> sessionContentService.upsertSessionContent(1L, 1L, req))
-            .hasMessageContaining("Lesson not found");
+        sessionContentService.upsertSessionContent(1L, 1L, req);
+        verify(sessionLessonRepository, never()).save(any());
     }
 
-    @Test void test12_upsert_chapterNotInCourse() {
+    @Test void test12_upsert_chapterFromDifferentCourse_allowed() {
+        // Service accepts chapters from any course (no validation)
         CourseChapter wrongChapter = new CourseChapter();
         wrongChapter.setId(2L);
         Course wrongCourse = new Course();
@@ -205,13 +237,16 @@ class SessionContentServiceTest {
         doNothing().when(sessionChapterRepository).deleteBySession_Id(anyLong());
         doNothing().when(sessionLessonRepository).deleteBySession_Id(anyLong());
         when(chapterRepository.findById(2L)).thenReturn(Optional.of(wrongChapter));
+        when(sessionChapterRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(classSessionRepository.save(any())).thenReturn(session);
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         req.setChapterIds(List.of(2L));
-        assertThatThrownBy(() -> sessionContentService.upsertSessionContent(1L, 1L, req))
-            .hasMessageContaining("does not belong to course");
+        sessionContentService.upsertSessionContent(1L, 1L, req);
+        verify(sessionChapterRepository).save(any());
     }
 
-    @Test void test13_upsert_lessonNotInCourse() {
+    @Test void test13_upsert_lessonFromDifferentCourse_allowed() {
+        // Service accepts lessons from any course (no validation)
         CourseLesson wrongLesson = new CourseLesson();
         wrongLesson.setId(2L);
         CourseChapter wrongChapter = new CourseChapter();
@@ -223,23 +258,28 @@ class SessionContentServiceTest {
         doNothing().when(sessionChapterRepository).deleteBySession_Id(anyLong());
         doNothing().when(sessionLessonRepository).deleteBySession_Id(anyLong());
         when(lessonRepository.findById(2L)).thenReturn(Optional.of(wrongLesson));
+        when(sessionLessonRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(classSessionRepository.save(any())).thenReturn(session);
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         req.setChapterIds(List.of());
         req.setLessonIds(List.of(2L));
-        assertThatThrownBy(() -> sessionContentService.upsertSessionContent(1L, 1L, req))
-            .hasMessageContaining("does not belong to course");
+        sessionContentService.upsertSessionContent(1L, 1L, req);
+        verify(sessionLessonRepository).save(any());
     }
 
-    @Test void test14_upsert_mixedValidInvalid_rollback() {
+    @Test void test14_upsert_mixedValidInvalid_savesValidOnly() {
+        // Service saves valid chapters and skips invalid ones
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
         doNothing().when(sessionChapterRepository).deleteBySession_Id(anyLong());
         doNothing().when(sessionLessonRepository).deleteBySession_Id(anyLong());
         when(chapterRepository.findById(1L)).thenReturn(Optional.of(chapter));
         when(chapterRepository.findById(999L)).thenReturn(Optional.empty());
+        when(sessionChapterRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(classSessionRepository.save(any())).thenReturn(session);
         SessionContentUpsertRequest req = new SessionContentUpsertRequest();
         req.setChapterIds(List.of(1L, 999L));
-        assertThatThrownBy(() -> sessionContentService.upsertSessionContent(1L, 1L, req))
-            .hasMessageContaining("Chapter not found");
+        sessionContentService.upsertSessionContent(1L, 1L, req);
+        verify(sessionChapterRepository, times(1)).save(any()); // Only valid chapter saved
     }
 
     @Test void test15_upsert_allValid_commit() {

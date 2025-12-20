@@ -1,25 +1,63 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
-import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
-import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.enums.*;
-import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
-import fpt.capstone.edu360managementsystem.repository.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import java.time.LocalDate;
-import java.util.*;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import fpt.capstone.edu360managementsystem.dto.request.CreateClassRequest;
+import fpt.capstone.edu360managementsystem.dto.request.ScheduleItemRequest;
+import fpt.capstone.edu360managementsystem.dto.response.ClassResponse;
+import fpt.capstone.edu360managementsystem.entity.ClassSchedule;
+import fpt.capstone.edu360managementsystem.entity.ClassSession;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
+import fpt.capstone.edu360managementsystem.entity.Course;
+import fpt.capstone.edu360managementsystem.entity.Room;
+import fpt.capstone.edu360managementsystem.entity.Semester;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.TimeSlot;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.ClassStatus;
+import fpt.capstone.edu360managementsystem.enums.CourseStatus;
+import fpt.capstone.edu360managementsystem.enums.RoomStatus;
+import fpt.capstone.edu360managementsystem.enums.SemesterStatus;
+import fpt.capstone.edu360managementsystem.enums.SessionStatus;
+import fpt.capstone.edu360managementsystem.enums.SubjectStatus;
+import fpt.capstone.edu360managementsystem.mapper.ClassMapper;
+import fpt.capstone.edu360managementsystem.repository.ClassScheduleRepository;
+import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.CourseRepository;
+import fpt.capstone.edu360managementsystem.repository.RoomRepository;
+import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
 
 /**
  * ClassService Unit Tests - 80 Cases
@@ -37,6 +75,7 @@ class ClassServiceTest {
     @Mock private TimeSlotRepository timeSlotRepository;
     @Mock private CourseRepository courseRepository;
     @Mock private ClassMapper classMapper;
+    @Mock private fpt.capstone.edu360managementsystem.repository.ClassEnrollmentRepository classEnrollmentRepository;
     @InjectMocks private ClassService classService;
 
     private CreateClassRequest validRequest;
@@ -299,8 +338,12 @@ class ClassServiceTest {
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-        when(clazzRepository.findTeacherConflictsByDateRange(anyLong(), any(), any(), anySet(), anySet())).thenReturn(Arrays.asList(new Clazz()));
-        assertThatThrownBy(() -> classService.createClass(validRequest)).hasMessage("Teacher has conflicting class schedules in this date range");
+        when(timeSlotRepository.findById(anyLong())).thenReturn(Optional.of(timeSlot));
+        Clazz conflictClass = new Clazz(); conflictClass.setId(99L);
+        when(clazzRepository.findTeacherConflictsByDateRange(anyLong(), any(), any(), anySet(), anySet())).thenReturn(Arrays.asList(conflictClass));
+        ClassSchedule cs = new ClassSchedule(); cs.setDayOfWeek(1); cs.setTimeSlot(timeSlot);
+        when(classScheduleRepository.findByClazz_Id(99L)).thenReturn(Arrays.asList(cs));
+        assertThatThrownBy(() -> classService.createClass(validRequest)).hasMessageContaining("xung đột");
     }
     @Test void test34_teacherNoConflict() { mockValidCreate(); assertThat(classService.createClass(validRequest)).isNotNull(); }
     @Test void test35_roomConflict() {
@@ -308,9 +351,13 @@ class ClassServiceTest {
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+        when(timeSlotRepository.findById(anyLong())).thenReturn(Optional.of(timeSlot));
         when(clazzRepository.findTeacherConflictsByDateRange(anyLong(), any(), any(), anySet(), anySet())).thenReturn(Collections.emptyList());
-        when(clazzRepository.findRoomConflictsByDateRange(anyLong(), any(), any(), anySet(), anySet())).thenReturn(Arrays.asList(new Clazz()));
-        assertThatThrownBy(() -> classService.createClass(validRequest)).hasMessage("Room has conflicting class schedules in this date range");
+        Clazz conflictClass = new Clazz(); conflictClass.setId(99L);
+        when(clazzRepository.findRoomConflictsByDateRange(anyLong(), any(), any(), anySet(), anySet())).thenReturn(Arrays.asList(conflictClass));
+        ClassSchedule cs = new ClassSchedule(); cs.setDayOfWeek(1); cs.setTimeSlot(timeSlot);
+        when(classScheduleRepository.findByClazz_Id(99L)).thenReturn(Arrays.asList(cs));
+        assertThatThrownBy(() -> classService.createClass(validRequest)).hasMessageContaining("xung đột");
     }
     @Test void test36_roomNoConflict() { mockValidCreate(); assertThat(classService.createClass(validRequest)).isNotNull(); }
     @Test void test37_onlineNoRoomConflictCheck() {
@@ -368,34 +415,56 @@ class ClassServiceTest {
         assertThat(classService.createClass(validRequest)).isNotNull();
     }
     @Test void test47_sessionsSavedCorrectly() { mockValidCreate(); classService.createClass(validRequest); verify(classSessionRepository).saveAll(anyList()); }
+    
+    private Clazz createClazzWithTeacher() {
+        Clazz c = new Clazz();
+        c.setId(1L);
+        c.setTeacher(teacher);
+        return c;
+    }
+    private Clazz createClazzWithTeacher(Long id) {
+        Clazz c = new Clazz();
+        c.setId(id);
+        c.setTeacher(teacher);
+        return c;
+    }
+    
     @Test void test48_listAllClasses() {
-        when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(new Clazz(), new Clazz()));
+        when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(createClazzWithTeacher(1L), createClazzWithTeacher(2L)));
         when(classScheduleRepository.findAll()).thenReturn(Collections.emptyList());
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(null, null)).hasSize(2);
     }
     @Test void test49_listByTeacher() {
-        Clazz clazz = new Clazz(); clazz.setId(1L);
+        Clazz clazz = createClazzWithTeacher(1L);
         when(clazzRepository.findAllWithFilters(1L)).thenReturn(Arrays.asList(clazz));
         when(classScheduleRepository.findAll()).thenReturn(Collections.emptyList());
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(1L, null)).hasSize(1);
     }
     @Test void test50_listByTimeSlot() {
-        Clazz clazz = new Clazz(); clazz.setId(1L);
+        Clazz clazz = createClazzWithTeacher(1L);
         ClassSchedule schedule = new ClassSchedule(); schedule.setClazz(clazz); schedule.setTimeSlot(timeSlot);
         when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(clazz));
         when(classScheduleRepository.findAll()).thenReturn(Arrays.asList(schedule));
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(null, 1L)).hasSize(1);
     }
 
     @Test void test51_listByBothFilters() {
-        Clazz clazz = new Clazz(); clazz.setId(1L);
+        Clazz clazz = createClazzWithTeacher(1L);
         ClassSchedule schedule = new ClassSchedule(); schedule.setClazz(clazz); schedule.setTimeSlot(timeSlot);
         when(clazzRepository.findAllWithFilters(1L)).thenReturn(Arrays.asList(clazz));
         when(classScheduleRepository.findAll()).thenReturn(Arrays.asList(schedule));
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(1L, 1L)).hasSize(1);
     }
     @Test void test52_listEmptyWhenNoClasses() {
@@ -409,30 +478,39 @@ class ClassServiceTest {
         assertThat(classService.listClasses(1L, null)).isEmpty();
     }
     @Test void test54_listEmptyWhenTimeSlotNotUsed() {
-        when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(new Clazz()));
+        when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(createClazzWithTeacher(1L)));
         when(classScheduleRepository.findAll()).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(null, 99L)).isEmpty();
     }
     @Test void test55_listMultipleClassesSameTeacher() {
-        when(clazzRepository.findAllWithFilters(1L)).thenReturn(Arrays.asList(new Clazz(), new Clazz(), new Clazz()));
+        when(clazzRepository.findAllWithFilters(1L)).thenReturn(Arrays.asList(createClazzWithTeacher(1L), createClazzWithTeacher(2L), createClazzWithTeacher(3L)));
         when(classScheduleRepository.findAll()).thenReturn(Collections.emptyList());
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(1L, null)).hasSize(3);
     }
     @Test void test56_listMultipleClassesSameTimeSlot() {
-        Clazz c1 = new Clazz(); c1.setId(1L);
-        Clazz c2 = new Clazz(); c2.setId(2L);
+        Clazz c1 = createClazzWithTeacher(1L);
+        Clazz c2 = createClazzWithTeacher(2L);
         ClassSchedule s1 = new ClassSchedule(); s1.setClazz(c1); s1.setTimeSlot(timeSlot);
         ClassSchedule s2 = new ClassSchedule(); s2.setClazz(c2); s2.setTimeSlot(timeSlot);
         when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(c1, c2));
         when(classScheduleRepository.findAll()).thenReturn(Arrays.asList(s1, s2));
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         assertThat(classService.listClasses(null, 1L)).hasSize(2);
     }
     @Test void test57_listLoadsSchedulesCorrectly() {
-        when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(new Clazz()));
+        when(clazzRepository.findAllWithFilters(null)).thenReturn(Arrays.asList(createClazzWithTeacher(1L)));
         when(classScheduleRepository.findAll()).thenReturn(Collections.emptyList());
-        when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
+        when(classSessionRepository.countByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classSessionRepository.countCompletedByClazzIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(classMapper.toResponse(any(), anyList(), anyInt(), anyInt())).thenReturn(new ClassResponse());
         classService.listClasses(null, null);
         verify(classScheduleRepository).findAll();
     }
@@ -492,28 +570,26 @@ class ClassServiceTest {
         verify(clazzRepository).save(argThat(c -> c.getMeetingLink() != null));
     }
     @Test void test67_mapperCalled() { mockValidCreate(); classService.createClass(validRequest); verify(classMapper).toResponse(any(), anyList(), eq(30)); }
-    @Test void test68_statusComingSoon() {
-        semester.setStartDate(LocalDate.now().plusDays(10));
-        semester.setEndDate(LocalDate.now().plusDays(100));
+    @Test void test68_statusDraftOnCreate() {
         mockValidCreate();
         classService.createClass(validRequest);
-        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.COMING_SOON));
+        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.DRAFT));
     }
-    @Test void test69_statusComplete() {
+    @Test void test69_statusDraftDefault() {
         semester.setStartDate(LocalDate.now().minusDays(100));
         semester.setEndDate(LocalDate.now().minusDays(10));
         mockValidCreate();
         classService.createClass(validRequest);
-        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.COMPLETE));
+        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.DRAFT));
     }
-    @Test void test70_statusStudying() {
-        semester.setStartDate(LocalDate.now().minusDays(10));
-        semester.setEndDate(LocalDate.now().plusDays(10));
+    @Test void test70_statusDraftWithFutureDates() {
+        semester.setStartDate(LocalDate.now().plusDays(10));
+        semester.setEndDate(LocalDate.now().plusDays(100));
         mockValidCreate();
         classService.createClass(validRequest);
-        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.STUDYING));
+        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.DRAFT));
     }
-    @Test void test71_statusAvailableWhenNoSemester() {
+    @Test void test71_statusDraftWhenNoSemester() {
         validRequest.setSemesterId(null);
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
         when(teacherRepository.findByUserId(1L)).thenReturn(Optional.of(teacher));
@@ -526,7 +602,7 @@ class ClassServiceTest {
         when(classSessionRepository.saveAll(anyList())).thenReturn(Collections.emptyList());
         when(classMapper.toResponse(any(), anyList(), anyInt())).thenReturn(new ClassResponse());
         classService.createClass(validRequest);
-        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.AVAILABLE));
+        verify(clazzRepository).save(argThat(c -> c.getStatus() == ClassStatus.DRAFT));
     }
     @Test void test72_minimumMaxStudents() { validRequest.setMaxStudents(1); mockValidCreate(); assertThat(classService.createClass(validRequest)).isNotNull(); }
     @Test void test73_largeMaxStudents() { room.setCapacity(200); validRequest.setMaxStudents(200); mockValidCreate(); assertThat(classService.createClass(validRequest)).isNotNull(); }

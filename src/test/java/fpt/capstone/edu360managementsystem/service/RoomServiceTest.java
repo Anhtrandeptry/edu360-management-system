@@ -134,13 +134,13 @@ class RoomServiceTest {
 
     // createRoom - 5 cases
     @Test void test11_createRoom_nameExists() {
-        when(roomRepository.existsByName("Room 101")).thenReturn(true);
+        when(roomRepository.existsByNameIgnoreCase("Room 101")).thenReturn(true);
         assertThatThrownBy(() -> roomService.createRoom(roomRequest))
-            .hasMessageContaining("already exists");
+            .hasMessageContaining("đã tồn tại");
     }
 
     @Test void test12_createRoom_valid() {
-        when(roomRepository.existsByName(anyString())).thenReturn(false);
+        when(roomRepository.existsByNameIgnoreCase(anyString())).thenReturn(false);
         when(roomMapper.toEntity(roomRequest)).thenReturn(room);
         when(roomRepository.save(room)).thenReturn(room);
         when(roomMapper.toResponse(room)).thenReturn(roomResponse);
@@ -149,7 +149,7 @@ class RoomServiceTest {
     }
 
     @Test void test13_createRoom_saved() {
-        when(roomRepository.existsByName(anyString())).thenReturn(false);
+        when(roomRepository.existsByNameIgnoreCase(anyString())).thenReturn(false);
         when(roomMapper.toEntity(roomRequest)).thenReturn(room);
         when(roomRepository.save(any())).thenReturn(room);
         when(roomMapper.toResponse(any())).thenReturn(roomResponse);
@@ -158,7 +158,7 @@ class RoomServiceTest {
     }
 
     @Test void test14_createRoom_mapping() {
-        when(roomRepository.existsByName(anyString())).thenReturn(false);
+        when(roomRepository.existsByNameIgnoreCase(anyString())).thenReturn(false);
         when(roomMapper.toEntity(roomRequest)).thenReturn(room);
         when(roomRepository.save(any())).thenReturn(room);
         when(roomMapper.toResponse(any())).thenReturn(roomResponse);
@@ -167,7 +167,7 @@ class RoomServiceTest {
     }
 
     @Test void test15_createRoom_response() {
-        when(roomRepository.existsByName(anyString())).thenReturn(false);
+        when(roomRepository.existsByNameIgnoreCase(anyString())).thenReturn(false);
         when(roomMapper.toEntity(roomRequest)).thenReturn(room);
         when(roomRepository.save(any())).thenReturn(room);
         when(roomMapper.toResponse(any())).thenReturn(roomResponse);
@@ -179,15 +179,14 @@ class RoomServiceTest {
     @Test void test16_updateRoom_notFound() {
         when(roomRepository.findById(1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> roomService.updateRoom(1L, roomRequest))
-            .hasMessageContaining("Room not found");
+            .hasMessageContaining("Không tìm thấy phòng học");
     }
 
     @Test void test17_updateRoom_nameConflict() {
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-        doNothing().when(roomMapper).updateEntityFromDto(roomRequest, room);
-        when(roomRepository.existsByNameAndIdNot("Room 101", 1L)).thenReturn(true);
+        when(roomRepository.existsByNameIgnoreCaseAndIdNot("Room 101", 1L)).thenReturn(true);
         assertThatThrownBy(() -> roomService.updateRoom(1L, roomRequest))
-            .hasMessageContaining("already exists");
+            .hasMessageContaining("đã tồn tại");
     }
 
     @Test void test18_updateRoom_valid() {

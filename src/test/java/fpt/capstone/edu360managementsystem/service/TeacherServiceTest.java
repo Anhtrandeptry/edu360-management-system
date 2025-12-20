@@ -1,28 +1,45 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.response.TeacherResponse;
-import fpt.capstone.edu360managementsystem.entity.*;
-import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
-import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
-import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.anyLong;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import java.util.*;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import fpt.capstone.edu360managementsystem.dto.response.TeacherResponse;
+import fpt.capstone.edu360managementsystem.entity.Subject;
+import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
+import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherCertificateRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherEducationRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherExperienceRepository;
+import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class TeacherServiceTest {
     @Mock private TeacherRepository teacherRepository;
     @Mock private ClazzRepository clazzRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private TeacherCertificateRepository certificateRepository;
+    @Mock private TeacherExperienceRepository experienceRepository;
+    @Mock private TeacherEducationRepository educationRepository;
+    @Mock private SubjectRepository subjectRepository;
     @InjectMocks private TeacherService teacherService;
 
     private Teacher teacher;
@@ -53,22 +70,22 @@ class TeacherServiceTest {
 
     // getTeachers - 10 cases
     @Test void test01_getTeachers_noFilter() {
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(5L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result).hasSize(1);
     }
 
     @Test void test02_getTeachers_filterBySubject() {
-        when(teacherRepository.findByAnySubject(1L)).thenReturn(List.of(teacher));
+        when(teacherRepository.findActiveByAnySubject(1L)).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(3L);
         List<TeacherResponse> result = teacherService.getTeachers(1L);
         assertThat(result).hasSize(1);
-        verify(teacherRepository).findByAnySubject(1L);
+        verify(teacherRepository).findActiveByAnySubject(1L);
     }
 
     @Test void test03_getTeachers_noTeachers() {
-        when(teacherRepository.findAll()).thenReturn(List.of());
+        when(teacherRepository.findAllActive()).thenReturn(List.of());
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result).isEmpty();
     }
@@ -80,22 +97,22 @@ class TeacherServiceTest {
         user2.setId(2L);
         user2.setActive(true);
         teacher2.setUser(user2);
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher, teacher2));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher, teacher2));
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(0L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result).hasSize(2);
     }
 
     @Test void test05_getTeachers_subjectFilter_exactMatch() {
-        when(teacherRepository.findByAnySubject(1L)).thenReturn(List.of(teacher));
-        when(teacherRepository.findByAnySubject(2L)).thenReturn(List.of());
+        when(teacherRepository.findActiveByAnySubject(1L)).thenReturn(List.of(teacher));
+        when(teacherRepository.findActiveByAnySubject(2L)).thenReturn(List.of());
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(0L);
         List<TeacherResponse> result = teacherService.getTeachers(1L);
         assertThat(result).hasSize(1);
     }
 
     @Test void test06_getTeachers_mapping_allFields() {
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(1L)).thenReturn(7L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         TeacherResponse resp = result.get(0);
@@ -104,14 +121,14 @@ class TeacherServiceTest {
     }
 
     @Test void test07_getTeachers_classCount_calculated() {
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(1L)).thenReturn(10L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result.get(0).getClassCount()).isEqualTo(10L);
     }
 
     @Test void test08_getTeachers_primarySubject_mapped() {
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(0L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result.get(0).getSubjectName()).isEqualTo("Math");
@@ -123,14 +140,14 @@ class TeacherServiceTest {
         subject2.setName("Physics");
         teacher.getSubjects().add(subject);
         teacher.getSubjects().add(subject2);
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(0L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result.get(0).getSubjectIds()).hasSize(2);
     }
 
     @Test void test10_getTeachers_activeStatus_included() {
-        when(teacherRepository.findAll()).thenReturn(List.of(teacher));
+        when(teacherRepository.findAllActive()).thenReturn(List.of(teacher));
         when(clazzRepository.countActiveByTeacherUser(anyLong())).thenReturn(0L);
         List<TeacherResponse> result = teacherService.getTeachers(null);
         assertThat(result.get(0).getActive()).isTrue();
