@@ -91,6 +91,22 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     """)
     List<Object[]> getRevenueByTeacher();
 
+    // Doanh thu theo giáo viên - LỌC THEO THỜI GIAN (đã thanh toán)
+    @Query("""
+        SELECT p.clazz.teacher.id, 
+               p.clazz.teacher.user.id,
+               p.clazz.teacher.user.fullName, 
+               p.clazz.teacher.user.email,
+               COALESCE(SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN p.status = 'PENDING' THEN p.amount ELSE 0 END), 0)
+        FROM Payment p
+        WHERE p.paidAt >= :from AND p.paidAt <= :to
+        GROUP BY p.clazz.teacher.id, p.clazz.teacher.user.id, p.clazz.teacher.user.fullName, 
+                 p.clazz.teacher.user.email
+        ORDER BY SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END) DESC
+    """)
+    List<Object[]> getRevenueByTeacherBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     // Doanh thu theo môn học
     @Query("""
         SELECT p.clazz.subject.id,
@@ -101,6 +117,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
         ORDER BY SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END) DESC
     """)
     List<Object[]> getRevenueBySubject();
+
+    // Doanh thu theo môn học - LỌC THEO THỜI GIAN
+    @Query("""
+        SELECT p.clazz.subject.id,
+               p.clazz.subject.name,
+               COALESCE(SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END), 0)
+        FROM Payment p
+        WHERE p.paidAt >= :from AND p.paidAt <= :to
+        GROUP BY p.clazz.subject.id, p.clazz.subject.name
+        ORDER BY SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END) DESC
+    """)
+    List<Object[]> getRevenueBySubjectBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     // Doanh thu theo ngày (trong khoảng thời gian)
     // Sử dụng COALESCE để fallback từ paidAt sang createdAt nếu paidAt null

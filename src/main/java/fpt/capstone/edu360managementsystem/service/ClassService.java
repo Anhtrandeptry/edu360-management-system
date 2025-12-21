@@ -1,5 +1,6 @@
 package fpt.capstone.edu360managementsystem.service;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +11,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -47,7 +47,6 @@ import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
-import fpt.capstone.edu360managementsystem.util.VietnameseUtils;
 
 @Service
 public class ClassService {
@@ -477,6 +476,10 @@ public class ClassService {
             String sortBy,
             String order
     ) {
+        // Normalize search string để xử lý các ký tự Unicode đặc biệt
+        // (ví dụ: non-breaking space, combining diacritics từ copy/paste)
+        String normalizedSearch = normalizeSearchText(search);
+        
         // Xử lý sort
         Sort sort = Sort.by(sortBy != null ? sortBy : "id");
         if ("desc".equalsIgnoreCase(order)) {
@@ -504,7 +507,7 @@ public class ClassService {
 
         // Query với pagination - bao gồm subjectId và price filter
         Page<Clazz> classPage = clazzRepository.findBySearchAndFilters(
-                search, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, pageable
+                normalizedSearch, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, pageable
         );
 
         // Load ALL schedules for these classes để tránh N+1
@@ -1349,20 +1352,37 @@ public class ClassService {
         ))
                 .toList();
 
-        // Build course lessons view (from base course)
+        // Build course lessons view (from base course) - flat list for backward compatibility
         List<ClassPublicDetailResponse.CourseLessonView> lessonViews = new ArrayList<>();
+        // Build course chapters with lessons (structured view)
+        List<ClassPublicDetailResponse.CourseChapterView> chapterViews = new ArrayList<>();
+        
         if (clazz.getCourse() != null) {
             var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(clazz.getCourse().getId());
             for (var chapter : chapters) {
                 var lessons = courseLessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapter.getId());
+                
+                // Build lessons for this chapter
+                List<ClassPublicDetailResponse.CourseLessonView> chapterLessons = new ArrayList<>();
                 for (var lesson : lessons) {
-                    lessonViews.add(ClassPublicDetailResponse.CourseLessonView.builder()
+                    ClassPublicDetailResponse.CourseLessonView lessonView = ClassPublicDetailResponse.CourseLessonView.builder()
                             .id(lesson.getId())
                             .title(lesson.getTitle())
                             .orderIndex(lesson.getOrderIndex())
                             .description(lesson.getDescription())
-                            .build());
+                            .build();
+                    lessonViews.add(lessonView);
+                    chapterLessons.add(lessonView);
                 }
+                
+                // Build chapter view with lessons
+                chapterViews.add(ClassPublicDetailResponse.CourseChapterView.builder()
+                        .id(chapter.getId())
+                        .title(chapter.getTitle())
+                        .description(chapter.getDescription())
+                        .orderIndex(chapter.getOrderIndex())
+                        .lessons(chapterLessons)
+                        .build());
             }
         }
 
@@ -1404,6 +1424,7 @@ public class ClassService {
                 .courseDescription(clazz.getCourse() != null ? clazz.getCourse().getDescription() : null)
                 .courseThumbnail(null)
                 .courseLessons(lessonViews)
+                .courseChapters(chapterViews)
                 // Schedule
                 .schedule(scheduleViews)
                 .sessionsGenerated(sessionsGenerated)
@@ -1523,5 +1544,32 @@ public class ClassService {
         }
 
         return responses;
+    }
+
+    /**
+     * Normalize search text để xử lý các vấn đề Unicode khi copy/paste:
+     * - Chuyển đổi non-breaking space (\u00A0) thành space thường
+     * - Normalize Unicode về dạng NFC (precomposed)
+     * - Trim whitespace thừa
+     */
+    private String normalizeSearchText(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        // 1. Replace non-breaking space và các whitespace đặc biệt thành space thường
+        String normalized = text
+                .replace('\u00A0', ' ')  // Non-breaking space
+                .replace('\u2007', ' ')  // Figure space
+                .replace('\u202F', ' ')  // Narrow no-break space
+                .replace('\u200B', ' ')  // Zero-width space
+                .replaceAll("[\\p{Zs}]", " "); // Tất cả Unicode space characters
+        
+        // 2. Normalize Unicode về dạng NFC (composed form)
+        normalized = Normalizer.normalize(normalized, Normalizer.Form.NFC);
+        
+        // 3. Trim và collapse multiple spaces
+        normalized = normalized.trim().replaceAll("\\s+", " ");
+        
+        return normalized;
     }
 }
