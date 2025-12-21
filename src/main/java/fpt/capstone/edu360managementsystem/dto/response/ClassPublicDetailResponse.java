@@ -53,6 +53,7 @@ public class ClassPublicDetailResponse {
     private String courseDescription;
     private String courseThumbnail;
     private List<CourseLessonView> courseLessons;
+    private List<CourseChapterView> courseChapters;
 
 
     private List<ScheduleItemView> schedule;
@@ -81,5 +82,17 @@ public class ClassPublicDetailResponse {
         private String title;
         private Integer orderIndex;
         private String description;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class CourseChapterView {
+        private Long id;
+        private String title;
+        private String description;
+        private Integer orderIndex;
+        private List<CourseLessonView> lessons;
     }
 }

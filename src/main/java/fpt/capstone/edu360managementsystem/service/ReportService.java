@@ -159,6 +159,45 @@ public class ReportService {
     }
 
     /**
+     * Doanh thu theo giáo viên - LỌC THEO THỜI GIAN
+     */
+    public List<ReportTeacherRevenueDTO> getTeacherRevenueBetween(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime from = startDate.atStartOfDay();
+        LocalDateTime to = endDate.atTime(LocalTime.MAX);
+        
+        List<Object[]> rawData = paymentRepository.getRevenueByTeacherBetween(from, to);
+        List<ReportTeacherRevenueDTO> result = new ArrayList<>();
+
+        for (Object[] row : rawData) {
+            Long teacherId = (Long) row[0];
+            Long teacherUserId = (Long) row[1];
+            String teacherName = (String) row[2];
+            String teacherEmail = (String) row[3];
+            Long totalRevenue = (Long) row[4];
+            Long pendingRevenue = (Long) row[5];
+
+            // Đếm số lớp và học sinh của giáo viên (không lọc theo thời gian)
+            Integer totalClasses = clazzRepository.countByTeacherIdAndStatus(teacherId, ClassStatus.PUBLIC);
+            Integer totalStudents = classEnrollmentRepository.countStudentsByTeacherId(teacherId);
+
+            result.add(ReportTeacherRevenueDTO.builder()
+                    .teacherId(teacherId)
+                    .teacherUserId(teacherUserId)
+                    .teacherName(teacherName)
+                    .teacherAvatar(null)
+                    .teacherEmail(teacherEmail)
+                    .totalRevenue(totalRevenue)
+                    .pendingRevenue(pendingRevenue)
+                    .totalClasses(totalClasses)
+                    .totalStudents(totalStudents)
+                    .paidStudents(0)
+                    .build());
+        }
+
+        return result;
+    }
+
+    /**
      * Doanh thu theo môn học
      */
     public List<ReportSubjectRevenueDTO> getSubjectRevenue() {
@@ -170,6 +209,37 @@ public class ReportService {
             String subjectName = (String) row[1];
             Long totalRevenue = (Long) row[2];
 
+            Integer totalClasses = clazzRepository.countBySubjectIdAndStatus(subjectId, ClassStatus.PUBLIC);
+            Integer totalStudents = classEnrollmentRepository.countStudentsBySubjectId(subjectId);
+
+            result.add(ReportSubjectRevenueDTO.builder()
+                    .subjectId(subjectId)
+                    .subjectName(subjectName)
+                    .totalRevenue(totalRevenue)
+                    .totalClasses(totalClasses)
+                    .totalStudents(totalStudents)
+                    .build());
+        }
+
+        return result;
+    }
+
+    /**
+     * Doanh thu theo môn học - LỌC THEO THỜI GIAN
+     */
+    public List<ReportSubjectRevenueDTO> getSubjectRevenueBetween(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime from = startDate.atStartOfDay();
+        LocalDateTime to = endDate.atTime(LocalTime.MAX);
+        
+        List<Object[]> rawData = paymentRepository.getRevenueBySubjectBetween(from, to);
+        List<ReportSubjectRevenueDTO> result = new ArrayList<>();
+
+        for (Object[] row : rawData) {
+            Long subjectId = (Long) row[0];
+            String subjectName = (String) row[1];
+            Long totalRevenue = (Long) row[2];
+
+            // Đếm số lớp và học sinh (không lọc theo thời gian)
             Integer totalClasses = clazzRepository.countBySubjectIdAndStatus(subjectId, ClassStatus.PUBLIC);
             Integer totalStudents = classEnrollmentRepository.countStudentsBySubjectId(subjectId);
 

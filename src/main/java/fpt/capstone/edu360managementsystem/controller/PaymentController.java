@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +41,9 @@ public class PaymentController {
 
     @Autowired
     private PaymentService paymentService;
+
+    @Value("${casso.webhook.secret:}")
+    private String cassoWebhookSecret;
 
     /**
      * Creates a payment and generates QR code for class enrollment.
@@ -75,13 +80,25 @@ public class PaymentController {
 
     /**
      * Handles Casso payment webhook.
+     * Casso gửi header "Secure-Token" chứa key bảo mật để xác thực.
      *
+     * @param secureToken the secret key from Casso header
      * @param body the webhook request data
      * @return acknowledgement message
      */
     @PostMapping("/casso/webhook")
-    public ResponseEntity<?> cassoWebhook(@RequestBody CassoWebhookRequest body) {
+    public ResponseEntity<?> cassoWebhook(
+            @RequestHeader(value = "Secure-Token", required = false) String secureToken,
+            @RequestBody CassoWebhookRequest body) {
         try {
+            // Verify secret key nếu có cấu hình
+            if (cassoWebhookSecret != null && !cassoWebhookSecret.isEmpty()) {
+                if (secureToken == null || !secureToken.equals(cassoWebhookSecret)) {
+                    System.err.println("Casso webhook: Invalid Secure-Token");
+                    return ResponseEntity.status(401).body(new MessageResponse("Unauthorized"));
+                }
+            }
+            
             paymentService.handleCassoWebhook(body);
             return ResponseEntity.ok(new MessageResponse("OK"));
         } catch (Exception ex) {

@@ -1,7 +1,9 @@
 package fpt.capstone.edu360managementsystem.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,6 +55,20 @@ public class ReportController {
     }
 
     /**
+     * Retrieves revenue report by teacher - FILTERED BY DATE RANGE.
+     *
+     * @param startDate start date (inclusive)
+     * @param endDate end date (inclusive)
+     * @return list of teacher revenue data within date range
+     */
+    @GetMapping("/teacher-revenue/between")
+    public ResponseEntity<List<ReportTeacherRevenueDTO>> getTeacherRevenueBetween(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(reportService.getTeacherRevenueBetween(startDate, endDate));
+    }
+
+    /**
      * Retrieves the top performing teacher by revenue.
      *
      * @return top teacher data or no content
@@ -74,6 +90,20 @@ public class ReportController {
     @GetMapping("/subject-revenue")
     public ResponseEntity<List<ReportSubjectRevenueDTO>> getSubjectRevenue() {
         return ResponseEntity.ok(reportService.getSubjectRevenue());
+    }
+
+    /**
+     * Retrieves revenue report by subject - FILTERED BY DATE RANGE.
+     *
+     * @param startDate start date (inclusive)
+     * @param endDate end date (inclusive)
+     * @return list of subject revenue data within date range
+     */
+    @GetMapping("/subject-revenue/between")
+    public ResponseEntity<List<ReportSubjectRevenueDTO>> getSubjectRevenueBetween(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(reportService.getSubjectRevenueBetween(startDate, endDate));
     }
 
     /**

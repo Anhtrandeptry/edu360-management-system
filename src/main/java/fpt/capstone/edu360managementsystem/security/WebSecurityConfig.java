@@ -69,6 +69,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                 .requestMatchers("/api/test/**").permitAll()
+                // Allow Swagger/OpenAPI endpoints
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 // Allow Spring Boot error endpoint so 404 won't be masked as 401
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/rooms/**").permitAll()
@@ -78,6 +80,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 // Classes: only allow GET for public viewing, other methods require auth
                 .requestMatchers(HttpMethod.GET, "/api/classes/**").permitAll()
                 .requestMatchers("/api/classes/**").authenticated()
+                // Allow search endpoints for public access
+                .requestMatchers("/api/search/**").permitAll()
                 // Teachers: only allow GET for public viewing (list, detail), other methods require auth
                 .requestMatchers(HttpMethod.GET, "/api/teachers").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}").permitAll()
@@ -92,6 +96,9 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/upload/**").authenticated()
                 // Allow serving uploaded files (read-only)
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                // Allow payment webhooks (Casso, VietQR) - verified by secret key
+                .requestMatchers("/api/payments/casso/webhook").permitAll()
+                .requestMatchers("/api/payments/vietqr/callback").permitAll()
                 // Student profile endpoints (require STUDENT role - handled by @PreAuthorize)
                 .requestMatchers("/api/students/profile/**").authenticated()
                 .anyRequest().authenticated()
