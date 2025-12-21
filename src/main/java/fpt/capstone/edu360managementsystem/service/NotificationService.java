@@ -1,11 +1,10 @@
 package fpt.capstone.edu360managementsystem.service;
 
-import fpt.capstone.edu360managementsystem.dto.response.NotificationResponse;
-import fpt.capstone.edu360managementsystem.entity.Notification;
-import fpt.capstone.edu360managementsystem.entity.User;
-import fpt.capstone.edu360managementsystem.enums.NotificationType;
-import fpt.capstone.edu360managementsystem.repository.NotificationRepository;
-import fpt.capstone.edu360managementsystem.repository.UserRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -13,10 +12,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import fpt.capstone.edu360managementsystem.dto.response.NotificationResponse;
+import fpt.capstone.edu360managementsystem.entity.Notification;
+import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.enums.NotificationType;
+import fpt.capstone.edu360managementsystem.repository.NotificationRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
 
 @Service
 public class NotificationService {
@@ -196,6 +197,42 @@ public class NotificationService {
                 message,
                 NotificationType.SYSTEM_ANNOUNCEMENT,
                 null
+        );
+    }
+
+    /**
+     * Gửi thông báo cho tất cả admin khi có student đăng ký lớp và tạo payment
+     * mới
+     *
+     * @param studentName Tên học sinh
+     * @param className Tên lớp học
+     * @param amount Số tiền cần thanh toán
+     * @param paymentId ID của payment để admin có thể xác nhận
+     */
+    public void notifyAdminsNewPaymentPending(String studentName, String className, Long amount, Long paymentId) {
+        // Lấy tất cả users có role ADMIN
+        List<User> admins = userRepository.findAllByRole(fpt.capstone.edu360managementsystem.enums.ERole.ROLE_ADMIN);
+
+        if (admins.isEmpty()) {
+            System.err.println("No admin found to notify about new payment");
+            return;
+        }
+
+        String formattedAmount = String.format("%,d", amount).replace(",", ".");
+        String title = "🔔 Có đăng ký lớp mới chờ thanh toán";
+        String message = "Học sinh " + studentName + " đã đăng ký lớp " + className
+                + " với học phí " + formattedAmount + "đ. Vui lòng kiểm tra khi nhận được chuyển khoản.";
+
+        List<Long> adminIds = admins.stream()
+                .map(User::getId)
+                .collect(Collectors.toList());
+
+        createNotificationForUsers(
+                adminIds,
+                title,
+                message,
+                NotificationType.NEW_PAYMENT_PENDING,
+                "/admin/payments?highlight=" + paymentId
         );
     }
 

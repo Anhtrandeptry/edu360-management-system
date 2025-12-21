@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * REST controller for global search functionality.
- * Provides endpoints for searching classes, teachers, and subjects.
+ * REST controller for global search functionality. Provides endpoints for
+ * searching classes, teachers, and subjects.
  *
  * @author 360edu
  * @version 1.0
@@ -33,7 +33,7 @@ public class SearchController {
     /**
      * Performs a global search across multiple data types.
      *
-     * @param q     the search keyword
+     * @param q the search keyword
      * @param limit maximum results per type (default 5)
      * @return search results from classes, teachers, and subjects
      */
@@ -44,11 +44,11 @@ public class SearchController {
     ) {
         if (q == null || q.trim().isEmpty()) {
             return ResponseEntity.ok(Map.of(
-                "query", "",
-                "classes", List.of(),
-                "teachers", List.of(),
-                "subjects", List.of(),
-                "totalResults", 0
+                    "query", "",
+                    "classes", List.of(),
+                    "teachers", List.of(),
+                    "subjects", List.of(),
+                    "totalResults", 0
             ));
         }
 
@@ -57,8 +57,9 @@ public class SearchController {
         results.put("query", searchTerm);
 
         // Search classes - only PUBLIC classes, include currentStudents and maxStudents
+        // excludeHidden=true to hide admin-hidden classes from search
         Page<ClassResponse> classResults = classService.getClassesWithPagination(
-                searchTerm, "PUBLIC", null, null, null, null, null, 0, limit, "id", "desc"
+                searchTerm, "PUBLIC", null, null, null, null, null, 0, limit, "id", "desc", true
         );
         results.put("classes", classResults.getContent());
 
@@ -85,7 +86,7 @@ public class SearchController {
     /**
      * Searches for classes by keyword.
      *
-     * @param q    the search keyword
+     * @param q the search keyword
      * @param page page number
      * @param size page size
      * @return paginated class results
@@ -96,8 +97,9 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
+        // excludeHidden=true to hide admin-hidden classes from search
         Page<ClassResponse> results = classService.getClassesWithPagination(
-                q, "PUBLIC", null, null, null, null, null, page, size, "id", "desc"
+                q, "PUBLIC", null, null, null, null, null, page, size, "id", "desc", true
         );
         return ResponseEntity.ok(results);
     }
@@ -105,7 +107,7 @@ public class SearchController {
     /**
      * Searches for teachers by keyword.
      *
-     * @param q    the search keyword
+     * @param q the search keyword
      * @param page page number
      * @param size page size
      * @return paginated teacher results
@@ -125,7 +127,7 @@ public class SearchController {
     /**
      * Searches for subjects by keyword.
      *
-     * @param q    the search keyword
+     * @param q the search keyword
      * @param page page number
      * @param size page size
      * @return paginated subject results

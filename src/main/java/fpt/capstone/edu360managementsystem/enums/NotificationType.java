@@ -22,6 +22,7 @@ public enum NotificationType {
     PAYMENT_SUCCESS, // Thanh toán thành công
     PAYMENT_FAILED, // Thanh toán thất bại
     PAYMENT_REMINDER, // Nhắc thanh toán
+    NEW_PAYMENT_PENDING, // Admin: Có student mới đăng ký và chờ thanh toán
 
     // Course & Content
     NEW_LESSON_AVAILABLE, // Bài học mới

@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -47,7 +46,6 @@ import fpt.capstone.edu360managementsystem.repository.SemesterRepository;
 import fpt.capstone.edu360managementsystem.repository.SubjectRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.TimeSlotRepository;
-import fpt.capstone.edu360managementsystem.util.VietnameseUtils;
 
 @Service
 public class ClassService {
@@ -477,6 +475,27 @@ public class ClassService {
             String sortBy,
             String order
     ) {
+        return getClassesWithPagination(search, status, online, teacherUserId, subjectId, minPrice, maxPrice, page, size, sortBy, order, null);
+    }
+
+    /**
+     * Lấy danh sách lớp học với phân trang và lọc (có hỗ trợ excludeHidden).
+     */
+    @Transactional(readOnly = true)
+    public Page<ClassResponse> getClassesWithPagination(
+            String search,
+            String status,
+            String online,
+            Long teacherUserId,
+            Long subjectId,
+            Long minPrice,
+            Long maxPrice,
+            int page,
+            int size,
+            String sortBy,
+            String order,
+            Boolean excludeHidden
+    ) {
         // Xử lý sort
         Sort sort = Sort.by(sortBy != null ? sortBy : "id");
         if ("desc".equalsIgnoreCase(order)) {
@@ -504,7 +523,7 @@ public class ClassService {
 
         // Query với pagination - bao gồm subjectId và price filter
         Page<Clazz> classPage = clazzRepository.findBySearchAndFilters(
-                search, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, pageable
+                search, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, excludeHidden, pageable
         );
 
         // Load ALL schedules for these classes để tránh N+1
@@ -1523,5 +1542,31 @@ public class ClassService {
         }
 
         return responses;
+    }
+
+    /**
+     * Ẩn/hiện lớp học. Lớp bị ẩn sẽ không hiển thị trên landing page cho
+     * khách/học viên.
+     *
+     * @param id ID lớp học
+     * @param hidden true để ẩn, false để hiện
+     * @return ClassResponse sau khi cập nhật
+     */
+    @Transactional
+    public ClassResponse toggleClassHidden(Long id, boolean hidden) {
+        Clazz clazz = clazzRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học với ID: " + id));
+
+        clazz.setHidden(hidden);
+        clazzRepository.save(clazz);
+
+        List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(id);
+        int totalSessions = (int) classSessionRepository.countByClazz_Id(id);
+        int completedSessions = (int) classSessionRepository.countCompletedByClazzId(id);
+        int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
+
+        ClassResponse response = classMapper.toResponse(clazz, schedules, totalSessions, completedSessions);
+        response.setCurrentStudents(currentStudents);
+        return response;
     }
 }

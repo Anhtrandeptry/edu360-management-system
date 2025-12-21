@@ -22,6 +22,7 @@ public class CourseResponse {
     private Long ownerTeacherId;
     private String ownerTeacherName;
     private LocalDateTime createdAt;
+    private Boolean hidden;
 
     private List<ChapterResponse> chapters;
 }

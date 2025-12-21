@@ -65,8 +65,8 @@ public class PaymentService {
     private NotificationService notificationService;
 
     /**
-     * Tạo Payment cho 1 lớp (mỗi học sinh - mỗi lớp 1 payment).
-     * Sử dụng VietQR để generate link QR có sẵn amount + content.
+     * Tạo Payment cho 1 lớp (mỗi học sinh - mỗi lớp 1 payment). Sử dụng VietQR
+     * để generate link QR có sẵn amount + content.
      */
     @Transactional
     public PaymentCreateResponse createPaymentForClass(Long classId, Long userId) {
@@ -117,6 +117,23 @@ public class PaymentService {
 
         payment = paymentRepository.save(payment);
 
+        // Gửi thông báo cho tất cả Admin mỗi khi student mở QR thanh toán
+        // (Kể cả payment cũ - để admin biết student đang chờ thanh toán)
+        try {
+            System.out.println("📢 Sending notification to admins for payment: " + payment.getId());
+            notificationService.notifyAdminsNewPaymentPending(
+                    student.getUser().getFullName(),
+                    clazz.getName(),
+                    payment.getAmount(),
+                    payment.getId()
+            );
+            System.out.println("✅ Notification sent successfully!");
+        } catch (Exception e) {
+            // Không throw lỗi nếu gửi notification thất bại
+            System.err.println("❌ Failed to notify admins about new payment: " + e.getMessage());
+            e.printStackTrace();
+        }
+
         // Build QR với content đã có trong payment
         String qrUrl = buildVietQrUrl(payment.getAmount(), payment.getContent());
 
@@ -135,8 +152,8 @@ public class PaymentService {
     }
 
     /**
-     * Admin xác nhận đã thanh toán (sau khi check sao kê).
-     * Tự động enroll học sinh vào lớp sau khi xác nhận.
+     * Admin xác nhận đã thanh toán (sau khi check sao kê). Tự động enroll học
+     * sinh vào lớp sau khi xác nhận.
      */
     @Transactional
     public void confirmPayment(Long paymentId) {
@@ -176,8 +193,6 @@ public class PaymentService {
         }
     }
 
-
-
     /**
      * Build URL VietQR để FE show <img src="...">
      */
@@ -201,8 +216,8 @@ public class PaymentService {
     @Transactional
     public void handleVietQrCallback(VietQrCallbackRequest req) {
         // 1) Đúng tài khoản nhận tiền?
-        if (req.getAccountNumber() == null ||
-                !req.getAccountNumber().equals(accountNumber)) {
+        if (req.getAccountNumber() == null
+                || !req.getAccountNumber().equals(accountNumber)) {
             throw new RuntimeException("Sai tài khoản nhận tiền");
         }
 
@@ -248,23 +263,24 @@ public class PaymentService {
     }
 
     private String extractOrderCode(String content) {
-        if (content == null) return null;
+        if (content == null) {
+            return null;
+        }
         int idx = content.lastIndexOf("#PAY-");
-        if (idx == -1) return null;
+        if (idx == -1) {
+            return null;
+        }
         return content.substring(idx + 1).trim(); // cắt phần "#PAY-..."
     }
 
     /**
-     * Xử lý webhook từ Casso.vn
-     * Casso sẽ gửi danh sách giao dịch khi có biến động số dư.
-     * 
-     * Luồng:
-     * 1. Nhận webhook từ Casso
-     * 2. Duyệt qua từng giao dịch (tiền vào = amount > 0)
-     * 3. Tìm orderCode trong description (nội dung chuyển khoản)
-     * 4. Tìm Payment trong DB theo orderCode
-     * 5. Verify số tiền và cập nhật trạng thái PAID
-     * 6. Tự động enroll student vào lớp
+     * Xử lý webhook từ Casso.vn Casso sẽ gửi danh sách giao dịch khi có biến
+     * động số dư.
+     *
+     * Luồng: 1. Nhận webhook từ Casso 2. Duyệt qua từng giao dịch (tiền vào =
+     * amount > 0) 3. Tìm orderCode trong description (nội dung chuyển khoản) 4.
+     * Tìm Payment trong DB theo orderCode 5. Verify số tiền và cập nhật trạng
+     * thái PAID 6. Tự động enroll student vào lớp
      */
     @Transactional
     public void handleCassoWebhook(CassoWebhookRequest req) {
@@ -305,8 +321,8 @@ public class PaymentService {
 
             // Verify số tiền
             if (!tx.getAmount().equals(payment.getAmount())) {
-                System.err.println("Casso: Amount mismatch for " + orderCode + 
-                        ". Expected: " + payment.getAmount() + ", Got: " + tx.getAmount());
+                System.err.println("Casso: Amount mismatch for " + orderCode
+                        + ". Expected: " + payment.getAmount() + ", Got: " + tx.getAmount());
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setBankTransactionId(tx.getTid());
                 paymentRepository.save(payment);
@@ -335,7 +351,6 @@ public class PaymentService {
     }
 
     // ===================== ADMIN METHODS =====================
-
     /**
      * Admin: Lấy danh sách payment với filter và phân trang.
      */
@@ -354,12 +369,12 @@ public class PaymentService {
         if (sortBy == null || (!sortBy.equals("createdAt") && !sortBy.equals("paidAt"))) {
             sortBy = "createdAt";
         }
-        
+
         // Tạo Sort object
         org.springframework.data.domain.Sort sort = sortDir != null && sortDir.equalsIgnoreCase("asc")
                 ? org.springframework.data.domain.Sort.by(sortBy).ascending()
                 : org.springframework.data.domain.Sort.by(sortBy).descending();
-        
+
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Payment> payments = paymentRepository.findAllWithFilters(status, search, classId, from, to, pageable);
         return payments.map(this::mapToResponse);
@@ -393,7 +408,7 @@ public class PaymentService {
     public Page<PaymentResponse> getStudentPaymentHistory(Long userId, int page, int size) {
         Student student = studentRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Student profile not found"));
-        
+
         Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
         Page<Payment> payments = paymentRepository.findByStudent_Id(student.getId(), pageable);
         return payments.map(this::mapToResponse);

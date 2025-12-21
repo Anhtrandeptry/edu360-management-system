@@ -50,11 +50,9 @@ public class Course {
     @Builder.Default
     private CourseStatus status = CourseStatus.PENDING;
 
-
     @ManyToOne(optional = false)
     @JoinColumn(name = "created_by_user_id")
     private User createdBy;
-
 
     @ManyToOne(optional = true)
     @JoinColumn(name = "teacher_id")
@@ -67,4 +65,9 @@ public class Course {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // Soft hide: ẩn khóa học khỏi landing page (admin quyết định)
+    @Column(nullable = true)
+    @Builder.Default
+    private Boolean hidden = false;
 }
