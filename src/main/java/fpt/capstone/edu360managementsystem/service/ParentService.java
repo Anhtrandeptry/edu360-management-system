@@ -192,12 +192,15 @@ public class ParentService {
                         attendanceList.add(attData);
                         totalCount++;
 
-                        if (att.getStatus() == AttendanceStatus.PRESENT) {
-                            presentCount++;
-                        } else if (att.getStatus() == AttendanceStatus.ABSENT) {
-                            absentCount++;
-                        } else if (att.getStatus() == AttendanceStatus.LATE) {
-                            lateCount++;
+                        switch (att.getStatus()) {
+                            case PRESENT ->
+                                presentCount++;
+                            case ABSENT ->
+                                absentCount++;
+                            case LATE ->
+                                lateCount++;
+                            default -> {
+                            }
                         }
                     }
                 }
@@ -485,21 +488,23 @@ public class ParentService {
             Student student = studentRepository.findById(childId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy học sinh"));
 
-            if ("read".equals(filter)) {
-                notifications = notificationRepository.findByParentAndStudentAndReadTrueOrderByCreatedAtDesc(parent, student);
-            } else if ("unread".equals(filter)) {
-                notifications = notificationRepository.findByParentAndStudentAndReadFalseOrderByCreatedAtDesc(parent, student);
-            } else {
-                notifications = notificationRepository.findByParentAndStudentOrderByCreatedAtDesc(parent, student);
-            }
+            notifications = switch (filter) {
+                case "read" ->
+                    notificationRepository.findByParentAndStudentAndReadTrueOrderByCreatedAtDesc(parent, student);
+                case "unread" ->
+                    notificationRepository.findByParentAndStudentAndReadFalseOrderByCreatedAtDesc(parent, student);
+                default ->
+                    notificationRepository.findByParentAndStudentOrderByCreatedAtDesc(parent, student);
+            };
         } else {
-            if ("read".equals(filter)) {
-                notifications = notificationRepository.findByParentAndReadTrueOrderByCreatedAtDesc(parent);
-            } else if ("unread".equals(filter)) {
-                notifications = notificationRepository.findByParentAndReadFalseOrderByCreatedAtDesc(parent);
-            } else {
-                notifications = notificationRepository.findByParentOrderByCreatedAtDesc(parent);
-            }
+            notifications = switch (filter) {
+                case "read" ->
+                    notificationRepository.findByParentAndReadTrueOrderByCreatedAtDesc(parent);
+                case "unread" ->
+                    notificationRepository.findByParentAndReadFalseOrderByCreatedAtDesc(parent);
+                default ->
+                    notificationRepository.findByParentOrderByCreatedAtDesc(parent);
+            };
         }
 
         return notifications.stream().map(notif -> {

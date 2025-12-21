@@ -523,7 +523,7 @@ public class ClassService {
         // Xử lý online filter
         Boolean onlineBool = null;
         if (online != null && !online.isEmpty() && !"ALL".equalsIgnoreCase(online)) {
-            onlineBool = Boolean.parseBoolean(online);
+            onlineBool = "true".equalsIgnoreCase(online);
         }
 
         // Query với pagination - bao gồm subjectId và price filter
