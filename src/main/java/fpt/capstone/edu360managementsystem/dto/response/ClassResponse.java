@@ -29,6 +29,7 @@ public class ClassResponse {
 
     private String description;
     private ClassStatus status;
+    private Boolean hidden;
 
     private List<ScheduleItemView> schedule;
     private Integer sessionsGenerated;
@@ -37,7 +38,7 @@ public class ClassResponse {
     private Long pricePerSession;   // Giá mỗi buổi (VND)
     private Integer totalSessions;  // Tổng số buổi của lớp
     private Integer completedSessions; // Số buổi đã hoàn thành (status = DONE)
-    
+
     // Tổng học phí = pricePerSession * totalSessions
     public Long getPrice() {
         if (pricePerSession == null || totalSessions == null) {

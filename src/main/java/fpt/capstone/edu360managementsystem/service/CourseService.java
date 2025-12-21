@@ -81,6 +81,10 @@ public class CourseService {
     }
 
     public List<CourseResponse> listCourses(Long subjectId, CourseStatus status) {
+        return listCourses(subjectId, status, false);
+    }
+
+    public List<CourseResponse> listCourses(Long subjectId, CourseStatus status, boolean excludeHidden) {
         List<Course> courses;
         if (subjectId != null && status != null) {
             courses = courseRepository.findBySubject_IdAndStatus(subjectId, status);
@@ -91,6 +95,13 @@ public class CourseService {
             courses = courseRepository.findByStatus(status);
         } else {
             courses = courseRepository.findAll();
+        }
+
+        // Filter hidden courses if requested
+        if (excludeHidden) {
+            courses = courses.stream()
+                    .filter(c -> c.getHidden() == null || !c.getHidden())
+                    .toList();
         }
 
         return courses.stream()
@@ -308,6 +319,24 @@ public class CourseService {
         lessonRepository.delete(lesson);
     }
 
+    /**
+     * Ẩn/hiện khóa học. Khóa học bị ẩn sẽ không hiển thị trên landing page.
+     *
+     * @param id ID khóa học
+     * @param hidden true để ẩn, false để hiện
+     * @return CourseResponse sau khi cập nhật
+     */
+    @Transactional
+    public CourseResponse toggleCourseHidden(Long id, boolean hidden) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học với ID: " + id));
+
+        course.setHidden(hidden);
+        courseRepository.save(course);
+
+        return mapCourse(course, null);
+    }
+
     // --- Mapping helpers ---
     private CourseResponse mapCourse(Course c, List<CourseChapter> chaptersOpt) {
         List<ChapterResponse> chapterResponses = null;
@@ -328,6 +357,7 @@ public class CourseService {
                 .title(c.getTitle())
                 .description(c.getDescription())
                 .status(c.getStatus())
+                .hidden(c.getHidden() != null ? c.getHidden() : false)
                 .createdByUserId(c.getCreatedBy().getId())
                 .createdByName(c.getCreatedBy().getFullName())
                 .ownerTeacherId(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getId() : null)

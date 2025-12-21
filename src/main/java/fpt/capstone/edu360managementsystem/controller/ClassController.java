@@ -82,6 +82,7 @@ public class ClassController {
      * @param size page size
      * @param sortBy sort field
      * @param order sort order
+     * @param excludeHidden exclude hidden classes (for public listing)
      * @return paginated class list
      */
     @GetMapping("/paginated")
@@ -96,10 +97,11 @@ public class ClassController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String order
+            @RequestParam(defaultValue = "asc") String order,
+            @RequestParam(required = false) Boolean excludeHidden
     ) {
         return ResponseEntity.ok(classService.getClassesWithPagination(
-                search, status, online, teacherUserId, subjectId, minPrice, maxPrice, page, size, sortBy, order
+                search, status, online, teacherUserId, subjectId, minPrice, maxPrice, page, size, sortBy, order, excludeHidden
         ));
     }
 
@@ -214,5 +216,29 @@ public class ClassController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<java.util.List<ClassResponse>> getDraftClassesApproachingStartDate() {
         return ResponseEntity.ok(classService.getDraftClassesApproachingStartDate());
+    }
+
+    /**
+     * Toggles the hidden status of a class. Hidden classes won't appear on
+     * landing page for guests/students.
+     *
+     * @param id the class ID
+     * @param hidden true to hide, false to show
+     * @return updated class response
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/hidden")
+    public ResponseEntity<?> toggleHidden(
+            @PathVariable Long id,
+            @RequestParam boolean hidden
+    ) {
+        try {
+            ClassResponse resp = classService.toggleClassHidden(id, hidden);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
+        }
     }
 }

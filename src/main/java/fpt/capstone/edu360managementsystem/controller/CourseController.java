@@ -68,18 +68,20 @@ public class CourseController {
      *
      * @param subjectId optional subject filter
      * @param status optional status filter
+     * @param excludeHidden if true, exclude hidden courses
      * @return list of courses
      */
     @GetMapping
     public ResponseEntity<List<CourseResponse>> listCourses(
             @RequestParam(name = "subjectId", required = false) Long subjectId,
-            @RequestParam(name = "status", required = false) String status
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "excludeHidden", required = false, defaultValue = "false") boolean excludeHidden
     ) {
         CourseStatus st = null;
         if (status != null) {
             st = CourseStatus.valueOf(status.toUpperCase());
         }
-        return ResponseEntity.ok(courseService.listCourses(subjectId, st));
+        return ResponseEntity.ok(courseService.listCourses(subjectId, st, excludeHidden));
     }
 
     /**
@@ -274,5 +276,29 @@ public class CourseController {
     public ResponseEntity<?> removeLesson(@PathVariable Long id) {
         courseService.removeLesson(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Toggles the hidden status of a course. Hidden courses won't appear on
+     * landing page for guests/students.
+     *
+     * @param id the course ID
+     * @param hidden true to hide, false to show
+     * @return updated course response
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/hidden")
+    public ResponseEntity<?> toggleHidden(
+            @PathVariable Long id,
+            @RequestParam boolean hidden
+    ) {
+        try {
+            CourseResponse resp = courseService.toggleCourseHidden(id, hidden);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
+        }
     }
 }

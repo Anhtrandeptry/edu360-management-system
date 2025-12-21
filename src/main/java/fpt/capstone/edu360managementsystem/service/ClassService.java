@@ -476,10 +476,31 @@ public class ClassService {
             String sortBy,
             String order
     ) {
+        return getClassesWithPagination(search, status, online, teacherUserId, subjectId, minPrice, maxPrice, page, size, sortBy, order, null);
+    }
+
+    /**
+     * Lấy danh sách lớp học với phân trang và lọc (có hỗ trợ excludeHidden).
+     */
+    @Transactional(readOnly = true)
+    public Page<ClassResponse> getClassesWithPagination(
+            String search,
+            String status,
+            String online,
+            Long teacherUserId,
+            Long subjectId,
+            Long minPrice,
+            Long maxPrice,
+            int page,
+            int size,
+            String sortBy,
+            String order,
+            Boolean excludeHidden
+    ) {
         // Normalize search string để xử lý các ký tự Unicode đặc biệt
         // (ví dụ: non-breaking space, combining diacritics từ copy/paste)
         String normalizedSearch = normalizeSearchText(search);
-        
+
         // Xử lý sort
         Sort sort = Sort.by(sortBy != null ? sortBy : "id");
         if ("desc".equalsIgnoreCase(order)) {
@@ -502,12 +523,12 @@ public class ClassService {
         // Xử lý online filter
         Boolean onlineBool = null;
         if (online != null && !online.isEmpty() && !"ALL".equalsIgnoreCase(online)) {
-            onlineBool = Boolean.parseBoolean(online);
+            onlineBool = "true".equalsIgnoreCase(online);
         }
 
         // Query với pagination - bao gồm subjectId và price filter
         Page<Clazz> classPage = clazzRepository.findBySearchAndFilters(
-                normalizedSearch, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, pageable
+                normalizedSearch, statusEnum, onlineBool, teacherUserId, subjectId, minPrice, maxPrice, excludeHidden, pageable
         );
 
         // Load ALL schedules for these classes để tránh N+1
@@ -1356,12 +1377,12 @@ public class ClassService {
         List<ClassPublicDetailResponse.CourseLessonView> lessonViews = new ArrayList<>();
         // Build course chapters with lessons (structured view)
         List<ClassPublicDetailResponse.CourseChapterView> chapterViews = new ArrayList<>();
-        
+
         if (clazz.getCourse() != null) {
             var chapters = courseChapterRepository.findByCourse_IdOrderByOrderIndexAsc(clazz.getCourse().getId());
             for (var chapter : chapters) {
                 var lessons = courseLessonRepository.findByChapter_IdOrderByOrderIndexAsc(chapter.getId());
-                
+
                 // Build lessons for this chapter
                 List<ClassPublicDetailResponse.CourseLessonView> chapterLessons = new ArrayList<>();
                 for (var lesson : lessons) {
@@ -1374,7 +1395,7 @@ public class ClassService {
                     lessonViews.add(lessonView);
                     chapterLessons.add(lessonView);
                 }
-                
+
                 // Build chapter view with lessons
                 chapterViews.add(ClassPublicDetailResponse.CourseChapterView.builder()
                         .id(chapter.getId())
@@ -1547,10 +1568,35 @@ public class ClassService {
     }
 
     /**
-     * Normalize search text để xử lý các vấn đề Unicode khi copy/paste:
-     * - Chuyển đổi non-breaking space (\u00A0) thành space thường
-     * - Normalize Unicode về dạng NFC (precomposed)
-     * - Trim whitespace thừa
+     * Ẩn/hiện lớp học. Lớp bị ẩn sẽ không hiển thị trên landing page cho
+     * khách/học viên.
+     *
+     * @param id ID lớp học
+     * @param hidden true để ẩn, false để hiện
+     * @return ClassResponse sau khi cập nhật
+     */
+    @Transactional
+    public ClassResponse toggleClassHidden(Long id, boolean hidden) {
+        Clazz clazz = clazzRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học với ID: " + id));
+
+        clazz.setHidden(hidden);
+        clazzRepository.save(clazz);
+
+        List<ClassSchedule> schedules = classScheduleRepository.findByClazz_Id(id);
+        int totalSessions = (int) classSessionRepository.countByClazz_Id(id);
+        int completedSessions = (int) classSessionRepository.countCompletedByClazzId(id);
+        int currentStudents = classEnrollmentRepository.countByClazz_Id(id);
+
+        ClassResponse response = classMapper.toResponse(clazz, schedules, totalSessions, completedSessions);
+        response.setCurrentStudents(currentStudents);
+        return response;
+    }
+
+    /**
+     * Normalize search text để xử lý các vấn đề Unicode khi copy/paste: -
+     * Chuyển đổi non-breaking space (\u00A0) thành space thường - Normalize
+     * Unicode về dạng NFC (precomposed) - Trim whitespace thừa
      */
     private String normalizeSearchText(String text) {
         if (text == null || text.isEmpty()) {
@@ -1558,18 +1604,18 @@ public class ClassService {
         }
         // 1. Replace non-breaking space và các whitespace đặc biệt thành space thường
         String normalized = text
-                .replace('\u00A0', ' ')  // Non-breaking space
-                .replace('\u2007', ' ')  // Figure space
-                .replace('\u202F', ' ')  // Narrow no-break space
-                .replace('\u200B', ' ')  // Zero-width space
+                .replace('\u00A0', ' ') // Non-breaking space
+                .replace('\u2007', ' ') // Figure space
+                .replace('\u202F', ' ') // Narrow no-break space
+                .replace('\u200B', ' ') // Zero-width space
                 .replaceAll("[\\p{Zs}]", " "); // Tất cả Unicode space characters
-        
+
         // 2. Normalize Unicode về dạng NFC (composed form)
         normalized = Normalizer.normalize(normalized, Normalizer.Form.NFC);
-        
+
         // 3. Trim và collapse multiple spaces
         normalized = normalized.trim().replaceAll("\\s+", " ");
-        
+
         return normalized;
     }
 }

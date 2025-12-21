@@ -21,7 +21,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
 
     boolean existsByNameAndSubject_IdAndSemester_Id(String name, Long subjectId, Long semesterId);
 
-
     @Query("""
         select distinct c from Clazz c
         where c.teacher.id = :teacherId
@@ -37,7 +36,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-
     @Query("""
         select distinct c from Clazz c
         where c.room.id = :roomId
@@ -52,7 +50,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     List<Clazz> findRoomConflicts(Long roomId, Long semesterId,
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
-
 
     @Query("""
         select distinct c from Clazz c
@@ -70,7 +67,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-
     @Query("""
         select distinct c from Clazz c
         where c.room.id = :roomId
@@ -87,7 +83,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             java.util.Set<Integer> dow,
             java.util.Set<Long> slotIds);
 
-
     @Query("""
     select distinct c from Clazz c
     left join fetch c.teacher t
@@ -99,7 +94,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
   """)
     List<Clazz> findAllWithFilters(Long teacherUserId);
 
-
     @Query("""
     select distinct c from Clazz c
     left join fetch c.teacher t
@@ -110,7 +104,6 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
   """)
     List<Clazz> findAllWithSchedules();
 
-
     @Query("""
         select count(c) from Clazz c
         where c.subject.id = :subjectId
@@ -118,14 +111,12 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     long countActiveBySubject(Long subjectId);
 
-
     @Query("""
         select count(c) from Clazz c
         where c.room.id = :roomId
           and c.status <> fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByRoom(Long roomId);
-
 
     @Query("""
         select count(c) from Clazz c
@@ -135,14 +126,12 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     long countActiveByTeacherUser(Long teacherUserId);
 
-
     @Query("""
         select count(c) from Clazz c
         where c.teacher.id = :teacherId
           and c.status != fpt.capstone.edu360managementsystem.enums.ClassStatus.ARCHIVED
     """)
     long countActiveByTeacherId(Long teacherId);
-
 
     @Query("""
       select c from Clazz c
@@ -152,12 +141,9 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     """)
     java.util.List<Clazz> findActiveByTeacherAndSubject(Long teacherId, Long subjectId);
 
-
     List<Clazz> findByCourse_Id(Long courseId);
 
-
     List<Clazz> findByTeacher_Id(Long teacherId);
-
 
     @Query("""
         SELECT DISTINCT c FROM Clazz c
@@ -176,6 +162,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
         AND (:subjectId IS NULL OR s.id = :subjectId)
         AND (:minPrice IS NULL OR c.pricePerSession IS NULL OR c.pricePerSession >= :minPrice)
         AND (:maxPrice IS NULL OR c.pricePerSession IS NULL OR c.pricePerSession <= :maxPrice)
+        AND (:excludeHidden IS NULL OR :excludeHidden = false OR c.hidden = false OR c.hidden IS NULL)
         """)
     Page<Clazz> findBySearchAndFilters(
             @Param("search") String search,
@@ -185,6 +172,7 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
             @Param("subjectId") Long subjectId,
             @Param("minPrice") Long minPrice,
             @Param("maxPrice") Long maxPrice,
+            @Param("excludeHidden") Boolean excludeHidden,
             Pageable pageable
     );
 
@@ -221,8 +209,8 @@ public interface ClazzRepository extends JpaRepository<Clazz, Long>, JpaSpecific
     // ==================== PESSIMISTIC LOCK FOR ENROLLMENT ====================
     /**
      * Lấy Clazz với Pessimistic Write Lock để tránh race condition khi enroll.
-     * Khi một transaction đang giữ lock, các transaction khác sẽ phải chờ.
-     * Điều này đảm bảo capacity check và enrollment insert là atomic.
+     * Khi một transaction đang giữ lock, các transaction khác sẽ phải chờ. Điều
+     * này đảm bảo capacity check và enrollment insert là atomic.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Clazz c WHERE c.id = :id")

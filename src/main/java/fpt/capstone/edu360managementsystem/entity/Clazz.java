@@ -70,10 +70,15 @@ public class Clazz {
     @Builder.Default
     private ClassStatus status = ClassStatus.DRAFT;
 
+    // Soft hide: ẩn lớp khỏi landing page (admin quyết định)
+    // nullable = true để tương thích với data cũ (NULL = false)
+    @Column(nullable = true)
+    @Builder.Default
+    private Boolean hidden = false;
+
     @ManyToOne(optional = true)
     @JoinColumn(name = "course_id")
     private Course course;
-
 
     @Column(nullable = false)
     private Long pricePerSession;

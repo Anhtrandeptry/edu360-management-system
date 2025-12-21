@@ -30,6 +30,8 @@ import fpt.capstone.edu360managementsystem.dto.request.LoginRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterStudentWithParentRequest;
 import fpt.capstone.edu360managementsystem.dto.request.RegisterTeacherRequest;
 import fpt.capstone.edu360managementsystem.dto.request.ResetPasswordRequest;
+import fpt.capstone.edu360managementsystem.dto.request.SendOtpRequest;
+import fpt.capstone.edu360managementsystem.dto.request.VerifyOtpRequest;
 import fpt.capstone.edu360managementsystem.dto.response.GoogleAuthResponse;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.UserInfoResponse;
@@ -42,6 +44,7 @@ import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.security.jwt.JwtUtils;
 import fpt.capstone.edu360managementsystem.service.AuthService;
+import fpt.capstone.edu360managementsystem.service.EmailVerificationService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 
@@ -86,6 +89,9 @@ public class AuthController {
 
     @Autowired
     fpt.capstone.edu360managementsystem.service.RateLimiterService rateLimiterService;
+
+    @Autowired
+    EmailVerificationService emailVerificationService;
 
     // Rate limit config cho forgot password: 3 lần trong 5 phút
     private static final int FORGOT_PASSWORD_MAX_ATTEMPTS = 3;
@@ -277,10 +283,74 @@ public class AuthController {
         return authService.registerTeacher(request);
     }
 
+    // ===================== EMAIL VERIFICATION (OTP) =====================
+    /**
+     * Gửi mã OTP xác thực email khi đăng ký. Dùng để kiểm tra email thật sự tồn
+     * tại trước khi cho phép đăng ký. Rate limited: 3 lần / email / 5 phút.
+     *
+     * @param request chứa email cần xác thực
+     * @return kết quả gửi OTP
+     */
+    @PostMapping("/send-otp")
+    public ResponseEntity<?> sendOtp(@Valid @RequestBody SendOtpRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+
+        // Kiểm tra email đã tồn tại trong hệ thống chưa
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Email này đã được sử dụng trong hệ thống."));
+        }
+
+        var result = emailVerificationService.sendOtp(email);
+
+        if (result.success()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", result.message(),
+                    "expiryMinutes", result.waitMinutes()
+            ));
+        } else {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new MessageResponse(result.message()));
+        }
+    }
+
+    /**
+     * Xác thực mã OTP. User nhập OTP nhận được qua email để xác thực.
+     *
+     * @param request chứa email và OTP
+     * @return kết quả xác thực
+     */
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+        String otp = request.getOtp().trim();
+
+        var result = emailVerificationService.verifyOtp(email, otp);
+
+        if (result.success()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", result.message(),
+                    "verified", true
+            ));
+        } else {
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "success", false,
+                            "message", result.message(),
+                            "remainingAttempts", result.remainingAttempts()
+                    ));
+        }
+    }
+
+    // ===================== STUDENT REGISTRATION =====================
     /**
      * Registers a new student account with parent information. Public endpoint
      * for student self-registration. Rate limited: 3 registrations per IP per
      * hour to prevent spam.
+     *
+     * YÊU CẦU: Email học sinh phải được xác thực bằng OTP trước khi đăng ký.
      *
      * @param request student and parent registration data
      * @param httpRequest HTTP request for IP extraction
@@ -290,6 +360,26 @@ public class AuthController {
     public ResponseEntity<?> registerStudentWithParent(
             @Valid @RequestBody RegisterStudentWithParentRequest request,
             jakarta.servlet.http.HttpServletRequest httpRequest) {
+
+        // KIỂM TRA EMAIL HỌC SINH ĐÃ ĐƯỢC XÁC THỰC CHƯA
+        String studentEmail = request.getStudentEmail();
+        if (studentEmail != null && !studentEmail.isBlank()) {
+            if (!emailVerificationService.isEmailVerified(studentEmail.toLowerCase().trim())) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Email học sinh chưa được xác thực. Vui lòng xác thực email trước khi đăng ký."));
+            }
+        }
+
+        // KIỂM TRA EMAIL PHỤ HUYNH ĐÃ ĐƯỢC XÁC THỰC CHƯA (chỉ khi tạo phụ huynh mới)
+        if (request.getExistingParentId() == null) {
+            String parentEmail = request.getParentEmail();
+            if (parentEmail != null && !parentEmail.isBlank()) {
+                if (!emailVerificationService.isEmailVerified(parentEmail.toLowerCase().trim())) {
+                    return ResponseEntity.badRequest()
+                            .body(new MessageResponse("Email phụ huynh chưa được xác thực. Vui lòng xác thực email trước khi đăng ký."));
+                }
+            }
+        }
 
         String clientIp = getClientIp(httpRequest);
         String rateLimitKey = "register:ip:" + clientIp;

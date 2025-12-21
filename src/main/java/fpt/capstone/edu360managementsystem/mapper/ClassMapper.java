@@ -31,6 +31,7 @@ public interface ClassMapper {
                 .maxStudents(entity.getMaxStudents())
                 .description(entity.getDescription())
                 .status(entity.getStatus())
+                .hidden(entity.getHidden() != null ? entity.getHidden() : false)
                 .sessionsGenerated(sessionsGenerated)
                 .pricePerSession(entity.getPricePerSession())
                 .totalSessions(sessionsGenerated)
