@@ -573,6 +573,33 @@ public class PaymentService {
     }
 
     /**
+     * Verify Casso Secure Token (cho webhook V1 - legacy)
+     */
+    private boolean verifyCassoSecureToken(String authHeader) {
+        if (cassoWebhookSecretToken == null || cassoWebhookSecretToken.isEmpty()) {
+            System.out.println("Casso V1: Secret token not configured, skipping verification");
+            return true;
+        }
+
+        if (authHeader == null || authHeader.isEmpty()) {
+            System.err.println("Casso V1: No token received, rejecting request");
+            return false;
+        }
+
+        // Casso gửi header dạng: "Apikey <token>" hoặc chỉ "<token>"
+        String token = authHeader;
+        if (authHeader.toLowerCase().startsWith("apikey ")) {
+            token = authHeader.substring(7).trim();
+        }
+
+        boolean isValid = cassoWebhookSecretToken.equals(token);
+        if (!isValid) {
+            System.err.println("Casso V1: Invalid Secure Token");
+        }
+        return isValid;
+    }
+
+    /**
      * Verify Casso Signature (HMAC-SHA256)
      * Format: X-Casso-Signature: t=timestamp,v1=signature
      */
