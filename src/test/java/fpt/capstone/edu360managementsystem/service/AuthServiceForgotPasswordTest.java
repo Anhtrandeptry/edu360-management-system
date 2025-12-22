@@ -2,7 +2,9 @@ package fpt.capstone.edu360managementsystem.service;
 
 import fpt.capstone.edu360managementsystem.dto.request.ForgotPasswordRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
+import fpt.capstone.edu360managementsystem.entity.PasswordResetToken;
 import fpt.capstone.edu360managementsystem.entity.User;
+import fpt.capstone.edu360managementsystem.repository.PasswordResetTokenRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,18 +25,19 @@ import java.util.Collections;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for AuthServiceImpl.forgotPassword() method
  * 
  * Tests cover:
- * - Successful password reset with email notification
+ * - Successful password reset link generation with email notification
  * - User not found handling (security-conscious response)
  * - Email sending failure handling
- * - Password generation and encoding
  * - Case-insensitive email matching
  * - Generic response for security (same message regardless of user existence)
+ * - Token generation and storage
  */
 @ExtendWith(MockitoExtension.class)
 class AuthServiceForgotPasswordTest {
@@ -47,6 +51,9 @@ class AuthServiceForgotPasswordTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
@@ -57,14 +64,16 @@ class AuthServiceForgotPasswordTest {
     void setUp() {
         validRequest = createValidRequest();
         existingUser = createExistingUser();
+        // Set frontend URL for reset link generation
+        ReflectionTestUtils.setField(authService, "frontendUrl", "http://localhost:3000");
     }
 
     @Test
-    void forgotPassword_ValidEmail_ShouldResetPasswordAndSendEmail() {
+    void forgotPassword_ValidEmail_ShouldSendResetLinkEmail() {
         // Given
         when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
-        when(encoder.encode(anyString())).thenReturn("encoded_new_password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
         ResponseEntity<?> response = authService.forgotPassword(validRequest);
@@ -72,26 +81,29 @@ class AuthServiceForgotPasswordTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         MessageResponse messageResponse = (MessageResponse) response.getBody();
-        assertThat(messageResponse.getMessage()).isEqualTo(
-            "Mật khẩu mới đã được gửi tới email của bạn (nếu email tồn tại trong hệ thống)."
-        );
+        assertThat(messageResponse.getMessage()).contains("link đặt lại mật khẩu");
 
-        // Verify password was updated
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-        User savedUser = userCaptor.getValue();
-        assertThat(savedUser.getPassword()).isEqualTo("encoded_new_password");
-        assertThat(savedUser.getId()).isEqualTo(existingUser.getId());
+        // Verify old tokens were invalidated
+        verify(passwordResetTokenRepository).invalidateAllTokensForUser(existingUser);
 
-        // Verify email was sent
+        // Verify new token was saved
+        ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
+        verify(passwordResetTokenRepository).save(tokenCaptor.capture());
+        PasswordResetToken savedToken = tokenCaptor.getValue();
+        assertThat(savedToken.getToken()).isNotNull();
+        assertThat(savedToken.getUser()).isEqualTo(existingUser);
+        assertThat(savedToken.getExpiryDate()).isNotNull();
+
+        // Verify email was sent with reset link
+        ArgumentCaptor<String> emailContentCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendSimpleMessage(
             eq(existingUser.getEmail()),
-            eq("Mật khẩu mới cho tài khoản Edu360"),
-            contains("Bạn vừa yêu cầu đặt lại mật khẩu")
+            eq("Đặt lại mật khẩu tài khoản Edu360"),
+            emailContentCaptor.capture()
         );
-
-        // Verify password encoding
-        verify(encoder).encode(anyString());
+        String emailContent = emailContentCaptor.getValue();
+        assertThat(emailContent).contains("reset-password?token=");
+        assertThat(emailContent).contains(existingUser.getFullName());
     }
 
     @Test
@@ -106,13 +118,13 @@ class AuthServiceForgotPasswordTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         MessageResponse messageResponse = (MessageResponse) response.getBody();
         assertThat(messageResponse.getMessage()).isEqualTo(
-            "Nếu email tồn tại trong hệ thống, mật khẩu mới đã được gửi."
+            "Nếu email tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi."
         );
 
         // Verify no database operations
-        verify(userRepository, never()).save(any());
+        verify(passwordResetTokenRepository, never()).invalidateAllTokensForUser(any());
+        verify(passwordResetTokenRepository, never()).save(any());
         verify(emailService, never()).sendSimpleMessage(anyString(), anyString(), anyString());
-        verify(encoder, never()).encode(anyString());
     }
 
     @Test
@@ -122,8 +134,8 @@ class AuthServiceForgotPasswordTest {
         existingUser.setEmail("user@test.com"); // Lowercase in database
         
         when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
-        when(encoder.encode(anyString())).thenReturn("encoded_new_password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
         ResponseEntity<?> response = authService.forgotPassword(validRequest);
@@ -131,17 +143,18 @@ class AuthServiceForgotPasswordTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         
-        // Verify user was found and password reset
-        verify(userRepository).save(any(User.class));
+        // Verify token was created and email was sent
+        verify(passwordResetTokenRepository).invalidateAllTokensForUser(existingUser);
+        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
         verify(emailService).sendSimpleMessage(anyString(), anyString(), anyString());
     }
 
     @Test
-    void forgotPassword_EmailSendingFails_ShouldStillResetPasswordWithWarning() {
+    void forgotPassword_EmailSendingFails_ShouldReturnErrorMessage() {
         // Given
         when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
-        when(encoder.encode(anyString())).thenReturn("encoded_new_password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
         
         // Mock email service to throw exception
         doThrow(new MailException("SMTP server unavailable") {}).when(emailService)
@@ -151,13 +164,12 @@ class AuthServiceForgotPasswordTest {
         ResponseEntity<?> response = authService.forgotPassword(validRequest);
 
         // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         MessageResponse messageResponse = (MessageResponse) response.getBody();
-        assertThat(messageResponse.getMessage()).contains("Mật khẩu đã được reset nhưng gửi email thất bại");
+        assertThat(messageResponse.getMessage()).contains("Không thể gửi email");
 
-        // Verify password was still reset
-        verify(userRepository).save(any(User.class));
-        verify(encoder).encode(anyString());
+        // Verify token was still created before email failed
+        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
     }
 
     @Test
@@ -170,8 +182,8 @@ class AuthServiceForgotPasswordTest {
         validRequest.setEmail("user2@test.com");
         
         when(userRepository.findAll()).thenReturn(Arrays.asList(user1, user2, user3));
-        when(encoder.encode(anyString())).thenReturn("encoded_new_password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
         ResponseEntity<?> response = authService.forgotPassword(validRequest);
@@ -179,12 +191,8 @@ class AuthServiceForgotPasswordTest {
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         
-        // Verify correct user was updated
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-        User savedUser = userCaptor.getValue();
-        assertThat(savedUser.getId()).isEqualTo(2L);
-        assertThat(savedUser.getEmail()).isEqualTo("user2@test.com");
+        // Verify correct user's tokens were invalidated
+        verify(passwordResetTokenRepository).invalidateAllTokensForUser(user2);
 
         // Verify email sent to correct user
         verify(emailService).sendSimpleMessage(
@@ -198,8 +206,8 @@ class AuthServiceForgotPasswordTest {
     void forgotPassword_EmailContentValidation_ShouldContainCorrectInformation() {
         // Given
         when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
-        when(encoder.encode(anyString())).thenReturn("encoded_new_password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
         ResponseEntity<?> response = authService.forgotPassword(validRequest);
@@ -211,38 +219,35 @@ class AuthServiceForgotPasswordTest {
         ArgumentCaptor<String> emailContentCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendSimpleMessage(
             eq(existingUser.getEmail()),
-            eq("Mật khẩu mới cho tài khoản Edu360"),
+            eq("Đặt lại mật khẩu tài khoản Edu360"),
             emailContentCaptor.capture()
         );
         
         String emailContent = emailContentCaptor.getValue();
         assertThat(emailContent).contains("Xin chào " + existingUser.getFullName());
         assertThat(emailContent).contains("Bạn vừa yêu cầu đặt lại mật khẩu");
-        assertThat(emailContent).contains("Mật khẩu mới của bạn là:");
-        assertThat(emailContent).contains("Vui lòng đăng nhập và đổi mật khẩu");
+        assertThat(emailContent).contains("reset-password?token=");
         assertThat(emailContent).contains("Đội ngũ Edu360");
     }
 
     @Test
-    void forgotPassword_PasswordGeneration_ShouldGenerateRandomPassword() {
+    void forgotPassword_TokenGeneration_ShouldGenerateUniqueToken() {
         // Given
         when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
-        when(encoder.encode(anyString())).thenReturn("encoded_new_password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
         authService.forgotPassword(validRequest);
 
         // Then
-        // Verify encoder was called with some password (we can't predict the random password)
-        ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
-        verify(encoder).encode(passwordCaptor.capture());
-        String generatedPassword = passwordCaptor.getValue();
+        ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
+        verify(passwordResetTokenRepository).save(tokenCaptor.capture());
+        PasswordResetToken savedToken = tokenCaptor.getValue();
         
-        // Verify password characteristics
-        assertThat(generatedPassword).isNotNull();
-        assertThat(generatedPassword).hasSize(10); // Default length
-        assertThat(generatedPassword).matches("[A-Za-z0-9]+"); // Only alphanumeric characters
+        // Verify token characteristics (UUID format)
+        assertThat(savedToken.getToken()).isNotNull();
+        assertThat(savedToken.getToken()).matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
     }
 
     @Test
@@ -258,11 +263,11 @@ class AuthServiceForgotPasswordTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         MessageResponse messageResponse = (MessageResponse) response.getBody();
         assertThat(messageResponse.getMessage()).isEqualTo(
-            "Nếu email tồn tại trong hệ thống, mật khẩu mới đã được gửi."
+            "Nếu email tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi."
         );
 
         // Verify no operations performed
-        verify(userRepository, never()).save(any());
+        verify(passwordResetTokenRepository, never()).save(any());
         verify(emailService, never()).sendSimpleMessage(anyString(), anyString(), anyString());
     }
 
@@ -270,7 +275,6 @@ class AuthServiceForgotPasswordTest {
     void forgotPassword_NullEmail_ShouldThrowNullPointerException() {
         // Given
         validRequest.setEmail(null);
-        when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
 
         // When & Then
         try {
@@ -279,36 +283,33 @@ class AuthServiceForgotPasswordTest {
             assertThat(false).as("Expected NullPointerException to be thrown").isTrue();
         } catch (NullPointerException e) {
             // Expected behavior - service doesn't handle null email gracefully
-            assertThat(e.getMessage()).contains("Cannot invoke \"String.equalsIgnoreCase(String)\"");
+            assertThat(e.getMessage()).contains("Cannot invoke \"String.toLowerCase()\"");
         }
 
         // Verify no operations performed
-        verify(userRepository, never()).save(any());
+        verify(passwordResetTokenRepository, never()).save(any());
         verify(emailService, never()).sendSimpleMessage(anyString(), anyString(), anyString());
     }
 
     @Test
-    void forgotPassword_WhitespaceInEmail_ShouldHandleCorrectly() {
-        // Given
+    void forgotPassword_WhitespaceInEmail_ShouldTrimAndFindUser() {
+        // Given - new implementation trims whitespace
         validRequest.setEmail("  user@test.com  "); // Email with whitespace
         existingUser.setEmail("user@test.com");
         
         when(userRepository.findAll()).thenReturn(Arrays.asList(existingUser));
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
         ResponseEntity<?> response = authService.forgotPassword(validRequest);
 
         // Then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        MessageResponse messageResponse = (MessageResponse) response.getBody();
-        assertThat(messageResponse.getMessage()).isEqualTo(
-            "Nếu email tồn tại trong hệ thống, mật khẩu mới đã được gửi."
-        );
         
-        // Should not find user due to whitespace (current implementation doesn't trim)
-        // This test documents current behavior - you might want to add trimming
-        verify(userRepository, never()).save(any());
-        verify(emailService, never()).sendSimpleMessage(anyString(), anyString(), anyString());
+        // Current implementation trims email, so user should be found
+        verify(passwordResetTokenRepository).invalidateAllTokensForUser(existingUser);
+        verify(emailService).sendSimpleMessage(anyString(), anyString(), anyString());
     }
 
     // Helper methods

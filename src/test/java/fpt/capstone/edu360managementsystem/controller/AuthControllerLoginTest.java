@@ -10,6 +10,7 @@ import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import fpt.capstone.edu360managementsystem.repository.TeacherRepository;
 import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import fpt.capstone.edu360managementsystem.security.jwt.JwtUtils;
+import fpt.capstone.edu360managementsystem.service.RateLimiterService;
 import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +64,9 @@ class AuthControllerLoginTest {
 
     @Mock
     private JwtUtils jwtUtils;
+
+    @Mock
+    private RateLimiterService rateLimiterService;
 
     @Mock
     private Authentication authentication;

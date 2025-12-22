@@ -93,7 +93,9 @@ class CourseServiceTest {
     @Test void test02_createCourse_userNotFound() {
         CourseCreateRequest req = new CourseCreateRequest();
         req.setSubjectId(1L);
+        req.setTitle("Test Course");
         when(subjectRepository.findById(1L)).thenReturn(Optional.of(subject));
+        when(courseRepository.existsByTitleIgnoreCaseAndSubjectId("Test Course", 1L)).thenReturn(false);
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> courseService.createCourse(999L, true, req))
             .isInstanceOf(RuntimeException.class)
