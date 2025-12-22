@@ -58,6 +58,11 @@ public class CourseService {
         Subject subject = subjectRepository.findById(req.getSubjectId())
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
 
+        // Validate: Kiểm tra trùng tên khóa học trong cùng môn học
+        if (courseRepository.existsByTitleIgnoreCaseAndSubjectId(req.getTitle().trim(), req.getSubjectId())) {
+            throw new RuntimeException("Tên khóa học \"" + req.getTitle().trim() + "\" đã tồn tại trong môn học này. Vui lòng chọn tên khác.");
+        }
+
         User creator = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
