@@ -350,8 +350,6 @@ public class AuthController {
      * for student self-registration. Rate limited: 3 registrations per IP per
      * hour to prevent spam.
      *
-     * YÊU CẦU: Email học sinh phải được xác thực bằng OTP trước khi đăng ký.
-     *
      * @param request student and parent registration data
      * @param httpRequest HTTP request for IP extraction
      * @return registration result
@@ -360,26 +358,6 @@ public class AuthController {
     public ResponseEntity<?> registerStudentWithParent(
             @Valid @RequestBody RegisterStudentWithParentRequest request,
             jakarta.servlet.http.HttpServletRequest httpRequest) {
-
-        // KIỂM TRA EMAIL HỌC SINH ĐÃ ĐƯỢC XÁC THỰC CHƯA
-        String studentEmail = request.getStudentEmail();
-        if (studentEmail != null && !studentEmail.isBlank()) {
-            if (!emailVerificationService.isEmailVerified(studentEmail.toLowerCase().trim())) {
-                return ResponseEntity.badRequest()
-                        .body(new MessageResponse("Email học sinh chưa được xác thực. Vui lòng xác thực email trước khi đăng ký."));
-            }
-        }
-
-        // KIỂM TRA EMAIL PHỤ HUYNH ĐÃ ĐƯỢC XÁC THỰC CHƯA (chỉ khi tạo phụ huynh mới)
-        if (request.getExistingParentId() == null) {
-            String parentEmail = request.getParentEmail();
-            if (parentEmail != null && !parentEmail.isBlank()) {
-                if (!emailVerificationService.isEmailVerified(parentEmail.toLowerCase().trim())) {
-                    return ResponseEntity.badRequest()
-                            .body(new MessageResponse("Email phụ huynh chưa được xác thực. Vui lòng xác thực email trước khi đăng ký."));
-                }
-            }
-        }
 
         String clientIp = getClientIp(httpRequest);
         String rateLimitKey = "register:ip:" + clientIp;
