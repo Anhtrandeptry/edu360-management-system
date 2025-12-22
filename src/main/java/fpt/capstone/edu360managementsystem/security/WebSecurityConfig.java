@@ -82,8 +82,9 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/classes/**").authenticated()
                 // Allow search endpoints for public access
                 .requestMatchers("/api/search/**").permitAll()
-                // Teachers: only allow GET for public viewing (list, detail), other methods require auth
+                // Teachers: only allow GET for public viewing (list, detail, paginated), other methods require auth
                 .requestMatchers(HttpMethod.GET, "/api/teachers").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/teachers/paginated").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}/free-busy").permitAll()
                 .requestMatchers("/api/teachers/**").authenticated()
