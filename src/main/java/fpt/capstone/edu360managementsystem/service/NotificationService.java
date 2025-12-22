@@ -53,6 +53,8 @@ public class NotificationService {
      */
     @Transactional
     public void createNotificationForUsers(List<Long> userIds, String title, String message, NotificationType type, String link) {
+        System.out.println("📨 [createNotificationForUsers] Creating notifications for " + userIds.size() + " users, type=" + type);
+        
         List<User> users = userRepository.findAllById(userIds);
 
         List<Notification> notifications = users.stream()
@@ -66,7 +68,9 @@ public class NotificationService {
                 .build())
                 .collect(Collectors.toList());
 
-        notificationRepository.saveAll(notifications);
+        List<Notification> saved = notificationRepository.saveAll(notifications);
+        System.out.println("✅ [createNotificationForUsers] Saved " + saved.size() + " notifications with IDs: " + 
+                saved.stream().map(n -> n.getId().toString()).collect(Collectors.joining(", ")));
     }
 
     /**
@@ -210,11 +214,15 @@ public class NotificationService {
      * @param paymentId ID của payment để admin có thể xác nhận
      */
     public void notifyAdminsNewPaymentPending(String studentName, String className, Long amount, Long paymentId) {
+        System.out.println("🔔 [notifyAdminsNewPaymentPending] START - studentName=" + studentName + ", className=" + className + ", amount=" + amount + ", paymentId=" + paymentId);
+        
         // Lấy tất cả users có role ADMIN
         List<User> admins = userRepository.findAllByRole(fpt.capstone.edu360managementsystem.enums.ERole.ROLE_ADMIN);
+        
+        System.out.println("🔔 [notifyAdminsNewPaymentPending] Found " + admins.size() + " admins");
 
         if (admins.isEmpty()) {
-            System.err.println("No admin found to notify about new payment");
+            System.err.println("❌ No admin found to notify about new payment");
             return;
         }
 
@@ -226,6 +234,8 @@ public class NotificationService {
         List<Long> adminIds = admins.stream()
                 .map(User::getId)
                 .collect(Collectors.toList());
+        
+        System.out.println("🔔 [notifyAdminsNewPaymentPending] Admin IDs: " + adminIds);
 
         createNotificationForUsers(
                 adminIds,
@@ -234,6 +244,48 @@ public class NotificationService {
                 NotificationType.NEW_PAYMENT_PENDING,
                 "/admin/payments?highlight=" + paymentId
         );
+        
+        System.out.println("✅ [notifyAdminsNewPaymentPending] Notifications created successfully!");
+    }
+
+    /**
+     * Gửi thông báo cho tất cả admin khi có học sinh đăng ký lớp thành công
+     *
+     * @param studentName Tên học sinh
+     * @param className Tên lớp học
+     * @param classId ID của lớp học
+     */
+    public void notifyAdminsNewEnrollment(String studentName, String className, Long classId) {
+        System.out.println("🎓 [notifyAdminsNewEnrollment] START - studentName=" + studentName + ", className=" + className + ", classId=" + classId);
+        
+        // Lấy tất cả users có role ADMIN
+        List<User> admins = userRepository.findAllByRole(fpt.capstone.edu360managementsystem.enums.ERole.ROLE_ADMIN);
+
+        System.out.println("🎓 [notifyAdminsNewEnrollment] Found " + admins.size() + " admins");
+
+        if (admins.isEmpty()) {
+            System.err.println("❌ No admin found to notify about new enrollment");
+            return;
+        }
+
+        String title = "📚 Có học sinh mới đăng ký lớp";
+        String message = "Học sinh " + studentName + " đã đăng ký thành công vào lớp " + className + ".";
+
+        List<Long> adminIds = admins.stream()
+                .map(User::getId)
+                .collect(Collectors.toList());
+
+        System.out.println("🎓 [notifyAdminsNewEnrollment] Admin IDs: " + adminIds);
+
+        createNotificationForUsers(
+                adminIds,
+                title,
+                message,
+                NotificationType.NEW_ENROLLMENT,
+                "/admin/class/" + classId
+        );
+        
+        System.out.println("✅ [notifyAdminsNewEnrollment] Notifications created successfully!");
     }
 
     private NotificationResponse toResponse(Notification n) {

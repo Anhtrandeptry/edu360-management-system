@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookRequest;
+import fpt.capstone.edu360managementsystem.dto.request.PayOSWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.VietQrCallbackRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
 import fpt.capstone.edu360managementsystem.dto.response.PaymentCreateResponse;
@@ -39,11 +40,11 @@ import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
 @RequestMapping("/api/payments")
 public class PaymentController {
 
-    @Autowired
-    private PaymentService paymentService;
-
     @Value("${casso.webhook.secret:}")
     private String cassoWebhookSecret;
+
+    @Autowired
+    private PaymentService paymentService;
 
     /**
      * Creates a payment and generates QR code for class enrollment.
@@ -58,7 +59,9 @@ public class PaymentController {
             @PathVariable Long classId,
             @AuthenticationPrincipal UserDetailsImpl user
     ) {
+        System.out.println("💰 [PaymentController] createPayment called - classId=" + classId + ", userId=" + user.getId());
         PaymentCreateResponse resp = paymentService.createPaymentForClass(classId, user.getId());
+        System.out.println("💰 [PaymentController] Payment created - paymentId=" + resp.getPaymentId());
         return ResponseEntity.ok(resp);
     }
 
@@ -103,6 +106,27 @@ public class PaymentController {
             return ResponseEntity.ok(new MessageResponse("OK"));
         } catch (Exception ex) {
             System.err.println("Casso webhook error: " + ex.getMessage());
+            return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
+        }
+    }
+
+    /**
+     * Handles PayOS payment webhook.
+     * PayOS sẽ gửi webhook mỗi khi có giao dịch thanh toán thành công.
+     * Luồng tự động: PayOS webhook -> verify -> tìm payment -> mark PAID -> enroll student
+     *
+     * @param body the webhook request data from PayOS
+     * @return acknowledgement message
+     */
+    @PostMapping("/payos/webhook")
+    public ResponseEntity<?> payosWebhook(@RequestBody PayOSWebhookRequest body) {
+        try {
+            System.out.println("PayOS webhook received: code=" + body.getCode() + ", success=" + body.getSuccess());
+            
+            paymentService.handlePayOSWebhook(body);
+            return ResponseEntity.ok(new MessageResponse("OK"));
+        } catch (Exception ex) {
+            System.err.println("PayOS webhook error: " + ex.getMessage());
             return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
         }
     }

@@ -34,6 +34,7 @@ public enum NotificationType {
 
     // Admin
     DRAFT_CLASS_REMINDER, // Nhắc nhở lớp DRAFT sắp đến ngày bắt đầu
+    NEW_ENROLLMENT, // Admin: Có học sinh mới đăng ký lớp thành công
 
     // News
     NEW_NEWS_POSTED

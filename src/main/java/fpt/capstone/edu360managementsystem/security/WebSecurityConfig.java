@@ -96,9 +96,10 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/upload/**").authenticated()
                 // Allow serving uploaded files (read-only)
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
-                // Allow payment webhooks (Casso, VietQR) - verified by secret key
+                // Allow payment webhooks (Casso, VietQR, PayOS) - verified by secret key
                 .requestMatchers("/api/payments/casso/webhook").permitAll()
                 .requestMatchers("/api/payments/vietqr/callback").permitAll()
+                .requestMatchers("/api/payments/payos/webhook").permitAll()
                 // Student profile endpoints (require STUDENT role - handled by @PreAuthorize)
                 .requestMatchers("/api/students/profile/**").authenticated()
                 .anyRequest().authenticated()

@@ -272,7 +272,20 @@ public class EnrollmentService {
             );
         } catch (Exception e) {
             // Không throw lỗi nếu gửi notification thất bại
-            System.err.println("Failed to send enrollment notification: " + e.getMessage());
+            System.err.println("Failed to send enrollment notification to student: " + e.getMessage());
+        }
+
+        // 7. Gửi thông báo cho tất cả admin
+        try {
+            String studentName = student.getUser().getFullName();
+            notificationService.notifyAdminsNewEnrollment(
+                    studentName,
+                    clazz.getName(),
+                    clazz.getId()
+            );
+        } catch (Exception e) {
+            // Không throw lỗi nếu gửi notification thất bại
+            System.err.println("Failed to send enrollment notification to admins: " + e.getMessage());
         }
     }
 
@@ -332,7 +345,20 @@ public class EnrollmentService {
             );
         } catch (Exception e) {
             // Không throw lỗi nếu gửi notification thất bại
-            System.err.println("Failed to send enrollment notification: " + e.getMessage());
+            System.err.println("Failed to send enrollment notification to student: " + e.getMessage());
+        }
+
+        // 6. Gửi thông báo cho tất cả admin
+        try {
+            String studentName = student.getUser().getFullName();
+            notificationService.notifyAdminsNewEnrollment(
+                    studentName,
+                    clazz.getName(),
+                    clazz.getId()
+            );
+        } catch (Exception e) {
+            // Không throw lỗi nếu gửi notification thất bại
+            System.err.println("Failed to send enrollment notification to admins: " + e.getMessage());
         }
     }
 

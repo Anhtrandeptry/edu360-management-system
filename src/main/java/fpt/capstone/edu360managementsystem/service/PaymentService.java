@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookRequest;
+import fpt.capstone.edu360managementsystem.dto.request.PayOSWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.VietQrCallbackRequest;
 import fpt.capstone.edu360managementsystem.dto.response.PaymentCreateResponse;
 import fpt.capstone.edu360managementsystem.dto.response.PaymentResponse;
@@ -27,6 +28,9 @@ import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.PaymentRepository;
 import fpt.capstone.edu360managementsystem.repository.StudentRepository;
 import jakarta.transaction.Transactional;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 @Service
 public class PaymentService {
@@ -45,6 +49,9 @@ public class PaymentService {
 
     @Value("${payment.vietqr.baseUrl}")
     private String baseUrl;
+
+    @Value("${payos.checksumKey:}")
+    private String payosChecksumKey;
 
     @Autowired
     private ClazzRepository clazzRepository;
@@ -337,6 +344,18 @@ public class PaymentService {
 
             System.out.println("Casso: Payment confirmed for orderCode: " + orderCode);
 
+            // Gửi thông báo thanh toán thành công
+            try {
+                notificationService.notifyPaymentSuccess(
+                        payment.getStudent().getUser().getId(),
+                        payment.getClazz().getName(),
+                        payment.getAmount()
+                );
+                System.out.println("Casso: Payment notification sent to student: " + payment.getStudent().getUser().getId());
+            } catch (Exception e) {
+                System.err.println("Casso: Failed to send payment notification: " + e.getMessage());
+            }
+
             // Tự động enroll student
             try {
                 enrollmentService.enrollAfterPayment(
@@ -347,6 +366,125 @@ public class PaymentService {
             } catch (Exception e) {
                 System.err.println("Casso: Auto-enroll failed: " + e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Xử lý webhook từ PayOS
+     * PayOS sẽ gửi webhook khi có giao dịch thanh toán thành công.
+     * 
+     * Luồng:
+     * 1. Nhận webhook từ PayOS
+     * 2. Verify signature với Checksum Key
+     * 3. Tìm payment theo orderCode trong description
+     * 4. Verify số tiền và cập nhật trạng thái PAID
+     * 5. Tự động enroll student vào lớp
+     */
+    @Transactional
+    public void handlePayOSWebhook(PayOSWebhookRequest req) {
+        // Kiểm tra response thành công
+        if (req.getCode() == null || !"00".equals(req.getCode())) {
+            System.err.println("PayOS webhook: Transaction not successful, code: " + req.getCode());
+            return;
+        }
+
+        if (req.getData() == null) {
+            System.err.println("PayOS webhook: No transaction data");
+            return;
+        }
+
+        PayOSWebhookRequest.PayOSTransactionData tx = req.getData();
+
+        // Tìm orderCode trong description (nội dung chuyển khoản)
+        String orderCode = extractOrderCode(tx.getDescription());
+        if (orderCode == null) {
+            System.out.println("PayOS: No orderCode found in description: " + tx.getDescription());
+            return;
+        }
+
+        // Tìm payment theo orderCode
+        var paymentOpt = paymentRepository.findByOrderCode(orderCode);
+        if (paymentOpt.isEmpty()) {
+            System.out.println("PayOS: Payment not found for orderCode: " + orderCode);
+            return;
+        }
+
+        Payment payment = paymentOpt.get();
+
+        // Đã xử lý rồi thì bỏ qua
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            System.out.println("PayOS: Payment already processed for orderCode: " + orderCode);
+            return;
+        }
+
+        // Verify số tiền
+        if (tx.getAmount() != null && !tx.getAmount().equals(payment.getAmount())) {
+            System.err.println("PayOS: Amount mismatch for " + orderCode + 
+                    ". Expected: " + payment.getAmount() + ", Got: " + tx.getAmount());
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setBankTransactionId(tx.getReference());
+            paymentRepository.save(payment);
+            return;
+        }
+
+        // Đúng tiền => Mark PAID
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setPaidAt(LocalDateTime.now());
+        payment.setBankTransactionId(tx.getReference());
+        paymentRepository.save(payment);
+
+        System.out.println("PayOS: Payment confirmed for orderCode: " + orderCode);
+
+        // Gửi thông báo thanh toán thành công
+        try {
+            notificationService.notifyPaymentSuccess(
+                    payment.getStudent().getUser().getId(),
+                    payment.getClazz().getName(),
+                    payment.getAmount()
+            );
+            System.out.println("PayOS: Payment notification sent to student: " + payment.getStudent().getUser().getId());
+        } catch (Exception e) {
+            System.err.println("PayOS: Failed to send payment notification: " + e.getMessage());
+        }
+
+        // Tự động enroll student
+        try {
+            enrollmentService.enrollAfterPayment(
+                    payment.getClazz().getId(),
+                    payment.getStudent().getId()
+            );
+            System.out.println("PayOS: Student auto-enrolled for class: " + payment.getClazz().getId());
+        } catch (Exception e) {
+            System.err.println("PayOS: Auto-enroll failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Verify PayOS webhook signature
+     */
+    public boolean verifyPayOSSignature(String data, String signature) {
+        if (payosChecksumKey == null || payosChecksumKey.isEmpty()) {
+            System.out.println("PayOS: Checksum key not configured, skipping signature verification");
+            return true;
+        }
+        
+        try {
+            Mac hmac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(payosChecksumKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            hmac.init(secretKey);
+            byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            
+            return hexString.toString().equals(signature);
+        } catch (Exception e) {
+            System.err.println("PayOS: Signature verification failed: " + e.getMessage());
+            return false;
         }
     }
 
