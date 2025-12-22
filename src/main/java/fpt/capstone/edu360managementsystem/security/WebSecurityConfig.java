@@ -87,6 +87,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers(HttpMethod.GET, "/api/teachers/paginated").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}/free-busy").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/teachers/by-user/*/profile").permitAll()
                 .requestMatchers("/api/teachers/**").authenticated()
                 // News: only allow GET for public access, POST/PUT/DELETE require auth
                 .requestMatchers(HttpMethod.GET, "/api/news/**").permitAll()
