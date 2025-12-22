@@ -99,8 +99,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/upload/**").authenticated()
                 // Allow serving uploaded files (read-only)
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
-                // Allow payment webhooks (Casso, VietQR, PayOS) - verified by secret key
-                .requestMatchers("/api/payments/casso/webhook").permitAll()
+                // Allow payment webhooks (Casso, VietQR, PayOS) - verified by signature/secret
                 .requestMatchers("/api/payments/casso/webhook/v2").permitAll()
                 .requestMatchers("/api/payments/vietqr/callback").permitAll()
                 .requestMatchers("/api/payments/payos/webhook").permitAll()

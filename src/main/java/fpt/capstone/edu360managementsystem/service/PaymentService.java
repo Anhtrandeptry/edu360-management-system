@@ -16,7 +16,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookV2Request;
 import fpt.capstone.edu360managementsystem.dto.request.PayOSWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.VietQrCallbackRequest;
@@ -527,79 +526,6 @@ public class PaymentService {
     }
 
     /**
-     * Xử lý webhook từ Casso
-     * Casso gửi webhook khi có giao dịch tiền vào tài khoản ngân hàng.
-     * 
-     * Luồng:
-     * 1. Verify Secure Token từ header
-     * 2. Duyệt qua danh sách giao dịch
-     * 3. Tìm payment theo orderCode trong description
-     * 4. Verify số tiền và cập nhật trạng thái PAID
-     * 5. Tự động enroll student vào lớp
-     * 
-     * @param req Webhook payload từ Casso
-     * @param authHeader Authorization header chứa Secure Token
-     */
-    @Transactional
-    public void handleCassoWebhook(CassoWebhookRequest req, String authHeader) {
-        System.out.println("📥 Casso webhook received");
-
-        // 1. Verify Secure Token
-        if (!verifyCassoSecureToken(authHeader)) {
-            throw new RuntimeException("Invalid Casso Secure Token");
-        }
-
-        // 2. Kiểm tra error code
-        if (req.getError() != null && req.getError() != 0) {
-            System.err.println("Casso webhook: Error code = " + req.getError());
-            return;
-        }
-
-        // 3. Kiểm tra có data không
-        if (req.getData() == null || req.getData().isEmpty()) {
-            System.out.println("Casso webhook: No transactions in data");
-            return;
-        }
-
-        // 4. Xử lý từng giao dịch
-        for (CassoWebhookRequest.CassoTransaction tx : req.getData()) {
-            try {
-                processCassoTransaction(tx);
-            } catch (Exception e) {
-                // Log lỗi nhưng tiếp tục xử lý các giao dịch khác
-                System.err.println("Casso: Error processing transaction " + tx.getTid() + ": " + e.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Verify Casso Secure Token (cho webhook V1 - legacy)
-     */
-    private boolean verifyCassoSecureToken(String authHeader) {
-        if (cassoWebhookSecretToken == null || cassoWebhookSecretToken.isEmpty()) {
-            System.out.println("Casso V1: Secret token not configured, skipping verification");
-            return true;
-        }
-
-        if (authHeader == null || authHeader.isEmpty()) {
-            System.err.println("Casso V1: No token received, rejecting request");
-            return false;
-        }
-
-        // Casso gửi header dạng: "Apikey <token>" hoặc chỉ "<token>"
-        String token = authHeader;
-        if (authHeader.toLowerCase().startsWith("apikey ")) {
-            token = authHeader.substring(7).trim();
-        }
-
-        boolean isValid = cassoWebhookSecretToken.equals(token);
-        if (!isValid) {
-            System.err.println("Casso V1: Invalid Secure Token");
-        }
-        return isValid;
-    }
-
-    /**
      * Verify Casso Signature (HMAC-SHA256)
      * Format: X-Casso-Signature: t=timestamp,v1=signature
      */
@@ -664,79 +590,6 @@ public class PaymentService {
         } catch (Exception e) {
             System.err.println("Casso: Error verifying signature: " + e.getMessage());
             return false;
-        }
-    }
-
-    /**
-     * Xử lý một giao dịch từ Casso
-     */
-    private void processCassoTransaction(CassoWebhookRequest.CassoTransaction tx) {
-        System.out.println("Casso: Processing transaction - tid=" + tx.getTid() 
-                + ", amount=" + tx.getAmount() 
-                + ", desc=" + tx.getDescription());
-
-        // 1. Tìm orderCode trong description
-        String orderCode = extractOrderCode(tx.getDescription());
-        if (orderCode == null) {
-            System.out.println("Casso: No orderCode found in description: " + tx.getDescription());
-            return;
-        }
-
-        // 2. Tìm payment theo orderCode
-        var paymentOpt = paymentRepository.findByOrderCode(orderCode);
-        if (paymentOpt.isEmpty()) {
-            System.out.println("Casso: Payment not found for orderCode: " + orderCode);
-            return;
-        }
-
-        Payment payment = paymentOpt.get();
-
-        // 3. Kiểm tra đã xử lý chưa
-        if (payment.getStatus() == PaymentStatus.PAID) {
-            System.out.println("Casso: Payment already PAID for orderCode: " + orderCode);
-            return;
-        }
-
-        // 4. Verify số tiền
-        if (tx.getAmount() == null || !tx.getAmount().equals(payment.getAmount())) {
-            System.err.println("Casso: Amount mismatch for " + orderCode 
-                    + ". Expected: " + payment.getAmount() 
-                    + ", Got: " + tx.getAmount());
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setBankTransactionId(tx.getTid());
-            paymentRepository.save(payment);
-            return;
-        }
-
-        // 5. Mark PAID
-        payment.setStatus(PaymentStatus.PAID);
-        payment.setPaidAt(LocalDateTime.now());
-        payment.setBankTransactionId(tx.getTid());
-        paymentRepository.save(payment);
-
-        System.out.println("✅ Casso: Payment confirmed for orderCode: " + orderCode);
-
-        // 6. Gửi thông báo thanh toán thành công
-        try {
-            notificationService.notifyPaymentSuccess(
-                    payment.getStudent().getUser().getId(),
-                    payment.getClazz().getName(),
-                    payment.getAmount()
-            );
-            System.out.println("Casso: Notification sent to student: " + payment.getStudent().getUser().getId());
-        } catch (Exception e) {
-            System.err.println("Casso: Failed to send notification: " + e.getMessage());
-        }
-
-        // 7. Tự động enroll student vào lớp
-        try {
-            enrollmentService.enrollAfterPayment(
-                    payment.getClazz().getId(),
-                    payment.getStudent().getId()
-            );
-            System.out.println("✅ Casso: Student auto-enrolled for class: " + payment.getClazz().getId());
-        } catch (Exception e) {
-            System.err.println("Casso: Auto-enroll failed: " + e.getMessage());
         }
     }
 
