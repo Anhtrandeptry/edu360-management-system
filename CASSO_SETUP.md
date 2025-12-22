@@ -145,7 +145,90 @@ Hệ thống sẽ tìm `#PAY-...` để xác định payment tương ứng.
 3. **Secure Token**: Luôn sử dụng Secure Token để bảo mật webhook
 4. **HTTPS**: Webhook URL phải là HTTPS trong production
 
-## 🧪 Test Webhook
+---
+
+## 🧪 Test trên Localhost với ngrok
+
+### Bước 1: Cài đặt ngrok
+
+```powershell
+# Cài qua winget
+winget install ngrok
+
+# Hoặc tải từ https://ngrok.com/download
+```
+
+### Bước 2: Đăng ký tài khoản ngrok (miễn phí)
+
+1. Vào https://ngrok.com → Sign up
+2. Lấy authtoken từ dashboard
+3. Cấu hình:
+
+```powershell
+ngrok config add-authtoken <your-authtoken>
+```
+
+### Bước 3: Chạy ngrok expose localhost
+
+```powershell
+# Spring Boot chạy port 8080
+ngrok http 8080
+```
+
+Ngrok sẽ cho URL dạng:
+```
+https://abc123.ngrok-free.app → http://localhost:8080
+```
+
+### Bước 4: Cấu hình Casso Webhook
+
+1. Vào https://my.casso.vn → **Thiết lập** → **Webhook**
+2. Thêm webhook URL:
+   ```
+   https://abc123.ngrok-free.app/api/payments/casso/webhook
+   ```
+3. Tạo **Secure Token** và lưu vào biến môi trường:
+   ```properties
+   CASSO_WEBHOOK_SECRET_TOKEN=your_secure_token_here
+   ```
+
+### Bước 5: Test luồng
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Bạn quét  │ --> │  Chuyển tiền │ --> │    Casso    │
+│   QR Code   │     │  vào TK test │     │  Detect TX  │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               v
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Payment    │ <-- │ localhost   │ <-- │   ngrok     │
+│  PAID ✅    │     │   :8080     │     │   tunnel    │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+### ⚠️ Lưu ý khi dùng ngrok
+
+| Vấn đề | Giải pháp |
+|--------|-----------|
+| URL thay đổi mỗi lần restart ngrok | Update lại webhook URL trên Casso Dashboard |
+| Dùng custom domain cố định | Ngrok trả phí hoặc dùng Cloudflared |
+
+---
+
+## 🔧 Alternative: Cloudflared (miễn phí, không cần đăng ký)
+
+```powershell
+# Cài cloudflared
+winget install Cloudflare.cloudflared
+
+# Chạy tunnel
+cloudflared tunnel --url http://localhost:8080
+```
+
+---
+
+## 🧪 Test Webhook thủ công
 
 Có thể test webhook bằng cách gửi POST request:
 
@@ -158,10 +241,32 @@ curl -X POST https://your-domain.com/api/payments/casso/webhook \
     "data": [{
       "id": 1,
       "amount": 500000,
-      "description": "#PAY-123-456-1703123456789",
+      "description": "Nguyen Van A thanh toan hoc phi #PAY-123-456-1703123456789",
       "tid": "TEST123"
     }]
   }'
+```
+
+Hoặc dùng PowerShell:
+
+```powershell
+$body = @{
+    error = 0
+    data = @(
+        @{
+            id = 1
+            amount = 500000
+            description = "Nguyen Van A thanh toan hoc phi #PAY-123-456-1703123456789"
+            tid = "TEST123"
+        }
+    )
+} | ConvertTo-Json -Depth 3
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/payments/casso/webhook" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ "Authorization" = "Apikey your_secure_token" } `
+    -Body $body
 ```
 
 ## 📱 Gói dịch vụ Casso

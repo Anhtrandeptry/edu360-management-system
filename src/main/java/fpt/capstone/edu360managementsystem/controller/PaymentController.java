@@ -13,10 +13,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookRequest;
+import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookV2Request;
 import fpt.capstone.edu360managementsystem.dto.request.PayOSWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.VietQrCallbackRequest;
 import fpt.capstone.edu360managementsystem.dto.response.MessageResponse;
@@ -92,6 +97,66 @@ public class PaymentController {
             return ResponseEntity.ok(new MessageResponse("OK"));
         } catch (Exception ex) {
             System.err.println("PayOS webhook error: " + ex.getMessage());
+            return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
+        }
+    }
+
+    /**
+     * Handles Casso payment webhook (V1 - data as array).
+     * Casso gửi webhook khi có giao dịch tiền vào tài khoản ngân hàng đã liên kết.
+     * Luồng tự động: Casso webhook -> verify token -> tìm payment -> mark PAID -> enroll student
+     *
+     * @param body the webhook request data from Casso
+     * @param authorization the Authorization header containing Secure Token
+     * @return acknowledgement message
+     */
+    @PostMapping("/casso/webhook")
+    public ResponseEntity<?> cassoWebhook(
+            @RequestBody CassoWebhookRequest body,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "Secure-Token", required = false) String secureToken
+    ) {
+        try {
+            System.out.println("📥 Casso webhook V1 received");
+            
+            // Casso có thể gửi token qua Authorization header hoặc Secure-Token header
+            String authHeader = authorization != null ? authorization : secureToken;
+            
+            paymentService.handleCassoWebhook(body, authHeader);
+            return ResponseEntity.ok(new MessageResponse("OK"));
+        } catch (Exception ex) {
+            System.err.println("Casso webhook error: " + ex.getMessage());
+            // Trả về 200 OK để Casso không retry liên tục
+            return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
+        }
+    }
+
+    /**
+     * Handles Casso payment webhook V2 (data as object).
+     * Casso V2 gửi data là object thay vì array.
+     *
+     * @param body the webhook request data from Casso V2
+     * @param authorization the Authorization header containing Secure Token
+     * @return acknowledgement message
+     */
+    @PostMapping("/casso/webhook/v2")
+    public ResponseEntity<?> cassoWebhookV2(
+            @RequestBody String rawBody,
+            @RequestHeader(value = "X-Casso-Signature", required = false) String cassoSignature
+    ) {
+        try {
+            System.out.println("📥 Casso webhook V2 received");
+            System.out.println("📥 X-Casso-Signature: " + cassoSignature);
+            
+            // Parse JSON body
+            ObjectMapper mapper = new ObjectMapper();
+            CassoWebhookV2Request body = mapper.readValue(rawBody, CassoWebhookV2Request.class);
+            
+            paymentService.handleCassoWebhookV2(body, cassoSignature, rawBody);
+            return ResponseEntity.ok(new MessageResponse("OK"));
+        } catch (Exception ex) {
+            System.err.println("Casso webhook V2 error: " + ex.getMessage());
+            // Trả về 200 OK để Casso không retry liên tục
             return ResponseEntity.ok(new MessageResponse("Processed with error: " + ex.getMessage()));
         }
     }
@@ -182,5 +247,23 @@ public class PaymentController {
     ) {
         Page<PaymentResponse> result = paymentService.getStudentPaymentHistory(user.getId(), page, size);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Checks payment status by ID.
+     * Allows authenticated students to check their own payment status for polling.
+     *
+     * @param id the payment ID
+     * @param user the authenticated student
+     * @return payment status information
+     */
+    @GetMapping("/{id}/status")
+    @PreAuthorize("hasRole('STUDENT') or hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> checkPaymentStatus(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl user
+    ) {
+        Map<String, Object> statusInfo = paymentService.checkPaymentStatus(id, user.getId());
+        return ResponseEntity.ok(statusInfo);
     }
 }

@@ -87,7 +87,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers(HttpMethod.GET, "/api/teachers/paginated").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/teachers/{id}/free-busy").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/teachers/by-user/*/profile").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/teachers/by-user/{userId}").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/teachers/by-user/{userId}/profile").permitAll()
                 .requestMatchers("/api/teachers/**").authenticated()
                 // News: only allow GET for public access, POST/PUT/DELETE require auth
                 .requestMatchers(HttpMethod.GET, "/api/news/**").permitAll()
@@ -100,6 +101,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                 // Allow payment webhooks (Casso, VietQR, PayOS) - verified by secret key
                 .requestMatchers("/api/payments/casso/webhook").permitAll()
+                .requestMatchers("/api/payments/casso/webhook/v2").permitAll()
                 .requestMatchers("/api/payments/vietqr/callback").permitAll()
                 .requestMatchers("/api/payments/payos/webhook").permitAll()
                 // Student profile endpoints (require STUDENT role - handled by @PreAuthorize)

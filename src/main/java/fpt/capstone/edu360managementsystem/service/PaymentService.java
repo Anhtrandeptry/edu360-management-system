@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -13,6 +16,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookRequest;
+import fpt.capstone.edu360managementsystem.dto.request.CassoWebhookV2Request;
 import fpt.capstone.edu360managementsystem.dto.request.PayOSWebhookRequest;
 import fpt.capstone.edu360managementsystem.dto.request.VietQrCallbackRequest;
 import fpt.capstone.edu360managementsystem.dto.response.PaymentCreateResponse;
@@ -21,15 +26,14 @@ import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.entity.Payment;
 import fpt.capstone.edu360managementsystem.entity.Student;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
+import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.enums.PaymentStatus;
 import fpt.capstone.edu360managementsystem.repository.ClassSessionRepository;
 import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.PaymentRepository;
 import fpt.capstone.edu360managementsystem.repository.StudentRepository;
+import fpt.capstone.edu360managementsystem.repository.UserRepository;
 import jakarta.transaction.Transactional;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 
 @Service
 public class PaymentService {
@@ -52,6 +56,9 @@ public class PaymentService {
     @Value("${payos.checksumKey:}")
     private String payosChecksumKey;
 
+    @Value("${casso.webhookSecretToken:}")
+    private String cassoWebhookSecretToken;
+
     @Autowired
     private ClazzRepository clazzRepository;
 
@@ -69,6 +76,9 @@ public class PaymentService {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     /**
      * Tạo Payment cho 1 lớp (mỗi học sinh - mỗi lớp 1 payment). Sử dụng VietQR
@@ -272,11 +282,129 @@ public class PaymentService {
         if (content == null) {
             return null;
         }
+        
+        // Ngân hàng có thể loại bỏ ký tự đặc biệt như #, -
+        // Nên cần tìm theo nhiều pattern
+        
+        // Pattern 1: Tìm #PAY- (format gốc)
         int idx = content.lastIndexOf("#PAY-");
-        if (idx == -1) {
-            return null;
+        if (idx != -1) {
+            return content.substring(idx + 1).trim(); // cắt phần "#PAY-..."
         }
-        return content.substring(idx + 1).trim(); // cắt phần "#PAY-..."
+        
+        // Pattern 2: Tìm PAY- (không có #)
+        idx = content.lastIndexOf("PAY-");
+        if (idx != -1) {
+            return content.substring(idx).trim();
+        }
+        
+        // Pattern 3: Tìm PAY (ngân hàng loại bỏ cả # và -)
+        // Ví dụ: "thanh toan hoc phi PAY51234567890"
+        idx = content.toUpperCase().lastIndexOf("PAY");
+        if (idx != -1) {
+            String extracted = content.substring(idx).trim();
+            // Loại bỏ các ký tự không phải số và chữ sau PAY
+            // Chuyển format PAY51234567890 -> PAY-5-1-234567890 để match với database
+            // Hoặc giữ nguyên để so sánh linh hoạt hơn
+            System.out.println("extractOrderCode: Found PAY pattern, extracted: " + extracted);
+            return extracted;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * So sánh orderCode linh hoạt, bỏ qua ký tự đặc biệt
+     * Ví dụ: "PAY-5-1-1234567890" matches "PAY51234567890"
+     */
+    private boolean orderCodeMatches(String dbOrderCode, String webhookOrderCode) {
+        if (dbOrderCode == null || webhookOrderCode == null) {
+            return false;
+        }
+        // Loại bỏ tất cả ký tự không phải chữ và số
+        String normalizedDb = dbOrderCode.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        String normalizedWebhook = webhookOrderCode.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        
+        return normalizedDb.equals(normalizedWebhook);
+    }
+    
+    /**
+     * Tìm payment theo orderCode một cách linh hoạt
+     * Vì ngân hàng có thể loại bỏ ký tự đặc biệt (#, -) khỏi nội dung chuyển khoản
+     * Ví dụ: DB lưu "PAY-5-9-1234567890", webhook nhận "PAY591234567890"
+     * 
+     * Cũng hỗ trợ match theo classId + studentId nếu timestamp khác
+     * (user có thể chuyển tiền với nội dung cũ sau khi mở QR mới)
+     */
+    private Payment findPaymentByOrderCodeFlexible(String webhookOrderCode) {
+        System.out.println("findPaymentByOrderCodeFlexible: Looking for " + webhookOrderCode);
+        
+        // 1. Thử tìm chính xác trước
+        var exactMatch = paymentRepository.findByOrderCode(webhookOrderCode);
+        if (exactMatch.isPresent()) {
+            System.out.println("findPaymentByOrderCodeFlexible: Exact match found");
+            return exactMatch.get();
+        }
+        
+        // 2. Normalize webhook orderCode
+        String normalizedWebhook = webhookOrderCode.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        System.out.println("findPaymentByOrderCodeFlexible: Normalized webhook = " + normalizedWebhook);
+        
+        // 3. Tìm trong tất cả payment PENDING và so sánh linh hoạt
+        var pendingPayments = paymentRepository.findByStatus(PaymentStatus.PENDING);
+        System.out.println("findPaymentByOrderCodeFlexible: Found " + pendingPayments.size() + " PENDING payments");
+        
+        for (Payment p : pendingPayments) {
+            if (p.getOrderCode() != null) {
+                String normalizedDb = p.getOrderCode().replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+                System.out.println("findPaymentByOrderCodeFlexible: Comparing DB=" + normalizedDb + " vs Webhook=" + normalizedWebhook);
+                
+                // So sánh chính xác
+                if (normalizedDb.equals(normalizedWebhook)) {
+                    System.out.println("findPaymentByOrderCodeFlexible: Full match found - paymentId=" + p.getId());
+                    return p;
+                }
+                
+                // So sánh theo prefix (PAY + classId + studentId) - bỏ qua timestamp
+                // Format: PAY-{classId}-{studentId}-{timestamp}
+                // Webhook có thể là: PAY{classId}{studentId}{timestamp} (không có dấu -)
+                String dbPrefix = extractOrderCodePrefix(p.getOrderCode());
+                String webhookPrefix = extractOrderCodePrefix(webhookOrderCode);
+                
+                if (dbPrefix != null && webhookPrefix != null && dbPrefix.equals(webhookPrefix)) {
+                    System.out.println("findPaymentByOrderCodeFlexible: Prefix match found - paymentId=" + p.getId() 
+                            + ", dbPrefix=" + dbPrefix + ", webhookPrefix=" + webhookPrefix);
+                    return p;
+                }
+            }
+        }
+        
+        System.out.println("findPaymentByOrderCodeFlexible: No match found");
+        return null;
+    }
+    
+    /**
+     * Extract prefix từ orderCode (PAY + classId + studentId), bỏ timestamp
+     * Input: PAY-56-17-1234567890 hoặc PAY5617xxxxxx
+     * Output: PAY5617
+     */
+    private String extractOrderCodePrefix(String orderCode) {
+        if (orderCode == null) return null;
+        
+        // Loại bỏ ký tự đặc biệt
+        String normalized = orderCode.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        
+        // Format: PAY{classId}{studentId}{timestamp}
+        // Cần extract PAY + 2-3 số (classId) + 1-3 số (studentId)
+        // Đơn giản: lấy 8-10 ký tự đầu (PAY + classId + studentId thường < 10 chars)
+        if (normalized.startsWith("PAY") && normalized.length() >= 6) {
+            // Tìm vị trí kết thúc của studentId
+            // Giả sử classId và studentId đều < 1000, tổng cộng tối đa 6 digits
+            // Lấy tối đa 10 ký tự đầu (PAY + 7 digits) để so sánh
+            int prefixLen = Math.min(10, normalized.length());
+            return normalized.substring(0, prefixLen);
+        }
+        return normalized;
     }
 
     /**
@@ -398,6 +526,295 @@ public class PaymentService {
         }
     }
 
+    /**
+     * Xử lý webhook từ Casso
+     * Casso gửi webhook khi có giao dịch tiền vào tài khoản ngân hàng.
+     * 
+     * Luồng:
+     * 1. Verify Secure Token từ header
+     * 2. Duyệt qua danh sách giao dịch
+     * 3. Tìm payment theo orderCode trong description
+     * 4. Verify số tiền và cập nhật trạng thái PAID
+     * 5. Tự động enroll student vào lớp
+     * 
+     * @param req Webhook payload từ Casso
+     * @param authHeader Authorization header chứa Secure Token
+     */
+    @Transactional
+    public void handleCassoWebhook(CassoWebhookRequest req, String authHeader) {
+        System.out.println("📥 Casso webhook received");
+
+        // 1. Verify Secure Token
+        if (!verifyCassoSecureToken(authHeader)) {
+            throw new RuntimeException("Invalid Casso Secure Token");
+        }
+
+        // 2. Kiểm tra error code
+        if (req.getError() != null && req.getError() != 0) {
+            System.err.println("Casso webhook: Error code = " + req.getError());
+            return;
+        }
+
+        // 3. Kiểm tra có data không
+        if (req.getData() == null || req.getData().isEmpty()) {
+            System.out.println("Casso webhook: No transactions in data");
+            return;
+        }
+
+        // 4. Xử lý từng giao dịch
+        for (CassoWebhookRequest.CassoTransaction tx : req.getData()) {
+            try {
+                processCassoTransaction(tx);
+            } catch (Exception e) {
+                // Log lỗi nhưng tiếp tục xử lý các giao dịch khác
+                System.err.println("Casso: Error processing transaction " + tx.getTid() + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Verify Casso Signature (HMAC-SHA256)
+     * Format: X-Casso-Signature: t=timestamp,v1=signature
+     */
+    private boolean verifyCassoSignature(String signatureHeader, String rawBody) {
+        if (cassoWebhookSecretToken == null || cassoWebhookSecretToken.isEmpty()) {
+            System.out.println("Casso: Secret token not configured, skipping verification");
+            return true;
+        }
+
+        if (signatureHeader == null || signatureHeader.isEmpty()) {
+            System.err.println("Casso: No signature received, rejecting request");
+            return false;
+        }
+
+        try {
+            // Parse signature header: t=timestamp,v1=signature
+            String timestamp = null;
+            String signature = null;
+            
+            String[] parts = signatureHeader.split(",");
+            for (String part : parts) {
+                if (part.startsWith("t=")) {
+                    timestamp = part.substring(2);
+                } else if (part.startsWith("v1=")) {
+                    signature = part.substring(3);
+                }
+            }
+
+            if (timestamp == null || signature == null) {
+                System.err.println("Casso: Invalid signature format: " + signatureHeader);
+                return false;
+            }
+
+            // Tạo payload = timestamp.body
+            String payload = timestamp + "." + rawBody;
+            
+            // Tính HMAC-SHA256
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            javax.crypto.spec.SecretKeySpec secretKeySpec = new javax.crypto.spec.SecretKeySpec(
+                    cassoWebhookSecretToken.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(secretKeySpec);
+            byte[] hash = mac.doFinal(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            
+            // Convert to hex
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            String computedSignature = hexString.toString();
+
+            boolean isValid = computedSignature.equals(signature);
+            if (isValid) {
+                System.out.println("✅ Casso: Signature verified successfully");
+            } else {
+                System.err.println("Casso: Signature mismatch!");
+                System.err.println("  - Received: " + signature);
+                System.err.println("  - Computed: " + computedSignature);
+            }
+            return isValid;
+        } catch (Exception e) {
+            System.err.println("Casso: Error verifying signature: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Xử lý một giao dịch từ Casso
+     */
+    private void processCassoTransaction(CassoWebhookRequest.CassoTransaction tx) {
+        System.out.println("Casso: Processing transaction - tid=" + tx.getTid() 
+                + ", amount=" + tx.getAmount() 
+                + ", desc=" + tx.getDescription());
+
+        // 1. Tìm orderCode trong description
+        String orderCode = extractOrderCode(tx.getDescription());
+        if (orderCode == null) {
+            System.out.println("Casso: No orderCode found in description: " + tx.getDescription());
+            return;
+        }
+
+        // 2. Tìm payment theo orderCode
+        var paymentOpt = paymentRepository.findByOrderCode(orderCode);
+        if (paymentOpt.isEmpty()) {
+            System.out.println("Casso: Payment not found for orderCode: " + orderCode);
+            return;
+        }
+
+        Payment payment = paymentOpt.get();
+
+        // 3. Kiểm tra đã xử lý chưa
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            System.out.println("Casso: Payment already PAID for orderCode: " + orderCode);
+            return;
+        }
+
+        // 4. Verify số tiền
+        if (tx.getAmount() == null || !tx.getAmount().equals(payment.getAmount())) {
+            System.err.println("Casso: Amount mismatch for " + orderCode 
+                    + ". Expected: " + payment.getAmount() 
+                    + ", Got: " + tx.getAmount());
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setBankTransactionId(tx.getTid());
+            paymentRepository.save(payment);
+            return;
+        }
+
+        // 5. Mark PAID
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setPaidAt(LocalDateTime.now());
+        payment.setBankTransactionId(tx.getTid());
+        paymentRepository.save(payment);
+
+        System.out.println("✅ Casso: Payment confirmed for orderCode: " + orderCode);
+
+        // 6. Gửi thông báo thanh toán thành công
+        try {
+            notificationService.notifyPaymentSuccess(
+                    payment.getStudent().getUser().getId(),
+                    payment.getClazz().getName(),
+                    payment.getAmount()
+            );
+            System.out.println("Casso: Notification sent to student: " + payment.getStudent().getUser().getId());
+        } catch (Exception e) {
+            System.err.println("Casso: Failed to send notification: " + e.getMessage());
+        }
+
+        // 7. Tự động enroll student vào lớp
+        try {
+            enrollmentService.enrollAfterPayment(
+                    payment.getClazz().getId(),
+                    payment.getStudent().getId()
+            );
+            System.out.println("✅ Casso: Student auto-enrolled for class: " + payment.getClazz().getId());
+        } catch (Exception e) {
+            System.err.println("Casso: Auto-enroll failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Xử lý webhook V2 từ Casso (data là object thay vì array)
+     */
+    @Transactional
+    public void handleCassoWebhookV2(CassoWebhookV2Request req, String signatureHeader, String rawBody) {
+        System.out.println("📥 Casso webhook V2 processing...");
+        System.out.println("📥 Casso V2 - signature: [" + signatureHeader + "]");
+
+        // 1. Verify Signature (HMAC-SHA256)
+        if (!verifyCassoSignature(signatureHeader, rawBody)) {
+            throw new RuntimeException("Invalid Casso Signature");
+        }
+
+        // 2. Kiểm tra error code
+        if (req.getError() != null && req.getError() != 0) {
+            System.err.println("Casso V2 webhook: Error code = " + req.getError());
+            return;
+        }
+
+        // 3. Kiểm tra có data không
+        if (req.getData() == null) {
+            System.out.println("Casso V2 webhook: No transaction data");
+            return;
+        }
+
+        // 4. Xử lý giao dịch
+        processCassoTransactionV2(req.getData());
+    }
+
+    /**
+     * Xử lý một giao dịch từ Casso V2
+     */
+    private void processCassoTransactionV2(CassoWebhookV2Request.CassoTransactionV2 tx) {
+        System.out.println("Casso V2: Processing transaction - ref=" + tx.getReference() 
+                + ", amount=" + tx.getAmount() 
+                + ", desc=" + tx.getDescription());
+
+        // 1. Tìm orderCode trong description
+        String orderCode = extractOrderCode(tx.getDescription());
+        if (orderCode == null) {
+            System.out.println("Casso V2: No orderCode found in description: " + tx.getDescription());
+            return;
+        }
+        System.out.println("Casso V2: Extracted orderCode: " + orderCode);
+
+        // 2. Tìm payment theo orderCode (so sánh linh hoạt vì ngân hàng loại bỏ ký tự đặc biệt)
+        Payment payment = findPaymentByOrderCodeFlexible(orderCode);
+        if (payment == null) {
+            System.out.println("Casso V2: Payment not found for orderCode: " + orderCode);
+            return;
+        }
+        System.out.println("Casso V2: Found payment ID=" + payment.getId() + ", dbOrderCode=" + payment.getOrderCode());
+
+        // 3. Kiểm tra đã xử lý chưa
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            System.out.println("Casso V2: Payment already PAID for orderCode: " + orderCode);
+            return;
+        }
+
+        // 4. Verify số tiền
+        if (tx.getAmount() == null || !tx.getAmount().equals(payment.getAmount())) {
+            System.err.println("Casso V2: Amount mismatch for " + orderCode 
+                    + ". Expected: " + payment.getAmount() 
+                    + ", Got: " + tx.getAmount());
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setBankTransactionId(tx.getReference());
+            paymentRepository.save(payment);
+            return;
+        }
+
+        // 5. Mark PAID
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setPaidAt(LocalDateTime.now());
+        payment.setBankTransactionId(tx.getReference());
+        paymentRepository.save(payment);
+
+        System.out.println("✅ Casso V2: Payment confirmed for orderCode: " + orderCode);
+
+        // 6. Gửi thông báo thanh toán thành công
+        try {
+            notificationService.notifyPaymentSuccess(
+                    payment.getStudent().getUser().getId(),
+                    payment.getClazz().getName(),
+                    payment.getAmount()
+            );
+            System.out.println("Casso V2: Notification sent to student: " + payment.getStudent().getUser().getId());
+        } catch (Exception e) {
+            System.err.println("Casso V2: Failed to send notification: " + e.getMessage());
+        }
+
+        // 7. Tự động enroll student vào lớp
+        try {
+            enrollmentService.enrollAfterPayment(
+                    payment.getClazz().getId(),
+                    payment.getStudent().getId()
+            );
+            System.out.println("✅ Casso V2: Student auto-enrolled for class: " + payment.getClazz().getId());
+        } catch (Exception e) {
+            System.err.println("Casso V2: Auto-enroll failed: " + e.getMessage());
+        }
+    }
+
     // ===================== ADMIN METHODS =====================
     /**
      * Admin: Lấy danh sách payment với filter và phân trang.
@@ -496,5 +913,47 @@ public class PaymentService {
                 .createdAt(p.getCreatedAt())
                 .paidAt(p.getPaidAt())
                 .build();
+    }
+
+    /**
+     * Check payment status for polling from frontend.
+     * Allows student to check their own payment status.
+     *
+     * @param paymentId the payment ID
+     * @param userId the authenticated user ID
+     * @return payment status information map
+     */
+    public Map<String, Object> checkPaymentStatus(Long paymentId, Long userId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        // Verify that the payment belongs to this user (for STUDENT role)
+        if (!payment.getStudent().getUser().getId().equals(userId)) {
+            // Check if user is admin - admins can check any payment
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            boolean isAdmin = user.getRoles().stream()
+                    .anyMatch(role -> role.getName().name().equals("ROLE_ADMIN"));
+            if (!isAdmin) {
+                throw new RuntimeException("You can only check your own payment status");
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("paymentId", payment.getId());
+        result.put("status", payment.getStatus().name());
+        result.put("isPaid", payment.getStatus() == PaymentStatus.PAID);
+        result.put("className", payment.getClazz().getName());
+        result.put("amount", payment.getAmount());
+        
+        if (payment.getPaidAt() != null) {
+            result.put("paidAt", payment.getPaidAt().toString());
+        }
+        
+        if (payment.getBankTransactionId() != null) {
+            result.put("bankTransactionId", payment.getBankTransactionId());
+        }
+
+        return result;
     }
 }
