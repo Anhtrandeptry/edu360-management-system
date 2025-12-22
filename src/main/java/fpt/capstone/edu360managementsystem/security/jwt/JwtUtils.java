@@ -130,8 +130,14 @@ public class JwtUtils {
     return ResponseCookie.from(jwtCookieName, jwt)
             .path("/")
             .httpOnly(true)
-            .secure(false)
-            .sameSite("Lax")
+            // FIXED: 2025-12-22 - Cookie config for production HTTPS deployment
+            // Issue: secure(false) prevented cookies from working on HTTPS
+            // Solution: secure(true) - cookie only sent over HTTPS
+            .secure(true)
+            // FIXED: 2025-12-22 - SameSite config for cross-domain requests
+            // Issue: sameSite("Lax") blocked cross-domain cookies
+            // Solution: sameSite("None") - allows cross-domain (requires secure=true)
+            .sameSite("None")
             .maxAge(24 * 60 * 60)
             .build();
   }
@@ -141,8 +147,11 @@ public class JwtUtils {
     return ResponseCookie.from(jwtCookieName, "")
             .path("/")
             .httpOnly(true)
-            .secure(false)
-            .sameSite("Lax")
+            // FIXED: 2025-12-22 - Must match generateJwtCookie() config
+            // secure(true) required for HTTPS production
+            .secure(true)
+            // sameSite("None") required for cross-domain logout
+            .sameSite("None")
             .maxAge(0)
             .build();
   }
