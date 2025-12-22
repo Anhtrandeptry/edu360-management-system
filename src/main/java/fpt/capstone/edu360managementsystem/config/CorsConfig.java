@@ -32,14 +32,10 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
 
-        // ✅ FIXED: 2025-12-22 - Cập nhật CORS cho production deployment
-        // Vấn đề: Chỉ allow localhost:8386, thiếu các port khác và subdomain
-        // Giải pháp: Thêm wildcard cho localhost và subdomain
         cfg.setAllowedOriginPatterns(List.of(
-                "http://localhost:*",           // ADDED: Allow all localhost ports (dev)
+                "http://localhost:8386",
                 "https://360edu.online",
-                "https://www.360edu.online",
-                "https://*.360edu.online"        // ADDED: Allow subdomains (api.360edu.online, etc.)
+                "https://www.360edu.online"
         ));
 
         cfg.setAllowCredentials(true);
