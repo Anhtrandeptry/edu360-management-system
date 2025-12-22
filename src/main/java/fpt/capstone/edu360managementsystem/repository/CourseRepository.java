@@ -51,4 +51,12 @@ public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecif
             @Param("teacherUserId") Long teacherUserId,
             Pageable pageable
     );
+
+    // Kiểm tra tồn tại khóa học theo tên và môn học (case-insensitive)
+    @Query("SELECT COUNT(c) > 0 FROM Course c WHERE LOWER(c.title) = LOWER(:title) AND c.subject.id = :subjectId")
+    boolean existsByTitleIgnoreCaseAndSubjectId(@Param("title") String title, @Param("subjectId") Long subjectId);
+
+    // Kiểm tra tồn tại khóa học theo tên và môn học, loại trừ course hiện tại (dùng cho update)
+    @Query("SELECT COUNT(c) > 0 FROM Course c WHERE LOWER(c.title) = LOWER(:title) AND c.subject.id = :subjectId AND c.id != :excludeId")
+    boolean existsByTitleIgnoreCaseAndSubjectIdAndIdNot(@Param("title") String title, @Param("subjectId") Long subjectId, @Param("excludeId") Long excludeId);
 }
