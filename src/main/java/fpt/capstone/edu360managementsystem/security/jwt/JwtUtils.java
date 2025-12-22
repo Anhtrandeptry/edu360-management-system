@@ -89,12 +89,9 @@
 
 package fpt.capstone.edu360managementsystem.security.jwt;
 
-import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+import java.security.Key;
+import java.util.Date;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -102,8 +99,16 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.WebUtils;
 
-import java.security.Key;
-import java.util.Date;
+import fpt.capstone.edu360managementsystem.service.UserDetailsImpl;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Component
 public class JwtUtils {
@@ -118,6 +123,11 @@ public class JwtUtils {
   @Value("${edu360.app.jwtCookieName}")
   private String jwtCookieName;
 
+  // Cho phép cấu hình secure cookie qua environment variable
+  // Set COOKIE_SECURE=false nếu chạy HTTP (dev), true cho HTTPS (production)
+  @Value("${edu360.app.cookieSecure:true}")
+  private boolean cookieSecure;
+
 
   public String getJwtFromCookies(HttpServletRequest request) {
     Cookie cookie = WebUtils.getCookie(request, jwtCookieName);
@@ -130,14 +140,10 @@ public class JwtUtils {
     return ResponseCookie.from(jwtCookieName, jwt)
             .path("/")
             .httpOnly(true)
-            // FIXED: 2025-12-22 - Cookie config for production HTTPS deployment
-            // Issue: secure(false) prevented cookies from working on HTTPS
-            // Solution: secure(true) - cookie only sent over HTTPS
-            .secure(true)
-            // FIXED: 2025-12-22 - SameSite config for cross-domain requests
-            // Issue: sameSite("Lax") blocked cross-domain cookies
-            // Solution: sameSite("None") - allows cross-domain (requires secure=true)
-            .sameSite("None")
+            // Sử dụng config từ environment thay vì hardcode
+            .secure(cookieSecure)
+            // SameSite phụ thuộc vào secure: None cần secure=true, Lax cho HTTP
+            .sameSite(cookieSecure ? "None" : "Lax")
             .maxAge(24 * 60 * 60)
             .build();
   }
@@ -147,11 +153,9 @@ public class JwtUtils {
     return ResponseCookie.from(jwtCookieName, "")
             .path("/")
             .httpOnly(true)
-            // FIXED: 2025-12-22 - Must match generateJwtCookie() config
-            // secure(true) required for HTTPS production
-            .secure(true)
-            // sameSite("None") required for cross-domain logout
-            .sameSite("None")
+            // Sử dụng config từ environment thay vì hardcode
+            .secure(cookieSecure)
+            .sameSite(cookieSecure ? "None" : "Lax")
             .maxAge(0)
             .build();
   }
