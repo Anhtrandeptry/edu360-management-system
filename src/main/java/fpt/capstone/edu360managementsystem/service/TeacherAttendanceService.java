@@ -187,6 +187,11 @@ public class TeacherAttendanceService {
                     .findByClazz_IdAndDateBetweenOrderByDateAscTimeSlot_StartTimeAsc(
                             clazz.getId(), monthStart, monthEnd);
 
+            // Chỉ thêm lớp nếu có ít nhất 1 session trong tháng được chọn
+            if (sessions.isEmpty()) {
+                continue;
+            }
+
             int classTotal = sessions.size();
             int classCompleted = 0;
             int classPending = 0;
@@ -215,6 +220,9 @@ public class TeacherAttendanceService {
                     .build());
         }
 
+        // Số lớp phân công = số lớp có session trong tháng này
+        int classesWithSessionsThisMonth = classDetails.size();
+
         double attendanceRate = totalScheduledSlots > 0
                 ? (totalCompletedSlots * 100.0 / totalScheduledSlots) : 0;
 
@@ -225,7 +233,7 @@ public class TeacherAttendanceService {
                 .phone(user.getPhoneNumber())
                 .avatar(teacher.getAvatarUrl())
                 .subjectNames(subjectNames)
-                .totalAssignedClasses(assignedClasses.size())
+                .totalAssignedClasses(classesWithSessionsThisMonth)
                 .totalScheduledSlots(totalScheduledSlots)
                 .totalCompletedSlots(totalCompletedSlots)
                 .totalPendingSlots(totalPendingSlots)
