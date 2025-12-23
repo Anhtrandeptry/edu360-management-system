@@ -4,7 +4,6 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import org.springframework.mail.MailException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +29,9 @@ public class EmailVerificationService {
 
     private static final int OTP_LENGTH = 6;
     private static final int OTP_EXPIRY_MINUTES = 5;
-    private static final int MAX_OTP_SENDS_PER_WINDOW = 3;
-    private static final int OTP_SEND_WINDOW_MINUTES = 5;
+    //rate limit - để test thoải mái, production nên: MAX=3, WINDOW=5
+    private static final int MAX_OTP_SENDS_PER_WINDOW = 100; // Tạm tăng cao để test
+    private static final int OTP_SEND_WINDOW_MINUTES = 1;    // Window 1 phút
     private static final int MAX_VERIFY_ATTEMPTS = 5;
 
     private final SecureRandom secureRandom = new SecureRandom();
@@ -44,14 +44,18 @@ public class EmailVerificationService {
      */
     @Transactional
     public SendOtpResult sendOtp(String email) {
-        // 1. Kiểm tra rate limit
-        LocalDateTime windowStart = LocalDateTime.now().minusMinutes(OTP_SEND_WINDOW_MINUTES);
-        long sendCount = emailVerificationRepository.countByEmailAndCreatedAtAfter(email, windowStart);
-
-        if (sendCount >= MAX_OTP_SENDS_PER_WINDOW) {
-            log.warn("Rate limit exceeded for email: {}", email);
-            return SendOtpResult.rateLimited(OTP_SEND_WINDOW_MINUTES);
-        }
+        // 1. Kiểm tra rate limit - TẠM DISABLE ĐỂ TEST
+        // LocalDateTime windowStart = LocalDateTime.now().minusMinutes(OTP_SEND_WINDOW_MINUTES);
+        // long sendCount = emailVerificationRepository.countByEmailAndCreatedAtAfter(email, windowStart);
+        // 
+        // log.info("Rate limit check for {}: {} sends in last {} minutes (max: {})",
+        //         email, sendCount, OTP_SEND_WINDOW_MINUTES, MAX_OTP_SENDS_PER_WINDOW);
+        // 
+        // if (sendCount >= MAX_OTP_SENDS_PER_WINDOW) {
+        //     log.warn("Rate limit exceeded for email: {} ({}/{})", email, sendCount, MAX_OTP_SENDS_PER_WINDOW);
+        //     return SendOtpResult.rateLimited(OTP_SEND_WINDOW_MINUTES);
+        // }
+        log.info("Rate limit DISABLED for testing - sending OTP to {}", email);
 
         // 2. Vô hiệu hóa OTP cũ
         emailVerificationRepository.invalidateAllOtpsByEmail(email);
@@ -77,9 +81,15 @@ public class EmailVerificationService {
             sendOtpEmail(email, otp);
             log.info("OTP sent successfully to: {}", email);
             return SendOtpResult.ok(OTP_EXPIRY_MINUTES);
-        } catch (MailException e) {
-            log.error("Failed to send OTP email to: {}", email, e);
-            return SendOtpResult.emailError("Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email.");
+        } catch (Exception e) {
+            // TẠM THỜI: Nếu gửi email thất bại, vẫn trả về success để test flow
+            // OTP đã được lưu vào DB, user có thể xem trong console/DB
+            log.warn("Email sending failed for {}, but OTP {} saved to DB. Error: {}", email, otp, e.getMessage());
+            log.info("🔔 [DEV MODE] OTP for {}: {}", email, otp);
+            return SendOtpResult.ok(OTP_EXPIRY_MINUTES);
+            // Production: uncomment below and comment above
+            // log.error("Failed to send OTP email to: {}", email, e);
+            // return SendOtpResult.emailError("Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email.");
         }
     }
 
@@ -203,6 +213,24 @@ public class EmailVerificationService {
     public void cleanupExpiredOtps() {
         emailVerificationRepository.deleteExpiredOtps(LocalDateTime.now());
         log.info("Cleaned up expired OTPs");
+    }
+
+    /**
+     * [DEV ONLY] Xóa tất cả OTP của một email - dùng để test
+     */
+    @Transactional
+    public void clearOtpByEmail(String email) {
+        emailVerificationRepository.deleteAllByEmail(email);
+        log.info("Cleared all OTPs for email: {}", email);
+    }
+
+    /**
+     * [DEV ONLY] Xóa tất cả OTP - dùng để test
+     */
+    @Transactional
+    public void clearAllOtps() {
+        emailVerificationRepository.deleteAllOtps();
+        log.info("Cleared all OTPs");
     }
 
     // ================= Result Classes =================

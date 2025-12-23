@@ -17,6 +17,7 @@ import fpt.capstone.edu360managementsystem.dto.request.LessonCreateRequest;
 import fpt.capstone.edu360managementsystem.dto.response.ChapterResponse;
 import fpt.capstone.edu360managementsystem.dto.response.CourseResponse;
 import fpt.capstone.edu360managementsystem.dto.response.LessonResponse;
+import fpt.capstone.edu360managementsystem.entity.Clazz;
 import fpt.capstone.edu360managementsystem.entity.Course;
 import fpt.capstone.edu360managementsystem.entity.CourseChapter;
 import fpt.capstone.edu360managementsystem.entity.CourseLesson;
@@ -24,6 +25,7 @@ import fpt.capstone.edu360managementsystem.entity.Subject;
 import fpt.capstone.edu360managementsystem.entity.Teacher;
 import fpt.capstone.edu360managementsystem.entity.User;
 import fpt.capstone.edu360managementsystem.enums.CourseStatus;
+import fpt.capstone.edu360managementsystem.repository.ClazzRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseChapterRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseLessonRepository;
 import fpt.capstone.edu360managementsystem.repository.CourseRepository;
@@ -52,6 +54,8 @@ public class CourseService {
     private SessionLessonRepository sessionLessonRepository;
     @Autowired
     private SessionChapterRepository sessionChapterRepository;
+    @Autowired
+    private ClazzRepository clazzRepository;
 
     @Transactional
     public CourseResponse createCourse(Long currentUserId, boolean isAdmin, CourseCreateRequest req) {
@@ -355,6 +359,18 @@ public class CourseService {
                     return mapChapter(ch, lessons);
                 }).toList();
 
+        // Find linked class for this course
+        Long classId = null;
+        String className = null;
+        java.time.LocalDate classEndDate = null;
+        List<Clazz> linkedClasses = clazzRepository.findByCourse_Id(c.getId());
+        if (!linkedClasses.isEmpty()) {
+            Clazz linkedClass = linkedClasses.get(0); // Get first linked class
+            classId = linkedClass.getId();
+            className = linkedClass.getName();
+            classEndDate = linkedClass.getEndDate();
+        }
+
         return CourseResponse.builder()
                 .id(c.getId())
                 .subjectId(c.getSubject().getId())
@@ -368,6 +384,9 @@ public class CourseService {
                 .ownerTeacherId(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getId() : null)
                 .ownerTeacherName(c.getOwnerTeacher() != null ? c.getOwnerTeacher().getUser().getFullName() : null)
                 .createdAt(c.getCreatedAt())
+                .classId(classId)
+                .className(className)
+                .classEndDate(classEndDate)
                 .chapters(chapterResponses)
                 .build();
     }

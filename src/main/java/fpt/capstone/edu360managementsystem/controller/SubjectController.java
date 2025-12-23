@@ -21,8 +21,8 @@ import fpt.capstone.edu360managementsystem.service.SubjectService;
 import jakarta.validation.Valid;
 
 /**
- * REST controller for subject management.
- * Provides endpoints for CRUD operations on academic subjects.
+ * REST controller for subject management. Provides endpoints for CRUD
+ * operations on academic subjects.
  *
  * @author 360edu
  * @version 1.0
@@ -49,10 +49,10 @@ public class SubjectController {
      *
      * @param search optional search term
      * @param status status filter (ALL, AVAILABLE, DISABLED)
-     * @param page   page number
-     * @param size   page size
+     * @param page page number
+     * @param size page size
      * @param sortBy sort field
-     * @param order  sort order (asc/desc)
+     * @param order sort order (asc/desc)
      * @return paginated list of subjects
      */
     @GetMapping("/paginated")
@@ -84,7 +84,7 @@ public class SubjectController {
      * @return subject details
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT')")
     public ResponseEntity<SubjectResponse> getSubject(@PathVariable Long id) {
         return ResponseEntity.ok(subjectService.getSubjectById(id));
     }
@@ -104,7 +104,7 @@ public class SubjectController {
     /**
      * Updates an existing subject.
      *
-     * @param id      the subject ID
+     * @param id the subject ID
      * @param request updated subject data
      * @return updated subject
      */

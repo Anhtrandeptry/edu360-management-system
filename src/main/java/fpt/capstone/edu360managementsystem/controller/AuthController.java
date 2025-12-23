@@ -310,8 +310,16 @@ public class AuthController {
                     "expiryMinutes", result.waitMinutes()
             ));
         } else {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new MessageResponse(result.message()));
+            // Phân biệt rate limit (waitMinutes > 0) vs email error (waitMinutes = 0)
+            if (result.waitMinutes() > 0) {
+                // Rate limited
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(new MessageResponse(result.message()));
+            } else {
+                // Email error hoặc lỗi khác
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new MessageResponse(result.message()));
+            }
         }
     }
 
@@ -522,6 +530,34 @@ public class AuthController {
             errorResponse.put("exists", false);
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.ok(errorResponse);
+        }
+    }
+
+    // ===================== DEV/TEST ENDPOINTS (XÓA TRƯỚC KHI PRODUCTION) =====================
+    /**
+     * [DEV ONLY] Reset tất cả rate limits và xóa OTP data để test. XÓA ENDPOINT
+     * NÀY TRƯỚC KHI DEPLOY PRODUCTION!
+     */
+    @PostMapping("/dev/reset-rate-limits")
+    public ResponseEntity<?> devResetRateLimits(@RequestParam(required = false) String email) {
+        try {
+            // 1. Clear in-memory rate limits
+            rateLimiterService.clearAll();
+
+            // 2. Clear OTP records từ database
+            if (email != null && !email.isEmpty()) {
+                emailVerificationService.clearOtpByEmail(email.toLowerCase().trim());
+            } else {
+                emailVerificationService.clearAllOtps();
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Đã reset tất cả rate limits" + (email != null ? " cho " + email : "")
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 

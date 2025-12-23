@@ -176,16 +176,20 @@ public class RateLimiterService {
         if (failedAttempts <= 5) {
             return 60 * 1000L;           // 1 phút
 
-                }if (failedAttempts <= 7) {
+        }
+        if (failedAttempts <= 7) {
             return 5 * 60 * 1000L;       // 5 phút
 
-                }if (failedAttempts <= 9) {
+        }
+        if (failedAttempts <= 9) {
             return 15 * 60 * 1000L;      // 15 phút
 
-                }if (failedAttempts <= 14) {
+        }
+        if (failedAttempts <= 14) {
             return 30 * 60 * 1000L;     // 30 phút
 
-                }return 60 * 60 * 1000L;                                // 1 giờ
+        }
+        return 60 * 60 * 1000L;                                // 1 giờ
     }
 
     /**
@@ -200,5 +204,12 @@ public class RateLimiterService {
             this.windowStartTime = windowStartTime;
             this.attemptCount = attemptCount;
         }
+    }
+
+    /**
+     * [DEV ONLY] Clear tất cả rate limits - dùng để test
+     */
+    public void clearAll() {
+        rateLimitMap.clear();
     }
 }

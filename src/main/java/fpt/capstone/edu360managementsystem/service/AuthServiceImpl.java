@@ -7,6 +7,8 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +40,8 @@ import fpt.capstone.edu360managementsystem.repository.UserRepository;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Autowired
     UserRepository userRepository;
@@ -78,6 +82,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<?> registerStudentWithParent(RegisterStudentWithParentRequest request) {
+        log.info("registerStudentWithParent called with existingParentId: {}", request.getExistingParentId());
+
         // 1. Basic validations
         if (!request.getStudentPassword().equals(request.getStudentRePassword())) {
             return ResponseEntity.badRequest().body(new MessageResponse("Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại."));
@@ -161,6 +167,58 @@ public class AuthServiceImpl implements AuthService {
         student.setUser(studentUser);
         student.setParent(parent);
         studentRepository.save(student);
+
+        // 6. Nếu là phụ huynh đã tồn tại, gửi email thông báo có học sinh mới liên kết
+        log.info("Checking email notification: isNewParent={}, parentUser={}, parentEmail={}",
+                isNewParent,
+                parent.getUser() != null ? parent.getUser().getId() : "null",
+                parent.getUser() != null ? parent.getUser().getEmail() : "null");
+
+        if (!isNewParent && parent.getUser() != null && parent.getUser().getEmail() != null) {
+            try {
+                String parentEmail = parent.getUser().getEmail();
+                String parentName = parent.getUser().getFullName();
+
+                log.info("Sending notification email to parent: {} ({})", parentName, parentEmail);
+
+                String subject = "🔔 Thông báo: Có học sinh mới liên kết với tài khoản của bạn - Edu360";
+                String text = String.format(
+                        "Xin chào %s,\n\n"
+                        + "Chúng tôi xin thông báo rằng có một học sinh mới vừa đăng ký và liên kết với tài khoản phụ huynh của bạn trên hệ thống Edu360.\n\n"
+                        + "📚 THÔNG TIN HỌC SINH MỚI:\n"
+                        + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        + "• Họ và tên: %s\n"
+                        + "• Email: %s\n"
+                        + "• Số điện thoại: %s\n"
+                        + "• Tên đăng nhập: %s\n"
+                        + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        + "⚠️ LƯU Ý QUAN TRỌNG:\n"
+                        + "Nếu bạn KHÔNG biết học sinh này hoặc đây không phải con em của bạn, vui lòng:\n"
+                        + "1. Đăng nhập vào hệ thống Edu360\n"
+                        + "2. Liên hệ với quản trị viên để được hỗ trợ\n\n"
+                        + "Nếu đây đúng là con em của bạn, bạn có thể theo dõi tiến độ học tập của học sinh thông qua tài khoản phụ huynh.\n\n"
+                        + "Trân trọng,\n"
+                        + "Đội ngũ Edu360\n\n"
+                        + "---\n"
+                        + "Email này được gửi tự động. Vui lòng không trả lời trực tiếp.",
+                        parentName,
+                        studentUser.getFullName(),
+                        studentUser.getEmail() != null ? studentUser.getEmail() : "Chưa cung cấp",
+                        studentUser.getPhoneNumber() != null ? studentUser.getPhoneNumber() : "Chưa cung cấp",
+                        studentUser.getUsername()
+                );
+
+                emailService.sendSimpleMessage(parentEmail, subject, text);
+                log.info("Successfully sent notification email to parent: {}", parentEmail);
+            } catch (MailException ex) {
+                // Không throw exception để tránh rollback, chỉ log lỗi
+                log.error("Failed to send notification email to parent: {}", ex.getMessage(), ex);
+            } catch (Exception ex) {
+                log.error("Unexpected error sending notification email: {}", ex.getMessage(), ex);
+            }
+        } else {
+            log.info("Skipping email notification: isNewParent={}", isNewParent);
+        }
 
         if (isNewParent) {
             return ResponseEntity.ok(new MessageResponse("Đăng ký thành công! Thông tin đăng nhập của phụ huynh đã được gửi qua email."));

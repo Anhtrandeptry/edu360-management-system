@@ -107,7 +107,7 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
         // Check if user is a teacher and is in use
-        boolean isTeacher = user.getRoles().stream().anyMatch(r -> r.getName().name().equals("TEACHER"));
+        boolean isTeacher = user.getRoles().stream().anyMatch(r -> r.getName() == ERole.ROLE_TEACHER);
         if (isTeacher && Boolean.FALSE.equals(active)) {
             // Check if teacher is assigned to any active class
             var teacher = teacherRepository.findByUserId(user.getId());
@@ -119,30 +119,30 @@ public class UserService {
             }
         }
 
-        // Check if user is a student and is enrolled in active classes
-        boolean isStudent = user.getRoles().stream().anyMatch(r -> r.getName().name().equals("STUDENT"));
+        // Check if user is a student and is enrolled in active classes (PUBLIC status)
+        boolean isStudent = user.getRoles().stream().anyMatch(r -> r.getName() == ERole.ROLE_STUDENT);
         if (isStudent && Boolean.FALSE.equals(active)) {
             var student = studentRepository.findByUser_Id(user.getId());
             if (student.isPresent()) {
-                long cnt = classEnrollmentRepository.countByStudent_Id(student.get().getId());
+                long cnt = classEnrollmentRepository.countActiveEnrollmentsByStudentId(student.get().getId());
                 if (cnt > 0) {
-                    throw new RuntimeException("Không thể vô hiệu hóa học viên: đang tham gia " + cnt + " lớp học");
+                    throw new RuntimeException("Không thể vô hiệu hóa học viên: đang tham gia " + cnt + " lớp học đang hoạt động");
                 }
             }
         }
 
-        // Check if user is a parent and has children enrolled in classes
-        boolean isParent = user.getRoles().stream().anyMatch(r -> r.getName().name().equals("PARENT"));
+        // Check if user is a parent and has children enrolled in active classes (PUBLIC status)
+        boolean isParent = user.getRoles().stream().anyMatch(r -> r.getName() == ERole.ROLE_PARENT);
         if (isParent && Boolean.FALSE.equals(active)) {
             var parent = parentRepository.findByUserId(user.getId());
             if (parent.isPresent()) {
                 // Sử dụng query trực tiếp thay vì lazy loading để tránh vấn đề session
                 var children = studentRepository.findByParentId(parent.get().getId());
                 for (var child : children) {
-                    long cnt = classEnrollmentRepository.countByStudent_Id(child.getId());
+                    long cnt = classEnrollmentRepository.countActiveEnrollmentsByStudentId(child.getId());
                     if (cnt > 0) {
                         String childName = child.getUser() != null ? child.getUser().getFullName() : "học sinh";
-                        throw new RuntimeException("Không thể vô hiệu hóa phụ huynh: con (" + childName + ") đang tham gia " + cnt + " lớp học");
+                        throw new RuntimeException("Không thể vô hiệu hóa phụ huynh: con (" + childName + ") đang tham gia " + cnt + " lớp học đang hoạt động");
                     }
                 }
             }
@@ -150,6 +150,32 @@ public class UserService {
 
         user.setActive(active);
         userRepository.save(user);
+    }
+
+    /**
+     * Lấy số lớp học đang hoạt động của student theo userId
+     *
+     * @param userId ID của user có role STUDENT
+     * @return số lớp học đang hoạt động (status = PUBLIC), -1 nếu user không
+     * phải student
+     */
+    @Transactional(readOnly = true)
+    public long getActiveClassCountByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        // ERole enum có giá trị ROLE_STUDENT, ROLE_TEACHER, etc.
+        boolean isStudent = user.getRoles().stream().anyMatch(r -> r.getName() == ERole.ROLE_STUDENT);
+        if (!isStudent) {
+            return -1; // Not a student
+        }
+
+        var student = studentRepository.findByUser_Id(userId);
+        if (student.isEmpty()) {
+            return 0;
+        }
+
+        return classEnrollmentRepository.countActiveEnrollmentsByStudentId(student.get().getId());
     }
 
 }

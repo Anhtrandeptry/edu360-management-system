@@ -3,6 +3,8 @@ package fpt.capstone.edu360managementsystem.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,8 @@ import fpt.capstone.edu360managementsystem.service.UserService;
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserService userService;
@@ -90,6 +94,21 @@ public class UserController {
         }
         userService.updateUserStatus(id, active);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Gets the count of active classes (PUBLIC status) for a student by user
+     * ID. Used by admin to check before deactivating a student.
+     *
+     * @param id the user ID
+     * @return active class count, -1 if user is not a student
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/{id}/active-class-count")
+    public ResponseEntity<Map<String, Long>> getActiveClassCount(@PathVariable Long id) {
+        long count = userService.getActiveClassCountByUserId(id);
+        logger.info("[ACTIVE CLASS COUNT] userId={} count={}", id, count);
+        return ResponseEntity.ok(Map.of("activeClassCount", count));
     }
 
 }
