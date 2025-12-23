@@ -76,7 +76,7 @@ public class ParentService {
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardData(Long userId) {
         Parent parent = getParentByUserId(userId);
-        List<Student> children = parent.getChildren();
+        List<Student> children = getActiveChildren(parent);
 
         long totalClasses = children.stream()
                 .mapToLong(child -> classEnrollmentRepository.countByStudent_Id(child.getId()))
@@ -122,7 +122,7 @@ public class ParentService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getChildren(Long userId) {
         Parent parent = getParentByUserId(userId);
-        List<Student> children = parent.getChildren();
+        List<Student> children = getActiveChildren(parent);
 
         return children.stream().map(child -> {
             Map<String, Object> childData = new HashMap<>();
@@ -365,7 +365,7 @@ public class ParentService {
         Parent parent = getParentByUserId(userId);
 
         // Verify parent has a child in this class
-        List<Student> children = parent.getChildren();
+        List<Student> children = getActiveChildren(parent);
         boolean hasAccess = children.stream().anyMatch(child
                 -> classEnrollmentRepository.findByStudent_Id(child.getId()).stream()
                         .anyMatch(e -> e.getClazz().getId().equals(classId))
@@ -438,7 +438,7 @@ public class ParentService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy buổi học"));
 
         // Verify parent has a child in this class
-        List<Student> children = parent.getChildren();
+        List<Student> children = getActiveChildren(parent);
         Student enrolledChild = children.stream()
                 .filter(child -> classEnrollmentRepository.findByStudent_Id(child.getId()).stream()
                 .anyMatch(e -> e.getClazz().getId().equals(session.getClazz().getId())))
@@ -559,7 +559,7 @@ public class ParentService {
         List<Student> children = childId != null
                 ? Collections.singletonList(studentRepository.findById(childId)
                         .orElseThrow(() -> new RuntimeException("Không tìm thấy học sinh")))
-                : parent.getChildren();
+                : getActiveChildren(parent);
 
         List<Payment> allPayments = new ArrayList<>();
         for (Student child : children) {
@@ -630,7 +630,7 @@ public class ParentService {
         profile.put("occupation", parent.getOccupation());
         profile.put("avatar", null);
 
-        List<Map<String, Object>> childrenData = parent.getChildren().stream().map(child -> {
+        List<Map<String, Object>> childrenData = getActiveChildren(parent).stream().map(child -> {
             Map<String, Object> childData = new HashMap<>();
             childData.put("id", child.getId());
             childData.put("name", child.getUser().getFullName());
@@ -683,12 +683,21 @@ public class ParentService {
     }
 
     private void validateChildBelongsToParent(Parent parent, Long childId) {
-        boolean belongs = parent.getChildren().stream()
+        boolean belongs = getActiveChildren(parent).stream()
                 .anyMatch(child -> child.getId().equals(childId));
 
         if (!belongs) {
             throw new RuntimeException("Học sinh không thuộc quyền quản lý của bạn");
         }
+    }
+
+    /**
+     * Get only active children (filter out deactivated student accounts)
+     */
+    private List<Student> getActiveChildren(Parent parent) {
+        return parent.getChildren().stream()
+                .filter(child -> child.getUser() != null && Boolean.TRUE.equals(child.getUser().getActive()))
+                .collect(Collectors.toList());
     }
 
     private String determineNotificationType(String subject) {

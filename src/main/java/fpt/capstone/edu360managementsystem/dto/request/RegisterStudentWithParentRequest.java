@@ -23,8 +23,7 @@ public class RegisterStudentWithParentRequest {
     @NotBlank
     private String studentRePassword;
 
-    @NotBlank
-    private String studentPhoneNumber;
+    private String studentPhoneNumber; // Optional for students
 
     @Email
     private String studentEmail;

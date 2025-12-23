@@ -41,20 +41,24 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     long countByStudent_Id(Long studentId);
 
+    // Đếm số enrollment trong các lớp PUBLIC (đang hoạt động) theo student ID
+    @Query("SELECT COUNT(ce) FROM ClassEnrollment ce WHERE ce.student.id = :studentId AND ce.clazz.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.PUBLIC")
+    long countActiveEnrollmentsByStudentId(@Param("studentId") Long studentId);
+
     // Find enrollment by class ID and student ID
     java.util.Optional<ClassEnrollment> findByClazz_IdAndStudent_Id(Long classId, Long studentId);
 
     // ==================== REPORT QUERIES ====================
     // Đếm số enrollment đang active (lớp PUBLIC)
-    @Query("SELECT COUNT(ce) FROM ClassEnrollment ce WHERE ce.clazz.status = 'PUBLIC'")
+    @Query("SELECT COUNT(ce) FROM ClassEnrollment ce WHERE ce.clazz.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.PUBLIC")
     Long countActiveEnrollments();
 
     // Đếm số học sinh theo giáo viên
-    @Query("SELECT COUNT(DISTINCT ce.student.id) FROM ClassEnrollment ce WHERE ce.clazz.teacher.id = :teacherId AND ce.clazz.status = 'PUBLIC'")
+    @Query("SELECT COUNT(DISTINCT ce.student.id) FROM ClassEnrollment ce WHERE ce.clazz.teacher.id = :teacherId AND ce.clazz.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.PUBLIC")
     Integer countStudentsByTeacherId(@Param("teacherId") Long teacherId);
 
     // Đếm số học sinh theo môn học
-    @Query("SELECT COUNT(DISTINCT ce.student.id) FROM ClassEnrollment ce WHERE ce.clazz.subject.id = :subjectId AND ce.clazz.status = 'PUBLIC'")
+    @Query("SELECT COUNT(DISTINCT ce.student.id) FROM ClassEnrollment ce WHERE ce.clazz.subject.id = :subjectId AND ce.clazz.status = fpt.capstone.edu360managementsystem.enums.ClassStatus.PUBLIC")
     Integer countStudentsBySubjectId(@Param("subjectId") Long subjectId);
 
 }

@@ -55,9 +55,8 @@ public class User {
     @Size(max = 100)
     private String fullName;
 
-    @NotBlank
     @Size(max = 15)
-    private String phoneNumber;
+    private String phoneNumber; // Optional for students, required for others
 
     @Column(name = "active", nullable = false)
     private Boolean active = true;
