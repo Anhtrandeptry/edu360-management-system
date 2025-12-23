@@ -92,6 +92,8 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
                 .requestMatchers("/api/teachers/**").authenticated()
                 // News: only allow GET for public access, POST/PUT/DELETE require auth
                 .requestMatchers(HttpMethod.GET, "/api/news/**").permitAll()
+                // Allow increment view count for public access (POST /api/news/{id}/view)
+                .requestMatchers(HttpMethod.POST, "/api/news/*/view").permitAll()
                 .requestMatchers("/api/news/**").authenticated()
                 // Allow course detail view for all users (students viewing enrolled courses)
                 .requestMatchers(HttpMethod.GET, "/api/courses/{id}").permitAll()
