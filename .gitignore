@@ -34,3 +34,8 @@ build/
 
 # Environment variables
 .env
+
+# Ngrok
+ngrok
+ngrok.exe
+ngrok.yml
