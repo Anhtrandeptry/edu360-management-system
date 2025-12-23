@@ -292,6 +292,34 @@ public class ParentService {
     }
 
     /**
+     * Calculate display status based on class dates and status Returns:
+     * UPCOMING, ONGOING, COMPLETED, or CANCELLED
+     */
+    private String calculateDisplayStatus(Clazz clazz) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = clazz.getStartDate();
+        LocalDate endDate = clazz.getEndDate();
+
+        // If class is archived, consider it as CANCELLED or COMPLETED based on dates
+        if (clazz.getStatus().name().equals("ARCHIVED")) {
+            return "CANCELLED";
+        }
+
+        // If class hasn't started yet
+        if (startDate != null && today.isBefore(startDate)) {
+            return "UPCOMING";
+        }
+
+        // If class has ended (endDate has passed)
+        if (endDate != null && today.isAfter(endDate)) {
+            return "COMPLETED";
+        }
+
+        // Otherwise, class is ongoing
+        return "ONGOING";
+    }
+
+    /**
      * Get classes for a child
      */
     @Transactional(readOnly = true)
@@ -313,7 +341,11 @@ public class ParentService {
             classData.put("description", clazz.getDescription());
             classData.put("startDate", clazz.getStartDate());
             classData.put("endDate", clazz.getEndDate());
-            classData.put("status", clazz.getStatus().name());
+
+            // Calculate display status based on dates and class status
+            String displayStatus = calculateDisplayStatus(clazz);
+            classData.put("status", displayStatus);
+
             classData.put("totalSessions", totalSessions);
             classData.put("completedSessions", completedSessions);
 

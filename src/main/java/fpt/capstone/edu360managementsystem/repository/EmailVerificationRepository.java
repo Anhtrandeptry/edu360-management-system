@@ -43,4 +43,18 @@ public interface EmailVerificationRepository extends JpaRepository<EmailVerifica
     @Modifying
     @Query("UPDATE EmailVerification e SET e.used = true WHERE e.email = :email AND e.used = false")
     void invalidateAllOtpsByEmail(String email);
+
+    /**
+     * Xóa tất cả OTP của email (dùng cho testing/reset)
+     */
+    @Modifying
+    @Query("DELETE FROM EmailVerification e WHERE e.email = :email")
+    void deleteAllByEmail(String email);
+
+    /**
+     * Xóa tất cả OTP (dùng cho testing/reset)
+     */
+    @Modifying
+    @Query("DELETE FROM EmailVerification e")
+    void deleteAllOtps();
 }
